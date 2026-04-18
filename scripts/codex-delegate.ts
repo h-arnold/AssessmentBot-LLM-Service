@@ -9,7 +9,7 @@ import {
 } from '@openai/codex-sdk';
 
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line import/no-commonjs
+// eslint-disable-next-line import-x/no-commonjs
 const { getCurrentDirname } = require('../src/common/file-utils') as {
   getCurrentDirname: () => string;
 };

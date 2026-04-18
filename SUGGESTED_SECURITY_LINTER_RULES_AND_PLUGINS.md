@@ -13,7 +13,7 @@ The repository already includes a solid foundation:
 - `eslint-plugin-security` is installed and its recommended rules are applied for `src/**/*.ts`.
 - Explicit anti-risk rules are enabled (`no-eval`, `security/detect-eval-with-expression`).
 - Type safety baseline rules are in place (`@typescript-eslint/no-explicit-any`, explicit function return types).
-- CommonJS is restricted for TypeScript source (`import/no-commonjs`).
+- CommonJS is restricted for TypeScript source (`import-x/no-commonjs`).
 
 This means the codebase is already ahead of many default Node.js backends.
 

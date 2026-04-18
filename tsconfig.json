@@ -10,6 +10,7 @@
     "esModuleInterop": true,
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./",
     "baseUrl": "./",
     "paths": {
       "src/*": ["src/*"]
@@ -21,6 +22,7 @@
     "skipLibCheck": false,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "isolatedModules": true
+    "isolatedModules": true,
+    "ignoreDeprecations": "6.0"
   }
 }

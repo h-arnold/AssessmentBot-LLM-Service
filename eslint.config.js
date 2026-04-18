@@ -1,10 +1,9 @@
 import stylistic from '@stylistic/eslint-plugin';
 import prettier from 'eslint-config-prettier';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 import jest from 'eslint-plugin-jest';
 import n from 'eslint-plugin-n';
 import noSecrets from 'eslint-plugin-no-secrets';
-import promise from 'eslint-plugin-promise';
 import regexp from 'eslint-plugin-regexp';
 import security from 'eslint-plugin-security';
 import sonarjs from 'eslint-plugin-sonarjs';
@@ -22,11 +21,10 @@ export default tseslint.config(
       jest,
       'no-secrets': noSecrets,
       n,
-      promise,
       regexp,
       security,
       sonarjs,
-      import: importPlugin,
+      'import-x': importPlugin,
     },
   },
   {
@@ -97,7 +95,7 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       'no-eval': 'error',
 
-      'import/order': [
+      'import-x/order': [
         'error',
         {
           groups: ['builtin', 'external', 'internal', ['parent', 'sibling']],
@@ -131,10 +129,7 @@ export default tseslint.config(
         },
       ],
       'security/detect-eval-with-expression': 'error',
-      'promise/always-return': 'error',
-      'promise/catch-or-return': 'error',
-      'promise/no-nesting': 'error',
-      'promise/no-return-wrap': 'error',
+      'prefer-promise-reject-errors': 'error',
       'regexp/no-dupe-disjunctions': 'error',
       'regexp/no-invisible-character': 'error',
       'regexp/no-super-linear-backtracking': 'error',
@@ -143,13 +138,13 @@ export default tseslint.config(
       'n/no-deprecated-api': 'error',
       'n/no-path-concat': 'error',
       '@typescript-eslint/no-var-requires': 'error',
-      'import/no-commonjs': 'error',
+      'import-x/no-commonjs': 'error',
     },
   },
   {
     files: ['**/*.cjs'],
     rules: {
-      'import/no-commonjs': 'off',
+      'import-x/no-commonjs': 'off',
     },
   },
   {
@@ -157,7 +152,7 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-var-requires': 'off',
-      'import/no-commonjs': 'off',
+      'import-x/no-commonjs': 'off',
     },
   },
 );

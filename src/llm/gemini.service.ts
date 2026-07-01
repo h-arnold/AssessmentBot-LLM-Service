@@ -68,7 +68,7 @@ export class GeminiService extends LLMService {
 
       let parsedJson: unknown;
       try {
-        parsedJson = this.jsonParserUtil.parse(responseText);
+        parsedJson = this.jsonParserUtility.parse(responseText);
       } catch (parseError) {
         jsonParseFailed = true;
         throw parseError;

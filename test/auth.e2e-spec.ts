@@ -1,5 +1,5 @@
-import { ChildProcessWithoutNullStreams } from 'child_process';
-import * as path from 'path';
+import { ChildProcessWithoutNullStreams } from 'node:child_process';
+import * as path from 'node:path';
 
 import request from 'supertest';
 

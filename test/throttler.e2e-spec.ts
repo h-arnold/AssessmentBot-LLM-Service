@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 
 import request from 'supertest';
 
@@ -13,13 +13,13 @@ describe('Throttler (e2e)', () => {
   beforeAll(async () => {
     // As we are not testing the throttler service itself, but rather the implementation of the throttler,
     // we can use a longer ttl to accommodate API rate limiting delays and custom limits to ensure config is picked up from process.env.
-    const envOverrides = {
+    const environmentOverrides = {
       THROTTLER_TTL: '20000', // Increased to 20 seconds to accommodate delays for API rate limiting
       UNAUTHENTICATED_THROTTLER_LIMIT: '5',
       AUTHENTICATED_THROTTLER_LIMIT: '10',
     };
 
-    app = await startApp(logFilePath, envOverrides);
+    app = await startApp(logFilePath, environmentOverrides);
   });
 
   afterAll(() => {
@@ -29,7 +29,7 @@ describe('Throttler (e2e)', () => {
   describe('Unauthenticated Routes', () => {
     it('should enforce rate limiting for unauthenticated users', async () => {
       // 1. Allow requests up to the limit
-      const successfulRequests = Array(app.unauthenticatedThrottlerLimit)
+      const successfulRequests = new Array(app.unauthenticatedThrottlerLimit)
         .fill(0)
         .map(() => request(app.appUrl).get('/health').expect(200));
       await Promise.all(successfulRequests);
@@ -61,7 +61,7 @@ describe('Throttler (e2e)', () => {
       // 1. Allow requests up to the limit - make them sequential with delays
       // to avoid API rate limiting while staying within the throttle window (20s)
       // Balance between avoiding API rate limits and staying within throttle window
-      for (let i = 0; i < app.authenticatedThrottlerLimit; i++) {
+      for (let index = 0; index < app.authenticatedThrottlerLimit; index++) {
         await delay(600); // 600ms delay between requests (6s + response times ~= 10-12s total, well within 20s window)
         await request(app.appUrl)
           .post('/v1/assessor')

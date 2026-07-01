@@ -163,7 +163,7 @@ export abstract class LLMService {
 
     this.logger.warn(
       `Rate limit encountered on attempt ${attempt + 1}/${maxRetries + 1}. ` +
-        `Retrying in ${delay}ms. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Retrying in ${delay}ms. Error: ${Error.isError(error) ? error.message : 'Unknown error'}`,
     );
 
     await this.sleep(delay);
@@ -173,7 +173,7 @@ export abstract class LLMService {
     const messagePrefix =
       'Failed to get a valid and structured response from the LLM.';
 
-    if (error instanceof Error) {
+    if (Error.isError(error)) {
       return `${messagePrefix}\nOriginal error: ${error.message}\nStack: ${error.stack || 'N/A'}`;
     }
 
@@ -181,7 +181,7 @@ export abstract class LLMService {
   }
 
   private getErrorStack(error: unknown): string | undefined {
-    return error instanceof Error ? error.stack : undefined;
+    return Error.isError(error) ? error.stack : undefined;
   }
 
   /**
@@ -210,7 +210,7 @@ export abstract class LLMService {
     }
 
     // Check for resource exhausted patterns in error messages
-    if (error instanceof Error) {
+    if (Error.isError(error)) {
       const message = error.message.toLowerCase();
       const patterns = [
         'resource_exhausted',
@@ -244,7 +244,7 @@ export abstract class LLMService {
     }
 
     // Check for error messages that might indicate retryable rate limiting
-    if (error instanceof Error) {
+    if (Error.isError(error)) {
       const message = error.message.toLowerCase();
       return (
         message.includes('rate limit') || message.includes('too many requests')

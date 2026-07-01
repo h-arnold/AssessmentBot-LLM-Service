@@ -42,7 +42,7 @@ const normalisePath = (filePath: PathOrFileDescriptor): string => {
 
 describe('ConfigService', () => {
   let service: ConfigService;
-  const originalEnv = process.env;
+  const originalEnvironment = process.env;
 
   beforeAll(() => {
     process.env.GEMINI_API_KEY = 'test-key';
@@ -55,7 +55,7 @@ describe('ConfigService', () => {
   });
 
   afterAll(() => {
-    process.env = originalEnv;
+    process.env = originalEnvironment;
   });
 
   beforeEach(() => {
@@ -68,11 +68,11 @@ describe('ConfigService', () => {
       return '';
     });
     mockUnlinkSync.mockImplementation(() => {
-      return undefined;
+      return;
     });
 
     // Reset process.env before each test
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
     process.env.NODE_ENV = 'test';
     process.env.PORT = '3000';
 
@@ -83,7 +83,7 @@ describe('ConfigService', () => {
 
   afterAll(() => {
     // Restore original process.env after all tests
-    process.env = originalEnv;
+    process.env = originalEnvironment;
     // Restore all mocks
     jest.restoreAllMocks();
   });
@@ -157,17 +157,17 @@ describe('ConfigService', () => {
     });
 
     it('should pass with valid NODE_ENV values', () => {
-      const validEnvs = ['development', 'production', 'test'];
-      for (const env of validEnvs) {
-        process.env.NODE_ENV = env;
+      const validEnvironments = ['development', 'production', 'test'];
+      for (const environment of validEnvironments) {
+        process.env.NODE_ENV = environment;
         expect(() => new ConfigService()).not.toThrow();
       }
     });
 
     it('should fail with truly invalid NODE_ENV values', () => {
-      const invalidEnvs = ['invalid', ''];
-      for (const env of invalidEnvs) {
-        process.env.NODE_ENV = env;
+      const invalidEnvironments = ['invalid', ''];
+      for (const environment of invalidEnvironments) {
+        process.env.NODE_ENV = environment;
         expect(() => new ConfigService()).toThrow();
       }
     });
@@ -319,7 +319,7 @@ describe('ConfigService', () => {
   });
 
   describe('.env.example file validation', () => {
-    const expectedRequiredVars = ['NODE_ENV', 'PORT', 'APP_NAME'];
+    const expectedRequiredVariables = ['NODE_ENV', 'PORT', 'APP_NAME'];
 
     beforeEach(() => {
       // Ensure .env.example exists for these tests
@@ -351,11 +351,11 @@ SOME_OTHER_VAR=value
       const lines = fileContent
         .split('\n')
         .filter((line: string) => line.trim() !== '' && !line.startsWith('#'));
-      const variablesInFile = lines.map((line: string) => line.split('=')[0]);
+      const variablesInFile = lines.map((line: string) => line.split('=', 1)[0]);
 
-      expectedRequiredVars.forEach((variable) => {
+      for (const variable of expectedRequiredVariables) {
         expect(variablesInFile).toContain(variable);
-      });
+      }
     });
 
     it('.env.example should use placeholder values', () => {

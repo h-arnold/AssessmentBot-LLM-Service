@@ -8,8 +8,8 @@ import {
   LlmPayload,
   StringPromptPayload,
 } from './llm.service.interface';
-import { LlmResponse, LlmResponseSchema, GeminiModelParams } from './types';
-import { JsonParserUtil } from '../common/json-parser.util';
+import { LlmResponse, LlmResponseSchema, GeminiModelParams as GeminiModelParameters } from './types';
+import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.util';
 import { ConfigService } from '../config/config.service';
 
 /**
@@ -24,7 +24,7 @@ export class GeminiService extends LLMService {
 
   constructor(
     configService: ConfigService,
-    private readonly jsonParserUtil: JsonParserUtil,
+    private readonly jsonParserUtility: JsonParserUtility,
   ) {
     super(configService);
     const apiKey = this.configService.get('GEMINI_API_KEY');
@@ -48,19 +48,19 @@ export class GeminiService extends LLMService {
    * @throws Error if the API call fails or the response is invalid.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    const modelParams = this.buildModelParams(payload);
+    const modelParameters = this.buildModelParams(payload);
     const contents = this.buildContents(payload);
 
     this.geminiLogger.debug(
-      `Sending to Gemini with model: ${modelParams.model}, temperature: ${
-        modelParams.generationConfig?.temperature ?? 0
+      `Sending to Gemini with model: ${modelParameters.model}, temperature: ${
+        modelParameters.generationConfig?.temperature ?? 0
       }`,
     );
     this.logPayload(payload, contents);
 
     let jsonParseFailed = false;
     try {
-      const model = this.client.getGenerativeModel(modelParams);
+      const model = this.client.getGenerativeModel(modelParameters);
       const result = await model.generateContent(contents);
       const responseText = result.response.text?.() ?? '';
 
@@ -88,13 +88,13 @@ export class GeminiService extends LLMService {
       const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
       this.geminiLogger.error(
         {
-          model: modelParams.model,
+          model: modelParameters.model,
           payloadType,
           statusCode,
           jsonParseFailed,
         },
         'Error communicating with or validating response from Gemini API',
-        error instanceof Error ? error.stack : undefined,
+        Error.isError(error) ? error.stack : undefined,
       );
       if (error instanceof ZodError) {
         this.logger.error('Zod validation failed', error.issues);
@@ -137,7 +137,7 @@ export class GeminiService extends LLMService {
    * @param payload The LlmPayload to be sent.
    * @returns The configured ModelParams object.
    */
-  private buildModelParams(payload: LlmPayload): GeminiModelParams {
+  private buildModelParams(payload: LlmPayload): GeminiModelParameters {
     // Select model based on payload type
     const modelName = this.isImagePromptPayload(payload)
       ? 'gemini-2.5-flash' // Full model for multimodal tasks
@@ -152,13 +152,13 @@ export class GeminiService extends LLMService {
     // disables any additional thinking budget (per docs: https://ai.google.dev/gemini-api/docs/thinking)
     // We cast to ModelParams (via unknown) to avoid type errors if the SDK typings
     // do not yet include the `thinking` or `systemInstruction` fields.
-    const params: GeminiModelParams = {
+    const parameters: GeminiModelParameters = {
       model: modelName,
       systemInstruction,
       generationConfig: { temperature },
       thinking: { budget: 0 },
     };
-    return params;
+    return parameters;
   }
 
   /**
@@ -220,7 +220,7 @@ export class GeminiService extends LLMService {
           };
         }
         // Fallback: skip invalid image
-        return undefined;
+        return;
       })
       .filter(Boolean) as Part[];
   }
@@ -252,18 +252,18 @@ export class GeminiService extends LLMService {
     if (!error || typeof error !== 'object') {
       return undefined;
     }
-    const err = error as {
+    const error_ = error as {
       status?: number;
       statusCode?: number;
       code?: number;
       response?: { status?: number; statusCode?: number };
     };
     return (
-      err.status ??
-      err.statusCode ??
-      err.response?.status ??
-      err.response?.statusCode ??
-      (typeof err.code === 'number' ? err.code : undefined)
+      error_.status ??
+      error_.statusCode ??
+      error_.response?.status ??
+      error_.response?.statusCode ??
+      (typeof error_.code === 'number' ? error_.code : undefined)
     );
   }
 }

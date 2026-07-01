@@ -23,7 +23,7 @@ export default {
       },
     ],
   },
-  transformIgnorePatterns: ['node_modules/(?!(.*\\.mjs$))'],
+  transformIgnorePatterns: [String.raw`node_modules/(?!(.*\.mjs$))`],
   collectCoverageFrom: ['src/**/*.{js,ts}'],
   coverageDirectory: '<rootDir>/coverage',
   testEnvironment: 'node',

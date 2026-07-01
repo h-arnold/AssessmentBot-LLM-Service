@@ -1,5 +1,5 @@
-import { spawn } from 'child_process';
-import http from 'http';
+import { spawn } from 'node:child_process';
+import http from 'node:http';
 
 export interface CmdResult {
   code: number;
@@ -8,12 +8,12 @@ export interface CmdResult {
 }
 
 export function runCmd(
-  cmd: string,
-  args: string[],
+  command: string,
+  arguments_: string[],
   options: { cwd?: string } = {},
 ): Promise<CmdResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, {
+    const child = spawn(command, arguments_, {
       cwd: options.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -26,7 +26,7 @@ export function runCmd(
       else
         reject(
           new Error(
-            `${cmd} ${args.join(' ')} failed (code ${code}):\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`,
+            `${command} ${arguments_.join(' ')} failed (code ${code}):\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`,
           ),
         );
     });
@@ -38,11 +38,11 @@ export async function waitForHttp(
   timeoutMs: number,
 ): Promise<void> {
   const start = Date.now();
-  let lastErr: unknown;
+  let lastError: unknown;
   while (Date.now() - start < timeoutMs) {
     try {
       await new Promise<void>((resolve, reject) => {
-        const req = http.get(url, (res) => {
+        const request = http.get(url, (res) => {
           if (res.statusCode && res.statusCode < 500) {
             res.resume();
             resolve();
@@ -50,16 +50,16 @@ export async function waitForHttp(
             reject(new Error(`Status ${res.statusCode}`));
           }
         });
-        req.on('error', reject);
-        req.setTimeout(2000, () => req.destroy(new Error('timeout')));
+        request.on('error', reject);
+        request.setTimeout(2000, () => request.destroy(new Error('timeout')));
       });
       return;
-    } catch (err) {
-      lastErr = err;
+    } catch (error) {
+      lastError = error;
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
   throw new Error(
-    `Service not ready at ${url} within ${timeoutMs}ms. Last error: ${lastErr}`,
+    `Service not ready at ${url} within ${timeoutMs}ms. Last error: ${lastError}`,
   );
 }

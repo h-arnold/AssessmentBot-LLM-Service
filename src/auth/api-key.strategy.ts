@@ -48,7 +48,7 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, 'bearer') {
 
     if (authHeader && !authHeader.startsWith('Bearer ')) {
       this.logger.warn(
-        `Malformed Bearer scheme detected: "${authHeader.split(' ')[0]}"`,
+        `Malformed Bearer scheme detected: "${authHeader.split(' ', 1)[0]}"`,
       );
       throw new UnauthorizedException('Malformed Bearer scheme.');
     }

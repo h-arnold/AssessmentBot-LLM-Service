@@ -73,18 +73,18 @@ export async function readMarkdown(
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       const content = await fs.readFile(resolvedPath, { encoding: 'utf-8' });
       return content;
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       if (
-        err &&
-        typeof err === 'object' &&
-        'code' in err &&
-        (err as { code?: string }).code === 'ENOENT'
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: string }).code === 'ENOENT'
       ) {
         // Try next candidate
         continue;
       }
       // Re-throw other errors (e.g., permission issues)
-      throw err;
+      throw error;
     }
   }
   throw new Error(

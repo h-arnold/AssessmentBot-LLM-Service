@@ -192,7 +192,7 @@ describe('HttpExceptionFilter', () => {
     const mockHttpArgumentsHost = jest.fn().mockImplementation(() => ({
       getResponse: mockGetResponse,
       getRequest: mockGetRequest,
-      getNext: jest.fn(() => undefined),
+      getNext: jest.fn(() => {}),
     }));
     /**
      * A mock implementation of the NestJS `ArgumentsHost` interface for use in unit tests.
@@ -285,12 +285,12 @@ describe('HttpExceptionFilter', () => {
       switchToWs: jest.fn(),
     };
 
-    const originalNodeEnv = process.env.NODE_ENV;
+    const originalNodeEnvironment = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
 
     filter.catch(exception, mockArgumentsHost);
 
-    process.env.NODE_ENV = originalNodeEnv;
+    process.env.NODE_ENV = originalNodeEnvironment;
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
     expectJsonErrorResponse(mockJson, {

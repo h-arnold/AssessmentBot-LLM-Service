@@ -1,8 +1,8 @@
-import * as fs from 'fs/promises';
-import http from 'http';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import http from 'node:http';
+import * as path from 'node:path';
 
-import { runCmd, waitForHttp } from './utils/docker-utils';
+import { runCmd as runCommand, waitForHttp } from './utils/docker-utils';
 
 jest.setTimeout(10 * 60 * 1000); // 10 minutes for build + run
 
@@ -28,7 +28,7 @@ async function postJson(
     studentResponse: payload.studentTask,
   });
   return new Promise((resolve, reject) => {
-    const req = http.request(
+    const request = http.request(
       {
         method: 'POST',
         headers: {
@@ -57,15 +57,15 @@ async function postJson(
         });
       },
     );
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+    request.on('error', reject);
+    request.write(body);
+    request.end();
   });
 }
 
 describe('Production Docker image smoke tests', () => {
   beforeAll(async () => {
-    await runCmd(
+    await runCommand(
       'docker',
       [
         'build',
@@ -79,8 +79,8 @@ describe('Production Docker image smoke tests', () => {
       ],
       { cwd: path.join(__dirname, '..') },
     );
-    await runCmd('docker', ['rm', '-f', CONTAINER_NAME]).catch(() => undefined);
-    await runCmd('docker', [
+    await runCommand('docker', ['rm', '-f', CONTAINER_NAME]).catch(() => {});
+    await runCommand('docker', [
       'run',
       '--name',
       CONTAINER_NAME,
@@ -101,24 +101,24 @@ describe('Production Docker image smoke tests', () => {
   });
 
   afterAll(async () => {
-    await runCmd('docker', ['logs', CONTAINER_NAME])
+    await runCommand('docker', ['logs', CONTAINER_NAME])
       .then((r) => {
         console.info('--- Container logs start ---');
         console.info(r.stdout);
         console.info('--- Container logs end ---');
-        return undefined;
+        return;
       })
-      .catch(() => undefined);
-    await runCmd('docker', ['rm', '-f', CONTAINER_NAME]).catch(() => undefined);
+      .catch(() => {});
+    await runCommand('docker', ['rm', '-f', CONTAINER_NAME]).catch(() => {});
   });
 
   it('assessor TEXT & TABLE endpoints: no template/asset path errors', async () => {
     const dataDir = path.join(__dirname, '..', 'test', 'data');
     const tableData = JSON.parse(
-      await fs.readFile(path.join(dataDir, 'tableTask.json'), 'utf-8'),
+      await fs.readFile(path.join(dataDir, 'tableTask.json'), 'utf8'),
     );
     const textData = JSON.parse(
-      await fs.readFile(path.join(dataDir, 'textTask.json'), 'utf-8'),
+      await fs.readFile(path.join(dataDir, 'textTask.json'), 'utf8'),
     );
 
     const evaluate = async (
@@ -128,7 +128,7 @@ describe('Production Docker image smoke tests', () => {
       const resp = await postJson(
         payload as unknown as Record<string, unknown>,
       );
-      const logs = await runCmd('docker', ['logs', CONTAINER_NAME])
+      const logs = await runCommand('docker', ['logs', CONTAINER_NAME])
         .then((r) => r.stdout)
         .catch(() => '');
       const disallowedPatterns = [

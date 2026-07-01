@@ -2,7 +2,7 @@
 * It's not linted and doesn't have tests as a result.
 /*
 /* eslint-disable no-console */
-const http = require('http');
+const http = require('node:http');
 
 const options = {
   hostname: 'localhost',
@@ -20,8 +20,8 @@ const request = http.request(options, (res) => {
   }
 });
 
-request.on('error', (err) => {
-  console.error('ERROR:', err.message);
+request.on('error', (error) => {
+  console.error('ERROR:', error.message);
   process.exit(1); // Failure
 });
 

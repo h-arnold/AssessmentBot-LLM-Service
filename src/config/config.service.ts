@@ -37,25 +37,25 @@ export class ConfigService {
   private readonly config: Config;
 
   constructor() {
-    let loadedEnv = {};
+    let loadedEnvironment = {};
 
     // Determine which env file to load based on NODE_ENV
-    const envFileName = process.env.NODE_ENV === 'test' ? '.test.env' : '.env';
-    const envFilePath = path.resolve(process.cwd(), envFileName);
+    const environmentFileName = process.env.NODE_ENV === 'test' ? '.test.env' : '.env';
+    const environmentFilePath = path.resolve(process.cwd(), environmentFileName);
 
     // envFilePath is constructed from cwd and a fixed filename, safe to use
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    if (fs.existsSync(envFilePath)) {
+    if (fs.existsSync(environmentFilePath)) {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      loadedEnv = dotenv.parse(fs.readFileSync(envFilePath));
+      loadedEnvironment = dotenv.parse(fs.readFileSync(environmentFilePath));
     }
 
     // Merge loaded .env variables with process.env, prioritizing process.env
-    const combinedEnv = { ...loadedEnv, ...process.env };
+    const combinedEnvironment = { ...loadedEnvironment, ...process.env };
 
     // Validate environment variables against the schema
     try {
-      this.config = configSchema.parse(combinedEnv);
+      this.config = configSchema.parse(combinedEnvironment);
     } catch (error) {
       if (error instanceof z.ZodError) {
         throw new Error(`Invalid environment configuration: ${error.message}`); // Or a custom/NestJS exception

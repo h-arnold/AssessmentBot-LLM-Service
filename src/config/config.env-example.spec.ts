@@ -37,7 +37,7 @@ const normalisePath = (filePath: PathOrFileDescriptor): string => {
 };
 
 describe('.env.example file', () => {
-  const expectedRequiredVars = ['NODE_ENV', 'PORT', 'APP_NAME', 'APP_VERSION'];
+  const expectedRequiredVariables = ['NODE_ENV', 'PORT', 'APP_NAME', 'APP_VERSION'];
 
   beforeEach(() => {
     mockExistsSync.mockReset();
@@ -70,14 +70,14 @@ API_KEY=your_api_key_here
     });
     const exampleConfig = dotenv.parse(exampleContent);
 
-    expectedRequiredVars.forEach((key) => {
+    for (const key of expectedRequiredVariables) {
       const matchedEntry = Object.entries(exampleConfig).find(
         ([entryKey]) => entryKey === key,
       );
 
       expect(matchedEntry).toBeDefined();
       expect(matchedEntry?.[1]).not.toBe('');
-    });
+    }
   });
 
   it('should use placeholder values', () => {

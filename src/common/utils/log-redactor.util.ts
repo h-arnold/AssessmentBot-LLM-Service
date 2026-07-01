@@ -8,7 +8,7 @@ import { IncomingMessage } from 'node:http';
  * ensuring that sensitive data such as authorization headers are not exposed
  * in log files.
  */
-export class LogRedactor {
+export const LogRedactor = {
   /**
    * Clones the request object and redacts sensitive headers.
    *
@@ -19,14 +19,14 @@ export class LogRedactor {
    * @param req - The incoming HTTP request
    * @returns A cloned and redacted request object safe for logging
    */
-  static redactRequest(req: IncomingMessage): IncomingMessage {
+  redactRequest(req: IncomingMessage): IncomingMessage {
     // Shallow clone the request object
-    const clonedReq = Object.assign({}, req);
+    const clonedRequest = Object.assign({}, req);
     // Clone headers to avoid mutating the original
-    clonedReq.headers = { ...req.headers };
-    if (clonedReq.headers.authorization) {
-      clonedReq.headers.authorization = 'Bearer <redacted>';
+    clonedRequest.headers = { ...req.headers };
+    if (clonedRequest.headers.authorization) {
+      clonedRequest.headers.authorization = 'Bearer <redacted>';
     }
-    return clonedReq;
-  }
-}
+    return clonedRequest;
+  },
+};

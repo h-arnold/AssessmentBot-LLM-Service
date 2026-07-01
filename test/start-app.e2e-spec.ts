@@ -50,7 +50,7 @@ describe('startApp integration', () => {
       );
     }
 
-    const original = fs.readFileSync(entryPath, 'utf-8');
+    const original = fs.readFileSync(entryPath, 'utf8');
     try {
       // write a tiny script that exits immediately
       fs.writeFileSync(

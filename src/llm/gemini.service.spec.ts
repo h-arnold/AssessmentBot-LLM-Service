@@ -12,7 +12,7 @@ import {
 } from './llm.service.interface';
 import { ResourceExhaustedError } from './resource-exhausted.error';
 import { LlmResponse } from './types';
-import { JsonParserUtil } from '../common/json-parser.util';
+import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.util';
 import { ConfigService } from '../config/config.service';
 
 // Only mock the GoogleGenerativeAI class, not the error classes
@@ -68,7 +68,7 @@ const expectValidResponse = (result: LlmResponse, score: number): void => {
 describe('GeminiService', () => {
   let service: GeminiService;
   let configService: ConfigService;
-  let jsonParserUtil: JsonParserUtil;
+  let jsonParserUtility: JsonParserUtility;
   let logger: Logger;
 
   beforeEach(() => {
@@ -85,13 +85,13 @@ describe('GeminiService', () => {
     } as unknown as ConfigService;
 
     // Mock JsonParserUtil
-    jsonParserUtil = {
+    jsonParserUtility = {
       parse: jest.fn((json: string): unknown => {
         return JSON.parse(json) as unknown;
       }),
-    } as unknown as JsonParserUtil;
+    } as unknown as JsonParserUtility;
 
-    service = new GeminiService(configService, jsonParserUtil);
+    service = new GeminiService(configService, jsonParserUtility);
   });
 
   it('should be defined', () => {
@@ -150,14 +150,14 @@ describe('GeminiService', () => {
         },
       });
 
-      (jsonParserUtil.parse as jest.Mock).mockReturnValueOnce(
+      (jsonParserUtility.parse as jest.Mock).mockReturnValueOnce(
         JSON.parse(repairedJson),
       );
 
       const payload = createStringPayload();
       await service.send(payload);
 
-      expect(jsonParserUtil.parse).toHaveBeenCalledWith(malformedJson);
+      expect(jsonParserUtility.parse).toHaveBeenCalledWith(malformedJson);
     });
   });
 
@@ -189,7 +189,7 @@ describe('GeminiService', () => {
         },
       });
 
-      (jsonParserUtil.parse as jest.Mock).mockImplementation(() => {
+      (jsonParserUtility.parse as jest.Mock).mockImplementation(() => {
         throw new Error('Malformed or irreparable JSON string provided.');
       });
 
@@ -223,9 +223,9 @@ describe('GeminiService', () => {
 
       // Chain the mock rejections followed by success
       let mockChain = mockGenerateContent;
-      errors.forEach((error) => {
+      for (const error of errors) {
         mockChain = mockChain.mockRejectedValueOnce(error);
-      });
+      }
       mockChain.mockResolvedValueOnce(createValidResponse(2));
 
       const result = await service.send(payload);
@@ -240,9 +240,9 @@ describe('GeminiService', () => {
       const payload = createStringPayload();
 
       // Mock all calls to fail
-      errors.forEach((error) => {
+      for (const error of errors) {
         mockGenerateContent.mockRejectedValueOnce(error);
-      });
+      }
 
       await expect(service.send(payload)).rejects.toThrow();
       expect(mockGenerateContent).toHaveBeenCalledTimes(expectedCallCount);

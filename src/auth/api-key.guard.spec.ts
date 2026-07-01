@@ -43,8 +43,8 @@ describe('ApiKeyGuard', () => {
     let thrownError: unknown;
     try {
       await guard.canActivate(mockExecutionContext);
-    } catch (e: unknown) {
-      thrownError = e;
+    } catch (error: unknown) {
+      thrownError = error;
     }
     expect(thrownError).toBeDefined();
   });
@@ -65,8 +65,8 @@ describe('ApiKeyGuard', () => {
     let thrownError: unknown;
     try {
       await guard.canActivate(mockExecutionContext);
-    } catch (e: unknown) {
-      thrownError = e;
+    } catch (error: unknown) {
+      thrownError = error;
     }
     expect(thrownError).toBeDefined();
   });

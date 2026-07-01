@@ -24,9 +24,9 @@ function normaliseFilePath(filePath: PathLike | FileHandle): string {
 }
 
 function getTemplateContent(filePath: PathLike | FileHandle): string {
-  const filePathStr = normaliseFilePath(filePath);
-  if (filePathStr.includes('text.system.prompt.md')) return systemTemplate;
-  if (filePathStr.includes('text.user.prompt.md')) return userTemplate;
+  const filePathString = normaliseFilePath(filePath);
+  if (filePathString.includes('text.system.prompt.md')) return systemTemplate;
+  if (filePathString.includes('text.user.prompt.md')) return userTemplate;
   throw new Error('File not found');
 }
 

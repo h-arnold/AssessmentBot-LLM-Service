@@ -19,7 +19,7 @@ jest.mock('nestjs-pino', () => ({
 }));
 
 describe('AppModule logging configuration', () => {
-  const originalEnv = process.env;
+  const originalEnvironment = process.env;
 
   const getLoggerModuleOptions = (): LoggerModuleAsyncOptions => {
     if (loggerModuleOptions === undefined) {
@@ -30,7 +30,7 @@ describe('AppModule logging configuration', () => {
   };
 
   afterEach(() => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
     jest.resetModules();
     jest.clearAllMocks();
   });
@@ -59,7 +59,7 @@ describe('AppModule logging configuration', () => {
   });
 
   it('uses the file transport when LOG_FILE is set', async () => {
-    process.env = { ...originalEnv, LOG_FILE: '/tmp/app.log' };
+    process.env = { ...originalEnvironment, LOG_FILE: '/tmp/app.log' };
 
     const module = await loadModule();
     expect(module.AppModule).toBeDefined();
@@ -76,27 +76,27 @@ describe('AppModule logging configuration', () => {
       options: { destination: '/tmp/app.log' },
     });
 
-    const reqWithId = { id: 'abc-123' } as IncomingMessage;
-    const reqWithoutId = {} as IncomingMessage;
-    const customProps = result.pinoHttp.customProps as (
-      req: IncomingMessage,
+    const requestWithId = { id: 'abc-123' } as IncomingMessage;
+    const requestWithoutId = {} as IncomingMessage;
+    const customProperties = result.pinoHttp.customProps as (
+      request: IncomingMessage,
       res: ServerResponse<IncomingMessage>,
     ) => { reqId: string | number | undefined };
 
     expect(
-      customProps(reqWithId, {} as ServerResponse<IncomingMessage>),
+      customProperties(requestWithId, {} as ServerResponse<IncomingMessage>),
     ).toEqual({
       reqId: 'abc-123',
     });
     expect(
-      customProps(reqWithoutId, {} as ServerResponse<IncomingMessage>),
+      customProperties(requestWithoutId, {} as ServerResponse<IncomingMessage>),
     ).toEqual({
       reqId: undefined,
     });
   });
 
   it('uses JSON logging without transport in production', async () => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
 
     await loadModule();
     const options = getLoggerModuleOptions();
@@ -110,7 +110,7 @@ describe('AppModule logging configuration', () => {
   });
 
   it('uses pino-pretty transport in development', async () => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
 
     await loadModule();
     const options = getLoggerModuleOptions();

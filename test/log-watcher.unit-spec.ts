@@ -20,15 +20,15 @@ describe('log-watcher', () => {
   afterAll(() => {
     try {
       if (fs.existsSync(logFilePath)) fs.unlinkSync(logFilePath);
-    } catch (err) {
+    } catch (error) {
       // Log cleanup failures so CI flakes are easier to diagnose
-      console.debug('Failed to cleanup test logs:', err);
+      console.debug('Failed to cleanup test logs:', error);
     }
     try {
       if (fs.existsSync(logsDir)) fs.rmdirSync(logsDir);
-    } catch (err) {
+    } catch (error) {
       // Log cleanup failures so CI flakes are easier to diagnose
-      console.debug('Failed to remove logs dir:', err);
+      console.debug('Failed to remove logs dir:', error);
     }
   });
 

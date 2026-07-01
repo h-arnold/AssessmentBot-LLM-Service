@@ -1,5 +1,5 @@
-import { promises as fs } from 'fs';
-import * as path from 'path';
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 
 import request from 'supertest';
 
@@ -44,8 +44,8 @@ describe('AssessorController (e2e-live)', () => {
     const tableTaskPath = path.join(dataDir, 'tableTask.json');
     const textTaskPath = path.join(dataDir, 'textTask.json');
 
-    tableData = JSON.parse(await fs.readFile(tableTaskPath, 'utf-8'));
-    textData = JSON.parse(await fs.readFile(textTaskPath, 'utf-8'));
+    tableData = JSON.parse(await fs.readFile(tableTaskPath, 'utf8'));
+    textData = JSON.parse(await fs.readFile(textTaskPath, 'utf8'));
 
     referenceDataUri = await loadFileAsDataURI(
       path.join(imageDir, 'referenceTask.png'),

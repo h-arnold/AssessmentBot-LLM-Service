@@ -94,24 +94,26 @@ export const createAssessorDtoSchema = z
       })
       .strict(),
   ])
-  .superRefine((data, ctx) => {
-    if (data.taskType === TaskType.IMAGE) {
-      const allStrings =
-        typeof data.reference === 'string' &&
-        typeof data.template === 'string' &&
-        typeof data.studentResponse === 'string';
-      const allBuffers =
-        data.reference instanceof Buffer &&
-        data.template instanceof Buffer &&
-        data.studentResponse instanceof Buffer;
+  .superRefine((data, context) => {
+    if (data.taskType !== TaskType.IMAGE) {
+    	return;
+    }
 
-      if (!allStrings && !allBuffers) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            'For IMAGE taskType, reference, template, and studentResponse must all be of the same type (either all strings or all Buffers).',
-        });
-      }
+    const allStrings =
+      typeof data.reference === 'string' &&
+      typeof data.template === 'string' &&
+      typeof data.studentResponse === 'string';
+    const allBuffers =
+      data.reference instanceof Buffer &&
+      data.template instanceof Buffer &&
+      data.studentResponse instanceof Buffer;
+
+    if (!allStrings && !allBuffers) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'For IMAGE taskType, reference, template, and studentResponse must all be of the same type (either all strings or all Buffers).',
+      });
     }
   });
 

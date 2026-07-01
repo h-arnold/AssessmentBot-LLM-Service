@@ -88,8 +88,8 @@ describe('ImageValidationPipe', () => {
     });
 
     it('should allow non-Buffer/non-string inputs to pass through', async () => {
-      const obj = { a: 1 };
-      await expect(pipe.transform(obj)).resolves.toEqual(obj);
+      const object = { a: 1 };
+      await expect(pipe.transform(object)).resolves.toEqual(object);
     });
   });
 

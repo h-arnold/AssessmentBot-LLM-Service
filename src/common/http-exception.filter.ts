@@ -58,9 +58,9 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
    * @param host - The arguments host, providing access to request and response.
    */
   catch(exception: unknown, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const context = host.switchToHttp();
+    const response = context.getResponse<Response>();
+    const request = context.getRequest<Request>();
 
     // Handle specific Express PayloadTooLargeError separately for clarity.
     if (this.isPayloadTooLargeError(exception)) {
@@ -172,9 +172,9 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     ) {
       // Extract message, which can be a string or an array of strings.
       if ('message' in exceptionResponse) {
-        const msg = (exceptionResponse as { message: string | string[] })
+        const message_ = (exceptionResponse as { message: string | string[] })
           .message;
-        message = Array.isArray(msg) ? msg.join(', ') : msg;
+        message = Array.isArray(message_) ? message_.join(', ') : message_;
       } else {
         message = 'Internal server error';
       }
@@ -222,7 +222,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       this.logger.error(
         logContext,
         logMessage,
-        exception instanceof Error ? exception.stack : undefined,
+        Error.isError(exception) ? exception.stack : undefined,
       );
     } else {
       // Handles 4xx and the specific PayloadTooLargeError case

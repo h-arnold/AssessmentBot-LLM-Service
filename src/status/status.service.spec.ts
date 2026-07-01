@@ -14,10 +14,10 @@ const osMock = {
 jest.mock('os', () => osMock);
 
 describe('StatusService', () => {
-  const originalEnv = process.env;
+  const originalEnvironment = process.env;
 
   afterEach(() => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
     jest.resetModules();
     jest.clearAllMocks();
     jest.useRealTimers();

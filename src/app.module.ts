@@ -14,13 +14,13 @@ import { StatusModule } from './status/status.module';
 import { AssessorModule } from './v1/assessor/assessor.module';
 
 // Type guard to check if req has an id property of type string or number
-function hasReqId(
-  req: IncomingMessage,
-): req is IncomingMessage & { id: string | number } {
-  const maybeReq = req as unknown as { id?: unknown };
+function hasRequestId(
+  request: IncomingMessage,
+): request is IncomingMessage & { id: string | number } {
+  const maybeRequest = request as unknown as { id?: unknown };
   return (
-    Object.prototype.hasOwnProperty.call(maybeReq, 'id') &&
-    (typeof maybeReq.id === 'string' || typeof maybeReq.id === 'number')
+    Object.prototype.hasOwnProperty.call(maybeRequest, 'id') &&
+    (typeof maybeRequest.id === 'string' || typeof maybeRequest.id === 'number')
   );
 }
 
@@ -61,19 +61,19 @@ function hasReqId(
       inject: [ConfigService],
       useFactory: (configService: ConfigService): Params => {
         const logLevel = configService.get('LOG_LEVEL');
-        const nodeEnv = configService.get('NODE_ENV');
+        const nodeEnvironment = configService.get('NODE_ENV');
         const logFile = process.env.LOG_FILE; // Used for E2E tests
 
         const serializers = {
-          req: (req: IncomingMessage): IncomingMessage =>
-            LogRedactor.redactRequest(req),
+          req: (request: IncomingMessage): IncomingMessage =>
+            LogRedactor.redactRequest(request),
         };
 
-        const customProps = (
-          req: IncomingMessage,
+        const customProperties = (
+          request: IncomingMessage,
           _res: ServerResponse<IncomingMessage>,
         ): { reqId: string | number | undefined } => ({
-          reqId: hasReqId(req) ? req.id : undefined,
+          reqId: hasRequestId(request) ? request.id : undefined,
         });
 
         // For E2E tests: write JSON logs to a specified file.
@@ -86,18 +86,18 @@ function hasReqId(
                 options: { destination: logFile },
               },
               serializers,
-              customProps,
+              customProps: customProperties,
             },
           };
         }
 
         // For production: use the default Pino JSON logger.
-        if (nodeEnv === 'production') {
+        if (nodeEnvironment === 'production') {
           return {
             pinoHttp: {
               level: logLevel,
               serializers,
-              customProps,
+              customProps: customProperties,
             },
           };
         }
@@ -111,7 +111,7 @@ function hasReqId(
               options: { singleLine: true },
             },
             serializers,
-            customProps,
+            customProps: customProperties,
           },
         };
       },

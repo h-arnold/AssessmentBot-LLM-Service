@@ -10,7 +10,7 @@ export interface BootstrapOptions {
   host?: string;
 }
 
-type ExpressApplicationWithSet = Pick<Express, 'set'>;
+type ExpressAppWithSet = Pick<Express, 'set'>;
 
 export async function bootstrap(options: BootstrapOptions = {}): Promise<void> {
   const { bufferLogs = true, host = '0.0.0.0' } = options;
@@ -23,7 +23,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<void> {
   // Set Express query parser to 'extended' for compatibility with qs-style query strings
   const expressApp = app
     .getHttpAdapter()
-    .getInstance() as ExpressApplicationWithSet;
+    .getInstance() as ExpressAppWithSet;
   expressApp.set('query parser', 'extended');
 
   const configService = app.get(ConfigService);

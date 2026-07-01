@@ -114,7 +114,7 @@ export class ImageValidationPipe implements PipeTransform {
 
     return {
       mimeType,
-      base64Data: value.substring(commaIndex + 1),
+      base64Data: value.slice(Math.max(0, commaIndex + 1)),
     };
   }
 

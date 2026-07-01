@@ -4,7 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AssessorService } from './assessor.service';
 import { ConfigModule, ConfigService } from '../../config';
 import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto';
-import { JsonParserUtil } from '../../common/json-parser.util';
+import { JsonParserUtil as JsonParserUtility } from '../../common/json-parser.util';
 import { GeminiService } from '../../llm/gemini.service';
 import { LlmModule } from '../../llm/llm.module';
 import { LLMService } from '../../llm/llm.service.interface';
@@ -28,7 +28,7 @@ const createMockLlmResponse = (score: number): LlmResponse => ({
   },
 });
 
-const getMockEnvValue = (key: string): string => {
+const getMockEnvironmentValue = (key: string): string => {
   switch (key) {
     case 'GEMINI_API_KEY':
       return process.env.GEMINI_API_KEY ?? '';
@@ -78,9 +78,9 @@ describe('AssessorService', () => {
     mockPromptFactory = {
       create: jest.fn<Promise<Prompt>, [CreateAssessorDto]>(),
     };
-    const mockJsonParserUtil = { parse: jest.fn() };
+    const mockJsonParserUtility = { parse: jest.fn() };
     const mockConfigService = {
-      get: jest.fn((key: string) => getMockEnvValue(key)),
+      get: jest.fn((key: string) => getMockEnvironmentValue(key)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -109,8 +109,8 @@ describe('AssessorService', () => {
       .useValue(mockPromptFactory)
       .overrideProvider(GeminiService)
       .useValue({ send: jest.fn() })
-      .overrideProvider(JsonParserUtil)
-      .useValue(mockJsonParserUtil)
+      .overrideProvider(JsonParserUtility)
+      .useValue(mockJsonParserUtility)
       .compile();
 
     service = module.get<AssessorService>(AssessorService);

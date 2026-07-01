@@ -4,7 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { LlmModule } from './llm.module';
 import { LLMService } from './llm.service.interface';
-import { JsonParserUtil } from '../common/json-parser.util';
+import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.util';
 import { ConfigModule } from '../config/config.module';
 import { ConfigService } from '../config/config.service';
 
@@ -37,7 +37,7 @@ const mockConfigService = {
  * @property parse - A Jest mock function that takes a JSON string as input
  * and returns the parsed JavaScript object.
  */
-const mockJsonParserUtil = {
+const mockJsonParserUtility = {
   parse: jest.fn((jsonString: string) => {
     return JSON.parse(jsonString) as unknown;
   }),
@@ -62,8 +62,8 @@ describe('LlmModule', () => {
     })
       .overrideProvider(ConfigService)
       .useValue(mockConfigService)
-      .overrideProvider(JsonParserUtil)
-      .useValue(mockJsonParserUtil)
+      .overrideProvider(JsonParserUtility)
+      .useValue(mockJsonParserUtility)
       .compile();
     expect(module).toBeDefined();
   });
@@ -86,8 +86,8 @@ describe('LlmModule', () => {
     })
       .overrideProvider(ConfigService)
       .useValue(mockConfigService)
-      .overrideProvider(JsonParserUtil)
-      .useValue(mockJsonParserUtil)
+      .overrideProvider(JsonParserUtility)
+      .useValue(mockJsonParserUtility)
       .compile();
     const configService = module.get(ConfigService);
     expect(configService).toBeDefined();

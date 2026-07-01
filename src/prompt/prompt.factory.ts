@@ -125,7 +125,7 @@ export class PromptFactory {
       } catch (error) {
         this.logger.error(
           `Failed to load system prompt template: ${systemPromptFile}.`,
-          error instanceof Error ? error.stack : undefined,
+          Error.isError(error) ? error.stack : undefined,
         );
         throw error;
       }

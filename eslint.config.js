@@ -155,7 +155,7 @@ export default tseslint.config(
           ignoreContent: [
             'test-key',
             'test-api-key',
-            '^data:image\\/png;base64,',
+            String.raw`^data:image\/png;base64,`,
             'your_database_url_here',
             'your_api_key_here',
           ],

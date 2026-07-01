@@ -57,7 +57,7 @@ export class AssessorService {
     } catch (error) {
       this.logger.error(
         `Assessment failed for task type: ${dto.taskType}.`,
-        error instanceof Error ? error.stack : undefined,
+        Error.isError(error) ? error.stack : undefined,
       );
       throw error;
     }

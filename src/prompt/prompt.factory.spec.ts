@@ -34,7 +34,7 @@ describe('PromptFactory', () => {
     };
     return factory.create(dto).then((prompt) => {
       expect(prompt).toBeInstanceOf(TextPrompt);
-      return undefined;
+      return;
     });
   });
 
@@ -47,7 +47,7 @@ describe('PromptFactory', () => {
     };
     return factory.create(dto).then((prompt) => {
       expect(prompt).toBeInstanceOf(TablePrompt);
-      return undefined;
+      return;
     });
   });
 
@@ -61,7 +61,7 @@ describe('PromptFactory', () => {
     };
     return factory.create(dto).then((prompt) => {
       expect(prompt).toBeInstanceOf(ImagePrompt);
-      return undefined;
+      return;
     });
   });
 

@@ -22,12 +22,12 @@ import { configSchema } from './env.schema';
  */
 
 // 1. Validate environment variables at compile time using the shared Zod schema.
-const validatedEnv = configSchema.parse(process.env);
+const validatedEnvironment = configSchema.parse(process.env);
 
 // 2. Extract the validated throttler values into constants.
-const throttlerTtl = validatedEnv.THROTTLER_TTL;
-const unauthenticatedLimit = validatedEnv.UNAUTHENTICATED_THROTTLER_LIMIT;
-const authenticatedLimit = validatedEnv.AUTHENTICATED_THROTTLER_LIMIT;
+const throttlerTtl = validatedEnvironment.THROTTLER_TTL;
+const unauthenticatedLimit = validatedEnvironment.UNAUTHENTICATED_THROTTLER_LIMIT;
+const authenticatedLimit = validatedEnvironment.AUTHENTICATED_THROTTLER_LIMIT;
 
 /**
  * The global throttler configuration for the application.

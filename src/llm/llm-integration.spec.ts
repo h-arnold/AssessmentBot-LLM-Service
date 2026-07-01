@@ -42,7 +42,7 @@ describe('ResourceExhaustedError Integration', () => {
     ];
 
     const quotaErrors = errors.filter(
-      (err) => err instanceof ResourceExhaustedError,
+      (error) => error instanceof ResourceExhaustedError,
     );
     expect(quotaErrors).toHaveLength(1);
     expect(quotaErrors[0].message).toBe('Quota exceeded');

@@ -54,10 +54,10 @@ export async function startApp(
   );
 
   // Load .test.env file
-  const testEnvPath = path.join(__dirname, '..', '..', '.test.env');
+  const testEnvironmentPath = path.join(__dirname, '..', '..', '.test.env');
   // Load .test.env if present; fall back to defaults otherwise
-  const testEnvConfig = fs.existsSync(testEnvPath)
-    ? dotenv.parse(fs.readFileSync(testEnvPath))
+  const testEnvironmentConfig = fs.existsSync(testEnvironmentPath)
+    ? dotenv.parse(fs.readFileSync(testEnvironmentPath))
     : {};
 
   // Define default values for the test run.
@@ -76,10 +76,10 @@ export async function startApp(
   };
 
   // Merge environment variables: process.env < defaults < .test.env < overrides
-  const testEnv: NodeJS.ProcessEnv = {
+  const testEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     ...defaultTestValues,
-    ...testEnvConfig,
+    ...testEnvironmentConfig,
     ...envOverrides,
   };
 
@@ -87,14 +87,14 @@ export async function startApp(
     process.env.E2E_MOCK_LLM === 'true' ||
     process.env.E2E_MOCK_LLM === 'false'
   ) {
-    testEnv.E2E_MOCK_LLM = process.env.E2E_MOCK_LLM;
+    testEnvironment.E2E_MOCK_LLM = process.env.E2E_MOCK_LLM;
   }
 
-  if (testEnv.E2E_MOCK_LLM === 'true') {
+  if (testEnvironment.E2E_MOCK_LLM === 'true') {
     const shimPath = path.join(__dirname, 'llm-http-shim.cjs');
-    const existingNodeOptions = testEnv.NODE_OPTIONS ?? '';
+    const existingNodeOptions = testEnvironment.NODE_OPTIONS ?? '';
     const shimOption = `--require "${shimPath}"`;
-    testEnv.NODE_OPTIONS = existingNodeOptions
+    testEnvironment.NODE_OPTIONS = existingNodeOptions
       ? `${existingNodeOptions} ${shimOption}`
       : shimOption;
   }
@@ -108,7 +108,7 @@ export async function startApp(
 
   const appProcess = spawn('node', [appEntryPath], {
     cwd: path.join(__dirname, '..', '..'),
-    env: testEnv,
+    env: testEnvironment,
   });
 
   const stderrListener = (data: Buffer): void => {
@@ -120,21 +120,21 @@ export async function startApp(
 
   // Create a promise that rejects if the child process exits or fails to spawn
   const earlyExitPromise = new Promise<never>((_, reject) => {
-    const errorListener = (err: Error): void => {
-      console.error('App process failed to start:', err);
+    const errorListener = (error: Error): void => {
+      console.error('App process failed to start:', error);
       // Include any existing log content to aid debugging
       let logTail = '';
       try {
         if (fs.existsSync(logFilePath)) {
-          const lc = fs.readFileSync(logFilePath, 'utf-8');
+          const lc = fs.readFileSync(logFilePath, 'utf8');
           logTail = lc.slice(-2000);
         }
-      } catch (e) {
-        logTail = `Failed to read log file: ${e instanceof Error ? e.message : String(e)}`;
+      } catch (error_) {
+        logTail = `Failed to read log file: ${Error.isError(error_) ? error_.message : String(error_)}`;
       }
       reject(
         new Error(
-          `App process failed to start: ${err?.message ?? String(err)}\n\nRecent log tail:\n${logTail}`,
+          `App process failed to start: ${error?.message ?? String(error)}\n\nRecent log tail:\n${logTail}`,
         ),
       );
     };
@@ -153,11 +153,11 @@ export async function startApp(
       let logTail = '';
       try {
         if (fs.existsSync(logFilePath)) {
-          const lc = fs.readFileSync(logFilePath, 'utf-8');
+          const lc = fs.readFileSync(logFilePath, 'utf8');
           logTail = lc.slice(-2000);
         }
-      } catch (e) {
-        logTail = `Failed to read log file: ${e instanceof Error ? e.message : String(e)}`;
+      } catch (error) {
+        logTail = `Failed to read log file: ${Error.isError(error) ? error.message : String(error)}`;
       }
       reject(
         new Error(
@@ -194,17 +194,17 @@ export async function startApp(
       appProcess.removeAllListeners('exit');
       appProcess.stdout.removeAllListeners('data');
       appProcess.stderr.removeAllListeners('data');
-    } catch (err) {
+    } catch (error) {
       // Best-effort cleanup failed — log for diagnostics
-      console.debug('Failed to remove listeners during startup cleanup:', err);
+      console.debug('Failed to remove listeners during startup cleanup:', error);
     }
   } catch (error) {
     // Abort the log poll if it's still running so timers are cleared promptly
     try {
       ac.abort();
-    } catch (err) {
+    } catch (error_) {
       // Log abort failure for visibility
-      console.debug('Abort controller abort failed:', err);
+      console.debug('Abort controller abort failed:', error_);
     }
 
     console.error('Error during app startup:', error);
@@ -216,19 +216,19 @@ export async function startApp(
   }
 
   // Derive return values from the final, effective environment
-  const [apiKey, apiKey2] = testEnv.API_KEYS!.split(',');
+  const [apiKey, apiKey2] = testEnvironment.API_KEYS!.split(',');
 
   return {
     appProcess,
     appUrl,
     apiKey,
     apiKey2,
-    throttlerTtl: Number.parseInt(testEnv.THROTTLER_TTL!),
+    throttlerTtl: Number.parseInt(testEnvironment.THROTTLER_TTL!),
     unauthenticatedThrottlerLimit: Number.parseInt(
-      testEnv.UNAUTHENTICATED_THROTTLER_LIMIT!,
+      testEnvironment.UNAUTHENTICATED_THROTTLER_LIMIT!,
     ),
     authenticatedThrottlerLimit: Number.parseInt(
-      testEnv.AUTHENTICATED_THROTTLER_LIMIT!,
+      testEnvironment.AUTHENTICATED_THROTTLER_LIMIT!,
     ),
   };
 }
@@ -239,29 +239,31 @@ export async function startApp(
  * @param appProcess - The child process running the application.
  */
 export function stopApp(appProcess: ChildProcessWithoutNullStreams): void {
-  if (appProcess && !appProcess.killed) {
-    try {
-      appProcess.kill('SIGTERM');
-    } catch (err) {
-      // Log failure to send SIGTERM so flakes are easier to diagnose
-      console.debug('Failed to send SIGTERM to app process:', err);
-    }
-
-    // If the process doesn't exit within a short timeout, force kill it to prevent
-    // CI hangs due to orphaned processes.
-    const killTimer = setTimeout(() => {
-      try {
-        if (!appProcess.killed) {
-          appProcess.kill('SIGKILL');
-        }
-      } catch (err) {
-        // Log force-kill failures for diagnostics
-        console.debug('Failed to force-kill app process:', err);
-      }
-    }, 5000);
-
-    appProcess.once('exit', () => clearTimeout(killTimer));
+  if (!(appProcess && !appProcess.killed)) {
+  	return;
   }
+
+  try {
+    appProcess.kill('SIGTERM');
+  } catch (error) {
+    // Log failure to send SIGTERM so flakes are easier to diagnose
+    console.debug('Failed to send SIGTERM to app process:', error);
+  }
+
+  // If the process doesn't exit within a short timeout, force kill it to prevent
+  // CI hangs due to orphaned processes.
+  const killTimer = setTimeout(() => {
+    try {
+      if (!appProcess.killed) {
+        appProcess.kill('SIGKILL');
+      }
+    } catch (error) {
+      // Log force-kill failures for diagnostics
+      console.debug('Failed to force-kill app process:', error);
+    }
+  }, 5000);
+
+  appProcess.once('exit', () => clearTimeout(killTimer));
 }
 
 export const API_CALL_DELAY_MS = 2000;

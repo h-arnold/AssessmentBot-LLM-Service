@@ -66,18 +66,18 @@ export function getLogObjects(logFilePath: string): LogObject[] {
   if (!fs.existsSync(logFilePath)) {
     return [];
   }
-  const logContent = fs.readFileSync(logFilePath, 'utf-8');
+  const logContent = fs.readFileSync(logFilePath, 'utf8');
   return logContent
     .split('\n')
     .filter((line) => line.trim() !== '')
-    .map((line, idx) => {
+    .map((line, index) => {
       try {
         return JSON.parse(line) as LogObject;
-      } catch (err) {
+      } catch (error) {
         // A log line may be written incrementally; skip malformed lines but log them for visibility
         console.error(
-          `Failed to parse JSON log line ${idx}: ${line}`,
-          err instanceof Error ? err.message : String(err),
+          `Failed to parse JSON log line ${index}: ${line}`,
+          Error.isError(error) ? error.message : String(error),
         );
         return null;
       }
@@ -105,10 +105,12 @@ export async function waitForLog(
     let timer: NodeJS.Timeout | null = null;
 
     const clearTimer = (): void => {
-      if (timer != null) {
-        clearTimeout(timer);
-        timer = null;
+      if (timer == null) {
+      	return;
       }
+
+      clearTimeout(timer);
+      timer = null;
     };
 
     const onAbort = (): void => {
@@ -129,9 +131,9 @@ export async function waitForLog(
       if (signal) {
         try {
           signal.removeEventListener('abort', onAbort);
-        } catch (err) {
+        } catch (error) {
           // Log rather than silently ignore to aid debugging flakes
-          console.debug('Failed to remove abort listener:', err);
+          console.debug('Failed to remove abort listener:', error);
         }
       }
     };
@@ -140,14 +142,14 @@ export async function waitForLog(
       let logs: LogObject[];
       try {
         logs = getLogObjects(logFilePath);
-      } catch (err) {
+      } catch (error) {
         // Defensive: ensure we clean up timers/listeners and surface a descriptive error
         cleanup();
-        const errMsg = err instanceof Error ? err.message : String(err);
+        const errorMessage = Error.isError(error) ? error.message : String(error);
         console.error(
-          `waitForLog encountered an error while reading logs: ${errMsg}`,
+          `waitForLog encountered an error while reading logs: ${errorMessage}`,
         );
-        reject(new Error(`waitForLog failed while parsing logs: ${errMsg}`));
+        reject(new Error(`waitForLog failed while parsing logs: ${errorMessage}`));
         return;
       }
 
@@ -160,7 +162,7 @@ export async function waitForLog(
       if (Date.now() - startTime > timeoutMs) {
         cleanup();
         if (fs.existsSync(logFilePath)) {
-          const logContent = fs.readFileSync(logFilePath, 'utf-8');
+          const logContent = fs.readFileSync(logFilePath, 'utf8');
           console.error(
             `waitForLog timed out. Log file contents (last 1000 chars):\n`,
             logContent.slice(-1000),

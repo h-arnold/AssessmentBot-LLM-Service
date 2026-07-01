@@ -23,10 +23,10 @@ jest.mock('./config/config.service', () => ({
 }));
 
 describe('bootstrap', () => {
-  const originalEnv = process.env;
+  const originalEnvironment = process.env;
 
   afterEach(() => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
     jest.resetModules();
     jest.clearAllMocks();
   });
@@ -55,7 +55,7 @@ describe('bootstrap', () => {
   const loadBootstrap = async (options?: {
     bufferLogs?: boolean;
   }): Promise<LoadBootstrapResult> => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
 
     const loggerInstance = { log: jest.fn() };
     const expressInstance = { set: jest.fn() };
@@ -65,7 +65,7 @@ describe('bootstrap', () => {
         if (key === 'PORT') {
           return '3030';
         }
-        return undefined;
+        return;
       }),
     };
 

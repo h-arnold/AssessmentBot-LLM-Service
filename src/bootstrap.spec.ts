@@ -1,6 +1,8 @@
-const nestFactoryCreate = jest.fn();
-const jsonMiddleware = jest.fn();
-const json = jest.fn(() => jsonMiddleware);
+import { jest, describe, it, expect, afterEach } from '@jest/globals';
+
+const nestFactoryCreate: jest.Mock = jest.fn();
+const jsonMiddleware: jest.Mock = jest.fn();
+const json: jest.Mock = jest.fn(() => jsonMiddleware);
 
 class Logger {}
 class LoggerErrorInterceptor {}

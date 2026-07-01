@@ -11,6 +11,7 @@
     // We need java for the SonarQube VSCode Extension
     "ghcr.io/devcontainers/features/java:1": {}
   },
+  "postCreateCommand": "curl -fsSL https://opencode.ai/install | bash",
   // Install dependencies and build the project every time the container starts.
   "postStartCommand": "sudo apt update && sudo apt install -y file && npm install && npm run build",
   // Forward port 3000 for the NestJS application

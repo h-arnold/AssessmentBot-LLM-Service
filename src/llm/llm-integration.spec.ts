@@ -19,12 +19,16 @@ describe('ResourceExhaustedError Integration', () => {
     const originalError = new Error(
       'RESOURCE_EXHAUSTED: Free tier quota exceeded',
     );
-    originalError.name = 'GoogleGenerativeAIFetchError';
+    Object.defineProperty(originalError, 'name', {
+      value: 'GoogleGenerativeAIFetchError',
+      writable: true,
+      configurable: true,
+    });
     (originalError as Error & { status?: number }).status = 429;
 
     const resourceError = new ResourceExhaustedError(
       'API quota exhausted. Please try again later or upgrade your plan.',
-      originalError,
+      { originalError },
     );
 
     expect(resourceError.originalError).toBe(originalError);
@@ -62,7 +66,7 @@ describe('ResourceExhaustedError Integration', () => {
     }
 
     expect(caughtError).not.toBeNull();
-    expect(caughtError instanceof ResourceExhaustedError).toBe(true);
+    expect(caughtError).toBeInstanceOf(ResourceExhaustedError);
     expect(caughtError.message).toBe('API quota exhausted');
   });
 });

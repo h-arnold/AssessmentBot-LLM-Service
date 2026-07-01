@@ -14,4 +14,4 @@
 
 export { ConfigModule } from './config.module';
 export { ConfigService } from './config.service';
-export type { Config } from './env.schema';
+export type { Config } from './environment.schema';

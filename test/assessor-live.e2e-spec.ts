@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
+import path from 'node:path';
 
+import { getCurrentDirname } from 'src/common/file-utils';
 import request from 'supertest';
 
 import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
@@ -10,7 +11,7 @@ const loadFileAsDataURI = async (filePath: string): Promise<string> => {
   const fileBuffer = await fs.readFile(filePath);
   const mimeType =
     path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+  return `data:${mimeType};base64,${fileBuffer.toBase64()}`;
 };
 
 interface TaskData {
@@ -23,7 +24,7 @@ interface TaskData {
 describe('AssessorController (e2e-live)', () => {
   let app: AppInstance;
   const logFilePath = path.join(
-    __dirname,
+    getCurrentDirname(),
     'logs',
     'assessor-live.e2e-spec.log',
   );
@@ -38,23 +39,23 @@ describe('AssessorController (e2e-live)', () => {
     app = await startApp(logFilePath);
 
     // Load test data asynchronously
-    const dataDir = path.join(__dirname, 'data');
-    const imageDir = path.join(__dirname, 'ImageTasks');
+    const dataDirectory = path.join(getCurrentDirname(), 'data');
+    const imageDirectory = path.join(getCurrentDirname(), 'ImageTasks');
 
-    const tableTaskPath = path.join(dataDir, 'tableTask.json');
-    const textTaskPath = path.join(dataDir, 'textTask.json');
+    const tableTaskPath = path.join(dataDirectory, 'tableTask.json');
+    const textTaskPath = path.join(dataDirectory, 'textTask.json');
 
     tableData = JSON.parse(await fs.readFile(tableTaskPath, 'utf8'));
     textData = JSON.parse(await fs.readFile(textTaskPath, 'utf8'));
 
     referenceDataUri = await loadFileAsDataURI(
-      path.join(imageDir, 'referenceTask.png'),
+      path.join(imageDirectory, 'referenceTask.png'),
     );
     templateDataUri = await loadFileAsDataURI(
-      path.join(imageDir, 'templateTask.png'),
+      path.join(imageDirectory, 'templateTask.png'),
     );
     studentDataUri = await loadFileAsDataURI(
-      path.join(imageDir, 'studentTask.png'),
+      path.join(imageDirectory, 'studentTask.png'),
     );
   }, 20000); // Increased timeout for file loading
 

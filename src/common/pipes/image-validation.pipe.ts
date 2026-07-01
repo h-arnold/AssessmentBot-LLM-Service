@@ -106,7 +106,7 @@ export class ImageValidationPipe implements PipeTransform {
       throw new BadRequestException('Invalid base64 image format.');
     }
 
-    const header = value.substring(5, commaIndex);
+    const header = value.slice(5, commaIndex);
     const [mimeType, encoding] = header.split(';');
     if (encoding !== 'base64') {
       throw new BadRequestException('Invalid base64 image format.');

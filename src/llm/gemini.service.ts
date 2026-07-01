@@ -9,7 +9,7 @@ import {
   StringPromptPayload,
 } from './llm.service.interface';
 import { LlmResponse, LlmResponseSchema, GeminiModelParams as GeminiModelParameters } from './types';
-import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.util';
+import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.utility';
 import { ConfigService } from '../config/config.service';
 
 /**
@@ -48,7 +48,7 @@ export class GeminiService extends LLMService {
    * @throws Error if the API call fails or the response is invalid.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    const modelParameters = this.buildModelParams(payload);
+    const modelParameters: GeminiModelParameters = this.buildModelParams(payload);
     const contents = this.buildContents(payload);
 
     this.geminiLogger.debug(
@@ -58,31 +58,8 @@ export class GeminiService extends LLMService {
     );
     this.logPayload(payload, contents);
 
-    let jsonParseFailed = false;
     try {
-      const model = this.client.getGenerativeModel(modelParameters);
-      const result = await model.generateContent(contents);
-      const responseText = result.response.text?.() ?? '';
-
-      this.geminiLogger.debug(`Raw response from Gemini: \n\n${responseText}`);
-
-      let parsedJson: unknown;
-      try {
-        parsedJson = this.jsonParserUtility.parse(responseText);
-      } catch (parseError) {
-        jsonParseFailed = true;
-        throw parseError;
-      }
-      this.geminiLogger.debug(
-        `Parsed JSON response: ${JSON.stringify(parsedJson, null, 2)}`,
-      );
-
-      // Handle cases where the LLM returns an array with a single object
-      const dataToValidate: unknown = Array.isArray(parsedJson)
-        ? (parsedJson as unknown[])[0]
-        : parsedJson;
-
-      return LlmResponseSchema.parse(dataToValidate);
+      return await this.generateAndParseResponse(modelParameters, contents);
     } catch (error) {
       const statusCode = this.extractStatusCode(error);
       const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
@@ -91,10 +68,9 @@ export class GeminiService extends LLMService {
           model: modelParameters.model,
           payloadType,
           statusCode,
-          jsonParseFailed,
         },
         'Error communicating with or validating response from Gemini API',
-        Error.isError(error) ? error.stack : undefined,
+        this.isErrorObject(error) ? (error as Error).stack : undefined,
       );
       if (error instanceof ZodError) {
         this.logger.error('Zod validation failed', error.issues);
@@ -220,7 +196,6 @@ export class GeminiService extends LLMService {
           };
         }
         // Fallback: skip invalid image
-        return;
       })
       .filter(Boolean) as Part[];
   }
@@ -246,6 +221,34 @@ export class GeminiService extends LLMService {
         `Unknown payload type being sent with ${contents.length} content items`,
       );
     }
+  }
+
+  private async generateAndParseResponse(
+    modelParameters: GeminiModelParameters,
+    contents: (string | Part)[],
+  ): Promise<LlmResponse> {
+    const model = this.client.getGenerativeModel(modelParameters);
+    const result = await model.generateContent(contents);
+    const responseText = result.response.text?.() ?? '';
+
+    this.geminiLogger.debug(`Raw response from Gemini: \n\n${responseText}`);
+
+    const parser: JsonParserUtility = this.jsonParserUtility;
+    const parsedJson: unknown = parser.parse(responseText);
+    this.geminiLogger.debug(
+      `Parsed JSON response: ${JSON.stringify(parsedJson, null, 2)}`,
+    );
+
+    // Handle cases where the LLM returns an array with a single object
+    const dataToValidate: unknown = Array.isArray(parsedJson)
+      ? (parsedJson as unknown[])[0]
+      : parsedJson;
+
+    return LlmResponseSchema.parse(dataToValidate);
+  }
+
+  private isErrorObject(value: unknown): value is Error {
+    return value instanceof Error;
   }
 
   private extractStatusCode(error: unknown): number | undefined {

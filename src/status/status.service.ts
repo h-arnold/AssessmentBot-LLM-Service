@@ -71,10 +71,11 @@ export class StatusService {
    * @returns Complete health check response with application and system information
    */
   getHealth(): HealthCheckResponse {
+    const now = new Date();
     return {
       status: 'ok',
       version: packageJson.version,
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
       systemInfo: {
         platform: os.platform(),
         arch: os.arch(),

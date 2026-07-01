@@ -4,7 +4,7 @@ import path from 'node:path';
 import { Logger } from '@nestjs/common';
 
 import { Prompt, PromptInput } from './prompt.base';
-import { getCurrentDirname } from '../common/file-utils';
+import { getCurrentDirname } from '../common/file-utilities';
 import { LlmPayload } from '../llm/llm.service.interface';
 
 /**

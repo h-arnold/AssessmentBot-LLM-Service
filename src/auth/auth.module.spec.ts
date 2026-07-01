@@ -71,6 +71,6 @@ describe('AuthModule', () => {
 
   it('AuthModule should register ApiKeyStrategy and ApiKeyGuard in providers and exports', () => {
     // This is covered by the 'should export ApiKeyStrategy and ApiKeyGuard providers' test
-    expect(true).toBeTruthy(); // Placeholder
+    expect(module).toBeDefined();
   });
 });

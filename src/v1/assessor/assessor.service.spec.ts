@@ -4,7 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AssessorService } from './assessor.service';
 import { ConfigModule, ConfigService } from '../../config';
 import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto';
-import { JsonParserUtil as JsonParserUtility } from '../../common/json-parser.util';
+import { JsonParserUtil as JsonParserUtility } from '../../common/json-parser.utility';
 import { GeminiService } from '../../llm/gemini.service';
 import { LlmModule } from '../../llm/llm.module';
 import { LLMService } from '../../llm/llm.service.interface';

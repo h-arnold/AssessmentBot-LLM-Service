@@ -1,5 +1,7 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import path from 'node:path';
+
+import { getCurrentDirname } from 'src/common/file-utils';
 
 import { startApp } from './utils/app-lifecycle';
 
@@ -12,12 +14,12 @@ describe('startApp integration', () => {
     'src',
     'testing-main.js',
   );
-  const logsDir = path.join(__dirname, 'logs');
-  const logFilePath = path.join(logsDir, 'start-app.e2e.log');
+  const logsDirectory = path.join(getCurrentDirname(), 'logs');
+  const logFilePath = path.join(logsDirectory, 'start-app.e2e.log');
 
   beforeAll(() => {
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
+    if (!fs.existsSync(logsDirectory)) {
+      fs.mkdirSync(logsDirectory, { recursive: true });
     }
   });
 
@@ -56,7 +58,7 @@ describe('startApp integration', () => {
       fs.writeFileSync(
         entryPath,
         "console.log('early-exit'); process.exit(0);\n",
-        'utf-8',
+        'utf8',
       );
 
       await expect(startApp(logFilePath)).rejects.toThrow(
@@ -64,7 +66,7 @@ describe('startApp integration', () => {
       );
     } finally {
       // restore original
-      fs.writeFileSync(entryPath, original, 'utf-8');
+      fs.writeFileSync(entryPath, original, 'utf8');
     }
   });
 });

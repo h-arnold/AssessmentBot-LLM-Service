@@ -74,21 +74,22 @@ describe('ZodValidationPipe', () => {
   });
 
   describe('nested validation', () => {
+    const addressSchema = z.object({
+      street: z.string(),
+      city: z.string(),
+    });
+    const userSchema = z.object({
+      id: z.uuid(),
+      name: z.string().min(3),
+      address: addressSchema,
+    });
+    const productSchema = z.object({
+      productId: z.string(),
+      quantity: z.number().min(1),
+    });
     const nestedSchema = z.object({
-      user: z.object({
-        id: z.uuid(),
-        name: z.string().min(3),
-        address: z.object({
-          street: z.string(),
-          city: z.string(),
-        }),
-      }),
-      products: z.array(
-        z.object({
-          productId: z.string(),
-          quantity: z.number().min(1),
-        }),
-      ),
+      user: userSchema,
+      products: z.array(productSchema),
     });
     let nestedPipe: ZodValidationPipe;
 

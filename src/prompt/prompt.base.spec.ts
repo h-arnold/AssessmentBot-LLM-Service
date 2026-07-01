@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import { Prompt, PromptInput, PromptInputSchema } from './prompt.base';
-import { readMarkdown } from '../common/file-utils';
+import { readMarkdown } from '../common/file-utilities';
 import { LlmPayload } from '../llm/llm.service.interface';
 
 // Mock implementation of the abstract class for testing

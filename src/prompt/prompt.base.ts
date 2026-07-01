@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import Mustache from 'mustache';
 import { z } from 'zod';
 
-import { readMarkdown } from '../common/file-utils';
+import { readMarkdown } from '../common/file-utilities';
 import { LlmPayload } from '../llm/llm.service.interface';
 
 /**

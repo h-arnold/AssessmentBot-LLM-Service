@@ -11,18 +11,16 @@ const options = {
   timeout: 2000, // 2 seconds
 };
 
-const request = http.request(options, (res) => {
-  console.info(`STATUS: ${res.statusCode}`);
-  if (res.statusCode === 200) {
-    process.exit(0); // Success
-  } else {
-    process.exit(1); // Failure
+const request = http.request(options, (response) => {
+  console.info(`STATUS: ${response.statusCode}`);
+  if (response.statusCode !== 200) {
+    process.exitCode = 1; // Failure
   }
 });
 
 request.on('error', (error) => {
   console.error('ERROR:', error.message);
-  process.exit(1); // Failure
+  process.exitCode = 1; // Failure
 });
 
 request.end();

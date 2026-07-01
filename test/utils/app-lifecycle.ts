@@ -1,10 +1,22 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import path from 'node:path';
 
+import { Logger } from '@nestjs/common';
 import * as dotenv from 'dotenv';
+import { getCurrentDirname } from 'src/common/file-utils';
 
 import { waitForLog } from './log-watcher';
+
+const appLifecycleLogger = new Logger('AppLifecycle');
+
+function stderrListener(data: Buffer): void {
+  appLifecycleLogger.error(`stderr: ${data}`);
+}
+
+function stdoutListener(data: Buffer): void {
+  appLifecycleLogger.debug(`stdout: ${data}`);
+}
 
 /**
  * Represents the running application instance during E2E tests.
@@ -23,18 +35,18 @@ export interface AppInstance {
  * Starts the application in a child process for E2E testing, waits for it to be ready, and returns process info.
  *
  * @param logFilePath - The path to the log file to use for the app process.
- * @param envOverrides - A plain JavaScript object to override default environment variables.
+ * @param environmentOverrides - A plain JavaScript object to override default environment variables.
  * @returns An object containing the app process, base URL, and API key.
  * @throws If the application fails to start within 30 seconds.
  */
 export async function startApp(
   logFilePath: string,
-  envOverrides: Record<string, string> = {},
+  environmentOverrides: Record<string, string> = {},
 ): Promise<AppInstance> {
   // Ensure the log directory exists to avoid permission or ENOENT errors
-  const logDir = path.dirname(logFilePath);
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
+  const logDirectory = path.dirname(logFilePath);
+  if (!fs.existsSync(logDirectory)) {
+    fs.mkdirSync(logDirectory, { recursive: true });
   }
 
   if (fs.existsSync(logFilePath)) {
@@ -45,16 +57,14 @@ export async function startApp(
   }
 
   const appEntryPath = path.join(
-    __dirname,
-    '..',
-    '..',
+    getCurrentDirname(),
     'dist',
     'src',
     'testing-main.js',
   );
 
   // Load .test.env file
-  const testEnvironmentPath = path.join(__dirname, '..', '..', '.test.env');
+  const testEnvironmentPath = path.join(getCurrentDirname(), '.test.env');
   // Load .test.env if present; fall back to defaults otherwise
   const testEnvironmentConfig = fs.existsSync(testEnvironmentPath)
     ? dotenv.parse(fs.readFileSync(testEnvironmentPath))
@@ -80,7 +90,7 @@ export async function startApp(
     ...process.env,
     ...defaultTestValues,
     ...testEnvironmentConfig,
-    ...envOverrides,
+    ...environmentOverrides,
   };
 
   if (
@@ -91,7 +101,7 @@ export async function startApp(
   }
 
   if (testEnvironment.E2E_MOCK_LLM === 'true') {
-    const shimPath = path.join(__dirname, 'llm-http-shim.cjs');
+    const shimPath = path.join(getCurrentDirname(), 'test', 'utils', 'llm-http-shim.cjs');
     const existingNodeOptions = testEnvironment.NODE_OPTIONS ?? '';
     const shimOption = `--require "${shimPath}"`;
     testEnvironment.NODE_OPTIONS = existingNodeOptions
@@ -106,14 +116,11 @@ export async function startApp(
     );
   }
 
-  const appProcess = spawn('node', [appEntryPath], {
-    cwd: path.join(__dirname, '..', '..'),
+  const appProcess = spawn(process.execPath, [appEntryPath], {
+    cwd: getCurrentDirname(),
     env: testEnvironment,
   });
 
-  const stderrListener = (data: Buffer): void => {
-    console.error(`stderr: ${data}`);
-  };
   appProcess.stderr.on('data', stderrListener);
 
   const appUrl = 'http://localhost:3001';
@@ -121,16 +128,16 @@ export async function startApp(
   // Create a promise that rejects if the child process exits or fails to spawn
   const earlyExitPromise = new Promise<never>((_, reject) => {
     const errorListener = (error: Error): void => {
-      console.error('App process failed to start:', error);
+      appLifecycleLogger.error('App process failed to start:', error);
       // Include any existing log content to aid debugging
       let logTail = '';
-      try {
-        if (fs.existsSync(logFilePath)) {
+      if (fs.existsSync(logFilePath)) {
+        try {
           const lc = fs.readFileSync(logFilePath, 'utf8');
           logTail = lc.slice(-2000);
+        } catch (error_) {
+          logTail = `Failed to read log file: ${error_ instanceof Error ? error_.message : String(error_)}`;
         }
-      } catch (error_) {
-        logTail = `Failed to read log file: ${Error.isError(error_) ? error_.message : String(error_)}`;
       }
       reject(
         new Error(
@@ -140,24 +147,21 @@ export async function startApp(
     };
 
     // Log stdout as well to capture any helpful messages
-    const stdoutListener = (data: Buffer): void => {
-      console.debug(`stdout: ${data}`);
-    };
     appProcess.stdout.on('data', stdoutListener);
 
     const exitListener = (code: number | null, signal: string | null): void => {
-      console.error(
+      appLifecycleLogger.error(
         `App process exited early with code=${code} signal=${signal}`,
       );
       // Include any existing log content to aid debugging
       let logTail = '';
-      try {
-        if (fs.existsSync(logFilePath)) {
+      if (fs.existsSync(logFilePath)) {
+        try {
           const lc = fs.readFileSync(logFilePath, 'utf8');
           logTail = lc.slice(-2000);
+        } catch (error) {
+          logTail = `Failed to read log file: ${error instanceof Error ? error.message : String(error)}`;
         }
-      } catch (error) {
-        logTail = `Failed to read log file: ${Error.isError(error) ? error.message : String(error)}`;
       }
       reject(
         new Error(
@@ -186,33 +190,33 @@ export async function startApp(
       ),
       earlyExitPromise,
     ]);
-
-    // Startup succeeded: remove the early-exit handlers and stdout/stderr listeners
-    // (e.g. SIGTERM during test teardown) so they don't keep handles open.
-    try {
-      appProcess.removeAllListeners('error');
-      appProcess.removeAllListeners('exit');
-      appProcess.stdout.removeAllListeners('data');
-      appProcess.stderr.removeAllListeners('data');
-    } catch (error) {
-      // Best-effort cleanup failed — log for diagnostics
-      console.debug('Failed to remove listeners during startup cleanup:', error);
-    }
   } catch (error) {
     // Abort the log poll if it's still running so timers are cleared promptly
     try {
       ac.abort();
     } catch (error_) {
       // Log abort failure for visibility
-      console.debug('Abort controller abort failed:', error_);
+      appLifecycleLogger.debug('Abort controller abort failed:', error_);
     }
 
-    console.error('Error during app startup:', error);
+    appLifecycleLogger.error('Error during app startup:', error);
     // Ensure the process is killed if startup fails
     if (appProcess.pid) {
       appProcess.kill('SIGTERM');
     }
     throw error;
+  }
+
+  // Startup succeeded: remove the early-exit handlers and stdout/stderr listeners
+  // (e.g. SIGTERM during test teardown) so they don't keep handles open.
+  try {
+    appProcess.removeAllListeners('error');
+    appProcess.removeAllListeners('exit');
+    appProcess.stdout.removeAllListeners('data');
+    appProcess.stderr.removeAllListeners('data');
+  } catch (error) {
+    // Best-effort cleanup failed — log for diagnostics
+    appLifecycleLogger.debug('Failed to remove listeners during startup cleanup:', error);
   }
 
   // Derive return values from the final, effective environment
@@ -247,19 +251,19 @@ export function stopApp(appProcess: ChildProcessWithoutNullStreams): void {
     appProcess.kill('SIGTERM');
   } catch (error) {
     // Log failure to send SIGTERM so flakes are easier to diagnose
-    console.debug('Failed to send SIGTERM to app process:', error);
+    appLifecycleLogger.debug('Failed to send SIGTERM to app process:', error);
   }
 
   // If the process doesn't exit within a short timeout, force kill it to prevent
   // CI hangs due to orphaned processes.
   const killTimer = setTimeout(() => {
-    try {
-      if (!appProcess.killed) {
+    if (!appProcess.killed) {
+      try {
         appProcess.kill('SIGKILL');
+      } catch (error) {
+        // Log force-kill failures for diagnostics
+        appLifecycleLogger.debug('Failed to force-kill app process:', error);
       }
-    } catch (error) {
-      // Log force-kill failures for diagnostics
-      console.debug('Failed to force-kill app process:', error);
     }
   }, 5000);
 

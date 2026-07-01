@@ -168,7 +168,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       message = exceptionResponse;
     } else if (
       typeof exceptionResponse === 'object' &&
-      exceptionResponse !== null
+      exceptionResponse != null
     ) {
       // Extract message, which can be a string or an array of strings.
       if ('message' in exceptionResponse) {
@@ -222,7 +222,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       this.logger.error(
         logContext,
         logMessage,
-        Error.isError(exception) ? exception.stack : undefined,
+        this.isErrorObject(exception) ? exception.stack : undefined,
       );
     } else {
       // Handles 4xx and the specific PayloadTooLargeError case
@@ -245,9 +245,10 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     path: string,
     errors?: ZodErrorDetail[],
   ): void {
+    const now = new Date();
     const errorResponse: Record<string, unknown> = {
       statusCode: status,
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
       path,
       message,
     };
@@ -278,5 +279,9 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     if ('x-api-key' in sanitised) sanitised['x-api-key'] = '[REDACTED]';
 
     return sanitised;
+  }
+
+  private isErrorObject(value: unknown): value is Error {
+    return value instanceof Error;
   }
 }

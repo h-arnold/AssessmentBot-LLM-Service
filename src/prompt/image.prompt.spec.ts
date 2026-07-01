@@ -30,7 +30,7 @@ describe('ImagePrompt', () => {
       (filePath: string, options: { encoding: string }) => {
         if (
           filePath.includes('src/prompt/templates/image.system.prompt.md') &&
-          options.encoding === 'utf-8'
+          options.encoding === 'utf8'
         ) {
           return Promise.resolve(template);
         }

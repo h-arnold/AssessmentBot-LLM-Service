@@ -3,7 +3,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 
 import { HttpExceptionFilter } from './http-exception.filter';
-import { JsonParserUtil as JsonParserUtility } from './json-parser.util';
+import { JsonParserUtility } from './json-parser.utility';
 /**
  * The `CommonModule` is a NestJS module that provides common utilities and filters
  * to be used across the application. It includes the following:
@@ -23,4 +23,4 @@ import { JsonParserUtil as JsonParserUtility } from './json-parser.util';
   ],
   exports: [Logger, JsonParserUtility],
 })
-export class CommonModule {}
+export class CommonModule { }

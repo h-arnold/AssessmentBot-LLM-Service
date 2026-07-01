@@ -1,14 +1,13 @@
-import * as path from 'node:path';
+import path from 'node:path';
 
+import { getCurrentDirname } from 'src/common/file-utils';
 import request from 'supertest';
 
 import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
 
 describe('Throttler (e2e)', () => {
   let app: AppInstance;
-  let authenticatedLimit: number;
-  let ttl: number;
-  const logFilePath = path.join(__dirname, 'logs', 'throttler.e2e-spec.log');
+  const logFilePath = path.join(getCurrentDirname(), 'logs', 'throttler.e2e-spec.log');
 
   beforeAll(async () => {
     // As we are not testing the throttler service itself, but rather the implementation of the throttler,
@@ -29,9 +28,10 @@ describe('Throttler (e2e)', () => {
   describe('Unauthenticated Routes', () => {
     it('should enforce rate limiting for unauthenticated users', async () => {
       // 1. Allow requests up to the limit
-      const successfulRequests = new Array(app.unauthenticatedThrottlerLimit)
-        .fill(0)
-        .map(() => request(app.appUrl).get('/health').expect(200));
+      const successfulRequests = Array.from(
+        { length: app.unauthenticatedThrottlerLimit },
+        () => request(app.appUrl).get('/health').expect(200),
+      );
       await Promise.all(successfulRequests);
 
       // 2. Reject requests exceeding the limit and check header
@@ -39,7 +39,7 @@ describe('Throttler (e2e)', () => {
       expect(throttledResponse.status).toBe(429);
       expect(throttledResponse.headers['retry-after']).toBeDefined();
       expect(
-        parseInt(throttledResponse.headers['retry-after'], 10),
+        Number(throttledResponse.headers['retry-after']),
       ).toBeGreaterThan(0);
 
       // 3. Reset the limit after the TTL expires

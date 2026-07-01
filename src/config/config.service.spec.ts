@@ -34,7 +34,7 @@ const normalisePath = (filePath: PathOrFileDescriptor): string => {
   }
 
   if (Buffer.isBuffer(filePath)) {
-    return filePath.toString('utf-8');
+    return filePath.toString('utf8');
   }
 
   return '';
@@ -346,7 +346,7 @@ SOME_OTHER_VAR=value
     it('.env.example should contain all required variables', () => {
       // cSpell:ignore Vars
       const fileContent = fs.readFileSync('.env.example', {
-        encoding: 'utf-8',
+        encoding: 'utf8',
       });
       const lines = fileContent
         .split('\n')
@@ -361,7 +361,7 @@ SOME_OTHER_VAR=value
     it('.env.example should use placeholder values', () => {
       // cSpell:ignore Vars
       const fileContent = fs.readFileSync('.env.example', {
-        encoding: 'utf-8',
+        encoding: 'utf8',
       });
       expect(fileContent).toContain('your_database_url_here');
       expect(fileContent).toContain('your_api_key_here');

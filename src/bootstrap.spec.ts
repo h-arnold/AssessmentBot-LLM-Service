@@ -63,12 +63,7 @@ describe('bootstrap', () => {
     const expressInstance = { set: jest.fn() };
     const configService = {
       getGlobalPayloadLimit: jest.fn(() => '1mb'),
-      get: jest.fn((key: string) => {
-        if (key === 'PORT') {
-          return '3030';
-        }
-        return;
-      }),
+      get: jest.fn((key: string) => (key === 'PORT' ? '3030' : undefined)),
     };
 
     const httpAdapter = {

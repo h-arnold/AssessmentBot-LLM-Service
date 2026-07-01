@@ -9,7 +9,7 @@ import { authenticatedThrottler } from 'src/config/throttler.config';
 import { AssessorService } from './assessor.service';
 import {
   type CreateAssessorDto,
-  createAssessorDtoSchema,
+  assessorDtoSchema,
 } from './dto/create-assessor.dto';
 import { LlmResponse } from '../../llm/types';
 
@@ -29,7 +29,7 @@ import { LlmResponse } from '../../llm/types';
  *   resource-intensive operations compared to the global default for unauthenticated routes.
  *
  * **Input Validation:**
- * - The `create` method uses the `ZodValidationPipe` to validate the incoming request body against the `createAssessorDtoSchema`.
+ * - The `create` method uses the `ZodValidationPipe` to validate the incoming request body against the `assessorDtoSchema`.
  * - For tasks of type `IMAGE`, it also programmatically uses the `ImageValidationPipe` to perform more complex,
  *   asynchronous validation on the image data itself.
  *
@@ -66,7 +66,7 @@ export class AssessorController {
    */
   @Post()
   async create(
-    @Body(new ZodValidationPipe(createAssessorDtoSchema))
+    @Body(new ZodValidationPipe(assessorDtoSchema))
     createAssessorDto: CreateAssessorDto,
   ): Promise<LlmResponse> {
     // If taskType is IMAGE, validate image fields using ImageValidationPipe

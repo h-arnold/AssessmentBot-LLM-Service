@@ -1,17 +1,17 @@
 import { spawn } from 'node:child_process';
 import http from 'node:http';
 
-export interface CmdResult {
+export interface CommandResult {
   code: number;
   stdout: string;
   stderr: string;
 }
 
-export function runCmd(
+export function runCommand(
   command: string,
   arguments_: string[],
   options: { cwd?: string } = {},
-): Promise<CmdResult> {
+): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, arguments_, {
       cwd: options.cwd,
@@ -42,12 +42,12 @@ export async function waitForHttp(
   while (Date.now() - start < timeoutMs) {
     try {
       await new Promise<void>((resolve, reject) => {
-        const request = http.get(url, (res) => {
-          if (res.statusCode && res.statusCode < 500) {
-            res.resume();
+        const request = http.get(url, (response) => {
+          if (response.statusCode && response.statusCode < 500) {
+            response.resume();
             resolve();
           } else {
-            reject(new Error(`Status ${res.statusCode}`));
+            reject(new Error(`Status ${response.statusCode}`));
           }
         });
         request.on('error', reject);

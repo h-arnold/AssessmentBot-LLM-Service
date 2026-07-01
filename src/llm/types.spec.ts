@@ -81,9 +81,12 @@ describe('GeminiModelParams type', () => {
       systemInstruction: 'Be concise',
     };
 
-    expect(parameters.model).toBe('gemini-2.5-flash-lite');
-    expect(parameters.thinking?.budget).toBe(100);
-    expect(parameters.systemInstruction).toBe('Be concise');
+    expect(parameters).toMatchObject({
+      model: 'gemini-2.5-flash-lite',
+      generationConfig: { temperature: 0 },
+      thinking: { budget: 100 },
+      systemInstruction: 'Be concise',
+    });
   });
 
   it('should allow params with thinking omitted', () => {
@@ -91,14 +94,21 @@ describe('GeminiModelParams type', () => {
       model: 'gemini-2.5-flash',
       generationConfig: {},
     };
-    expect(parameters.thinking).toBeUndefined();
+    expect(parameters).toMatchObject({
+      model: 'gemini-2.5-flash',
+      generationConfig: {},
+    });
+    expect(parameters).not.toHaveProperty('thinking');
   });
 
   it('should allow params with systemInstruction omitted', () => {
     const parameters: GeminiModelParameters = {
       model: 'gemini-2.5-flash',
     };
-    expect(parameters.systemInstruction).toBeUndefined();
+    expect(parameters).toMatchObject({
+      model: 'gemini-2.5-flash',
+    });
+    expect(parameters).not.toHaveProperty('systemInstruction');
   });
 
   it('should enforce types at compile-time for common mistakes', () => {

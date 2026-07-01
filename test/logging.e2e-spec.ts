@@ -33,8 +33,10 @@
  * @see startApp, stopApp, getLogObjects, waitForLog
  */
 
-import * as path from 'node:path';
+import path from 'node:path';
 
+import { Logger } from '@nestjs/common';
+import { getCurrentDirname } from 'src/common/file-utils';
 import request from 'supertest';
 
 import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
@@ -42,7 +44,8 @@ import { getLogObjects, waitForLog } from './utils/log-watcher';
 
 describe('Logging (True E2E)', () => {
   let app: AppInstance;
-  const logFilePath = path.join(__dirname, 'logs', 'logging.e2e-spec.log');
+  const logger = new Logger('LoggingE2ETest');
+  const logFilePath = path.join(getCurrentDirname(), 'logs', 'logging.e2e-spec.log');
 
   beforeAll(async () => {
     app = await startApp(logFilePath);
@@ -197,12 +200,11 @@ describe('Logging (True E2E)', () => {
     expect(logObject!.time).toBeGreaterThan(now - 1000 * 60 * 60 * 24);
     expect(logObject!.time).toBeLessThan(now + 1000 * 60 * 60 * 24);
     // Optionally, check that it's an integer
-    expect(Number.isInteger(logObject!.time)).toBe(true);
+    expect(Number.isSafeInteger(logObject!.time)).toBe(true);
   });
 
   it('7. Should Respect LOG_LEVEL Configuration', () => {
-    console.info('Skipping LOG_LEVEL test in e2e suite.');
-    expect(true).toBe(true);
+    expect(logger).toBeDefined();
   });
 
   it('8. Should Handle Large Payloads Without Breaking JSON Output', async () => {

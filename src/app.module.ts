@@ -6,7 +6,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule, Params } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
-import { LogRedactor } from './common/utils/log-redactor.util';
+import { LogRedactor } from './common/utils/log-redactor.utility';
 import { ConfigModule } from './config/config.module';
 import { ConfigService } from './config/config.service';
 import { throttlerConfig } from './config/throttler.config';
@@ -53,6 +53,13 @@ function hasRequestId(
  * @see config/throttler.config.ts - For the source of the default throttler configuration.
  * @see v1/assessor/assessor.controller.ts - For an example of how to override the global throttler settings.
  */
+const customProperties = (
+  request: IncomingMessage,
+  _response: ServerResponse<IncomingMessage>,
+): { reqId: string | number | undefined } => ({
+  reqId: hasRequestId(request) ? request.id : undefined,
+});
+
 @Module({
   imports: [
     ConfigModule,
@@ -68,13 +75,6 @@ function hasRequestId(
           req: (request: IncomingMessage): IncomingMessage =>
             LogRedactor.redactRequest(request),
         };
-
-        const customProperties = (
-          request: IncomingMessage,
-          _res: ServerResponse<IncomingMessage>,
-        ): { reqId: string | number | undefined } => ({
-          reqId: hasRequestId(request) ? request.id : undefined,
-        });
 
         // For E2E tests: write JSON logs to a specified file.
         if (logFile) {

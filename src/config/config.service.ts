@@ -1,11 +1,11 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import path from 'node:path';
 
 import { Injectable } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { z } from 'zod';
 
-import { configSchema, type Config } from './env.schema';
+import { configSchema, type Config } from './environment.schema';
 
 /**
  * @class ConfigService
@@ -29,7 +29,7 @@ import { configSchema, type Config } from './env.schema';
  * This service should be injected into any module that requires access to configuration values at runtime.
  * For configuration needed at **compile time** (e.g., in decorators), see `throttler.config.ts`.
  *
- * @see env.schema.ts - For the source of truth on validation rules.
+ * @see environment.schema.ts - For the source of truth on validation rules.
  * @see throttler.config.ts - For an example of compile-time configuration.
  */
 @Injectable()

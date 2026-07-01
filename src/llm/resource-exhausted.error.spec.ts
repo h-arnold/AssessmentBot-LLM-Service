@@ -3,7 +3,7 @@ import { ResourceExhaustedError } from './resource-exhausted.error';
 describe('ResourceExhaustedError', () => {
   it('should create an instance', () => {
     const originalError = new Error('Original error');
-    const error = new ResourceExhaustedError('Test message', originalError);
+    const error = new ResourceExhaustedError('Test message', { originalError });
 
     expect(error).toBeInstanceOf(ResourceExhaustedError);
     expect(error).toBeInstanceOf(Error);

@@ -30,7 +30,7 @@ const normalisePath = (filePath: PathOrFileDescriptor): string => {
   }
 
   if (Buffer.isBuffer(filePath)) {
-    return filePath.toString('utf-8');
+    return filePath.toString('utf8');
   }
 
   return '';
@@ -66,7 +66,7 @@ API_KEY=your_api_key_here
 
   it('should contain all required variables', () => {
     const exampleContent = fs.readFileSync('.env.example', {
-      encoding: 'utf-8',
+      encoding: 'utf8',
     });
     const exampleConfig = dotenv.parse(exampleContent);
 
@@ -82,7 +82,7 @@ API_KEY=your_api_key_here
 
   it('should use placeholder values', () => {
     const exampleContent = fs.readFileSync('.env.example', {
-      encoding: 'utf-8',
+      encoding: 'utf8',
     });
     const exampleConfig = dotenv.parse(exampleContent);
 

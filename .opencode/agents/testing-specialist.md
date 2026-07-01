@@ -1,7 +1,7 @@
 ---
 description: Creates, maintains, and debugs Jest unit/integration tests and E2E tests
 mode: all
-model: opencode/deepseek-v4-flash-free
+model: opencode-go/deepseek-v4-flash
 steps: 100
 ---
 
@@ -120,7 +120,11 @@ If you add or modify tests, run the smallest targeted command first, then the re
 - Do **not** use action-plan section numbering in test names or helpers (for example `Section 1`, `Section 2`, `SECTION_1_*`).
 - Use descriptive test names that reflect the behaviour being tested (e.g., `should return 400 when required fields are missing`).
 
-## 7. Idiomatic Patterns
+## 7. Codebase-Specific Decisions
+
+- **`instanceof Error` over `Error.isError()`**: Always use `value instanceof Error` for checking if a value is an Error instance. `Error.isError()` is only typed in `lib.esnext.error.d.ts` (Stage 3, not yet part of any released ECMAScript standard) and requires pulling in all unstable type definitions. The only advantage of `Error.isError()` is handling cross-realm errors (from iframes or Node's `vm` module), which cannot occur in this single-process NestJS backend. The `unicorn/prefer-error-is-error` linter rule is disabled project-wide for this reason.
+
+## 8. Idiomatic Patterns
 
 - Reuse existing helpers/factories before creating new ones.
 - Use NestJS `TestingModule` for creating test modules with mocked dependencies.
@@ -131,7 +135,7 @@ If you add or modify tests, run the smallest targeted command first, then the re
 - For E2E tests: test the full request/response cycle through the NestJS application instance.
 - Do not add production code solely to satisfy tests.
 
-## 8. Debugging Workflow
+## 9. Debugging Workflow
 
 1. Isolate the failing suite with the smallest relevant command.
 2. Inspect failures and mock setup/teardown behaviour.
@@ -142,7 +146,7 @@ If you add or modify tests, run the smallest targeted command first, then the re
 7. Keep the validation loop focused; do not rerun the same failing command unchanged unless the code, test, or environment has changed.
 8. **HARD REQUIREMENT**: Achieve zero errors and zero warnings on all checks before handoff.
 
-## 9. Reporting (Goldilocks Rule)
+## 10. Reporting (Goldilocks Rule)
 
 Report enough detail to be actionable without noise.
 
@@ -154,7 +158,7 @@ Report enough detail to be actionable without noise.
 - Too much:
   - Long step-by-step transcripts and raw logs without synthesis.
 
-## 10. Completion Requirements
+## 11. Completion Requirements
 
 Before declaring completion:
 

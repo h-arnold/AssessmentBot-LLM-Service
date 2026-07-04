@@ -16,7 +16,7 @@ function hasSilencingRule(text: string): string | null {
   return null;
 }
 
-export default (async (): Plugin => {
+export default (async (): Promise<Plugin> => {
   return {
     'tool.execute.before': async (input, output): Promise<void> => {
       if (input.tool === 'edit') {

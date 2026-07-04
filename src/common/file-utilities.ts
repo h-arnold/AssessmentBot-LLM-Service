@@ -1,29 +1,16 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 /**
- * Utility function to get current directory path that works in both
- * Node.js ESM runtime and Jest test environment
+ * Utility function to get the project root directory path.
  *
- * @param fallbackDirectory - Fallback directory for tests, defaults to process.cwd()
+ * Returns `process.cwd()` which is the standard way to resolve paths relative
+ * to the project root in both Jest and production environments.
+ *
+ * @param fallbackDirectory - Fallback directory, defaults to process.cwd()
  */
 export function getCurrentDirname(fallbackDirectory?: string): string {
-  try {
-    // Use dynamic evaluation to avoid TypeScript compilation issues in Jest
-    // This will work in ESM runtime but fail gracefully in Jest
-    const getImportMetaUrl = new Function(
-      'return import.meta.url',
-    ) as () => string;
-    const metaUrl = getImportMetaUrl();
-    return path.dirname(fileURLToPath(metaUrl));
-  } catch (error) {
-    if (error instanceof SyntaxError || error instanceof ReferenceError) {
-      return fallbackDirectory ?? process.cwd();
-    }
-
-    throw error;
-  }
+  return fallbackDirectory ?? process.cwd();
 }
 
 /**

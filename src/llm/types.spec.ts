@@ -1,5 +1,5 @@
 import { LlmResponseSchema } from './types';
-import type { GeminiModelParams as GeminiModelParameters } from './types';
+import type { GeminiModelParameters } from './types';
 
 describe('LlmResponseSchema', () => {
   it('should validate a correct payload', () => {
@@ -72,7 +72,7 @@ describe('LlmResponseSchema', () => {
   });
 });
 
-describe('GeminiModelParams type', () => {
+describe('GeminiModelParameters type', () => {
   it('should accept a valid params object with thinking and systemInstruction', () => {
     const parameters: GeminiModelParameters = {
       model: 'gemini-2.5-flash-lite',

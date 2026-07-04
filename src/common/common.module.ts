@@ -9,9 +9,9 @@ import { JsonParserUtility } from './json-parser.utility';
  * to be used across the application. It includes the following:
  *
  * - `HttpExceptionFilter`: A filter for handling HTTP exceptions globally.
- * - `JsonParserUtil`: A utility for parsing JSON data.
+ * - `JsonParserUtility`: A utility for parsing JSON data.
  *
- * Both `HttpExceptionFilter` and `JsonParserUtil` are provided and exported,
+ * Both `HttpExceptionFilter` and `JsonParserUtility` are provided and exported,
  * making them available for use in other modules that import `CommonModule`.
  */
 @Module({
@@ -23,4 +23,4 @@ import { JsonParserUtility } from './json-parser.utility';
   ],
   exports: [Logger, JsonParserUtility],
 })
-export class CommonModule { }
+export class CommonModule {}

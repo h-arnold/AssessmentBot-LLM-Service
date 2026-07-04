@@ -1,7 +1,7 @@
 import { getCurrentDirname } from './file-utilities';
 
 describe('getCurrentDirname', () => {
-  it('should return process.cwd() in Jest test environment', () => {
+  it('should return process.cwd() by default', () => {
     const result = getCurrentDirname();
     expect(result).toBe(process.cwd());
   });

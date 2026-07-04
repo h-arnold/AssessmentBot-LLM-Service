@@ -4,7 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { LlmModule } from './llm.module';
 import { LLMService } from './llm.service.interface';
-import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.utility';
+import { JsonParserUtility } from '../common/json-parser.utility';
 import { ConfigModule } from '../config/config.module';
 import { ConfigService } from '../config/config.service';
 

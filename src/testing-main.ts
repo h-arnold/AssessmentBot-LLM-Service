@@ -4,6 +4,8 @@
  * Loads `.test.env` and applies test-focused bootstrap options so production
  * bootstrapping stays free of test-only branches.
  */
+import process from 'node:process';
+
 import * as dotenv from 'dotenv';
 
 export async function startTest(): Promise<void> {
@@ -15,10 +17,8 @@ export async function startTest(): Promise<void> {
 // Start the application only when the file is executed directly. This allows
 // tests to import `startTest` without automatically starting the server, while
 // allowing `node dist/src/testing-main.js` to start the app for E2E runs.
-// Use dynamic evaluation to avoid TypeScript compilation issues with import.meta in CommonJS.
 if (isRunningDirectly()) {
   void (async (): Promise<void> => {
-    dotenv.config({ path: '.test.env' });
     try {
       await startTest();
     } catch (error: unknown) {
@@ -31,13 +31,5 @@ if (isRunningDirectly()) {
 }
 
 function isRunningDirectly(): boolean {
-  try {
-    const getCurrentFilename = new Function(
-      'return import.meta.filename',
-    ) as () => string;
-    return process.argv[1] === getCurrentFilename();
-  } catch {
-    // Running in CommonJS environment; check whether this module is the entry point
-    return typeof require !== 'undefined' && require.main === module;
-  }
+  return typeof require !== 'undefined' && require.main === module;
 }

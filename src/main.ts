@@ -8,7 +8,6 @@ import process from 'node:process';
 
 import * as dotenv from 'dotenv';
 
-/*eslint-disable unicorn/prefer-top-level-await */
 export async function start(): Promise<void> {
   dotenv.config({ path: '.env' });
   const { bootstrap } = await import('./bootstrap');
@@ -18,7 +17,6 @@ export async function start(): Promise<void> {
 // Start the application only when the file is executed directly. This allows
 // tests to import `start` without automatically starting the server, while still
 // allowing `node dist/src/main.js` to start the app.
-// Use dynamic evaluation to avoid TypeScript compilation issues with import.meta in CommonJS.
 if (isRunningDirectly()) {
   void (async (): Promise<void> => {
     try {
@@ -33,13 +31,9 @@ if (isRunningDirectly()) {
 }
 
 function isRunningDirectly(): boolean {
-  try {
-    const getCurrentFilename = new Function(
-      'return import.meta.filename',
-    ) as () => string;
-    return process.argv[1] === getCurrentFilename();
-  } catch {
-    // Running in CommonJS environment; assume entry point in production
-    return !process.env.JEST_WORKER_ID;
-  }
+  return (
+    typeof require !== 'undefined' &&
+    require.main === module &&
+    !process.env.JEST_WORKER_ID
+  );
 }

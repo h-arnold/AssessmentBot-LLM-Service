@@ -247,6 +247,13 @@ export default tseslint.config(
   // rule banning require/module references is correct for normal source code but
   // cannot be applied to this deliberate dual-environment detection logic.
   {
+    files: ['src/main.ts'],
+    rules: {
+      'unicorn/prefer-top-level-await': 'off',
+      'unicorn/prefer-module': 'off',
+    },
+  },
+  {
     files: ['src/testing-main.ts'],
     rules: {
       'unicorn/prefer-top-level-await': 'off',

@@ -115,7 +115,7 @@ export async function waitForLog(
 
     const clearTimer = (): void => {
       if (timer == null) {
-      	return;
+        return;
       }
 
       clearTimeout(timer);
@@ -149,11 +149,14 @@ export async function waitForLog(
       } catch (error_) {
         // Defensive: ensure we clean up timers/listeners and surface a descriptive error
         cleanup();
-        const errorMessage = error_ instanceof Error ? error_.message : String(error_);
+        const errorMessage =
+          error_ instanceof Error ? error_.message : String(error_);
         logWatcherLogger.error(
           `waitForLog encountered an error while reading logs: ${errorMessage}`,
         );
-        reject(new Error(`waitForLog failed while parsing logs: ${errorMessage}`));
+        reject(
+          new Error(`waitForLog failed while parsing logs: ${errorMessage}`),
+        );
         return;
       }
 
@@ -171,7 +174,9 @@ export async function waitForLog(
             `waitForLog timed out. Log file contents (last 1000 chars):\n${logContent.slice(-1000)}`,
           );
         } else {
-          logWatcherLogger.error('waitForLog timed out. Log file does not exist.');
+          logWatcherLogger.error(
+            'waitForLog timed out. Log file does not exist.',
+          );
         }
         reject(new Error(`waitForLog timed out after ${timeoutMs}ms`));
         return;

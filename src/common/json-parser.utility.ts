@@ -8,7 +8,7 @@ import { jsonrepair } from 'jsonrepair';
  *
  * @example
  * ```typescript
- * const jsonParser = new JsonParserUtil();
+ * const jsonParser = new JsonParserUtility(new Logger('JsonParserUtility'));
  * const parsedObject = jsonParser.parse('```json\n{"key": "value"}\n```');
  * ```
  *

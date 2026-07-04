@@ -5,7 +5,6 @@ import path from 'node:path';
 import { Logger } from '@nestjs/common';
 
 import { runCommand, waitForHttp } from './utils/docker-utilities';
-import { getCurrentDirname } from '../../src/common/file-utilities';
 
 const logger = new Logger('DockerImageProdSpec');
 
@@ -13,7 +12,7 @@ jest.setTimeout(10 * 60 * 1000); // 10 minutes for build + run
 
 const IMAGE_TAG = 'assessmentbot-backend:prod-test';
 const CONTAINER_NAME = 'assessmentbot-backend-prod-test';
-const REPO_ROOT = getCurrentDirname();
+const REPO_ROOT = process.cwd();
 const DOCKERFILE = path.join(REPO_ROOT, 'Docker', 'Dockerfile.prod');
 
 interface AssessorPayload {
@@ -81,9 +80,7 @@ async function evaluate(
   _label: string,
   payload: AssessorPayload,
 ): Promise<void> {
-  const resp = await postJson(
-    payload as unknown as Record<string, unknown>,
-  );
+  const resp = await postJson(payload as unknown as Record<string, unknown>);
   let logs = '';
   try {
     const r = await runCommand('docker', ['logs', CONTAINER_NAME]);
@@ -101,9 +98,7 @@ async function evaluate(
   const json = resp.json;
   const hasRequiredShape =
     json &&
-    ['completeness', 'accuracy', 'spag'].every((k) =>
-      Object.hasOwn(json, k),
-    );
+    ['completeness', 'accuracy', 'spag'].every((k) => Object.hasOwn(json, k));
   expect(offending).toHaveLength(0);
   expect(resp.status).not.toBe(404);
   expect(!isCreated || hasRequiredShape).toBe(true);
@@ -170,16 +165,10 @@ describe('Production Docker image smoke tests', () => {
     expect.hasAssertions();
     const dataDirectory = path.join(REPO_ROOT, 'test', 'data');
     const tableData = JSON.parse(
-      await fs.readFile(
-        path.join(dataDirectory, 'tableTask.json'),
-        'utf8',
-      ),
+      await fs.readFile(path.join(dataDirectory, 'tableTask.json'), 'utf8'),
     );
     const textData = JSON.parse(
-      await fs.readFile(
-        path.join(dataDirectory, 'textTask.json'),
-        'utf8',
-      ),
+      await fs.readFile(path.join(dataDirectory, 'textTask.json'), 'utf8'),
     );
 
     await evaluate('text', textData);

@@ -11,7 +11,7 @@ import {
 } from './llm.service.interface';
 import { ResourceExhaustedError } from './resource-exhausted.error';
 import { LlmResponse } from './types';
-import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.utility';
+import { JsonParserUtility } from '../common/json-parser.utility';
 import { ConfigService } from '../config/config.service';
 
 // Only mock the GoogleGenerativeAI class, not the error classes
@@ -87,10 +87,9 @@ describe('GeminiService', () => {
       return JSON.parse(json) as unknown;
     });
 
-    service = new GeminiService(
-      configService,
-      { parse: mockParse } as unknown as JsonParserUtility,
-    );
+    service = new GeminiService(configService, {
+      parse: mockParse,
+    } as unknown as JsonParserUtility);
   });
 
   it('should be defined', () => {
@@ -149,9 +148,7 @@ describe('GeminiService', () => {
         },
       });
 
-      mockParse.mockReturnValueOnce(
-        JSON.parse(repairedJson),
-      );
+      mockParse.mockReturnValueOnce(JSON.parse(repairedJson));
 
       const payload = createStringPayload();
       await service.send(payload);
@@ -246,7 +243,6 @@ describe('GeminiService', () => {
   };
 
   describe('retry logic', () => {
-
     // eslint-disable-next-line jest/expect-expect
     it('should retry on 429 errors and eventually succeed', async () => {
       await testRetryBehaviorSuccess(
@@ -305,14 +301,11 @@ describe('GeminiService', () => {
 
     mockGenerateContent.mockRejectedValueOnce(error);
 
-    await expect(service.send(payload)).rejects.toThrow(
-      ResourceExhaustedError,
-    );
+    await expect(service.send(payload)).rejects.toThrow(ResourceExhaustedError);
     expect(mockGenerateContent).toHaveBeenCalledTimes(1); // Should not retry
   };
 
   describe('resource exhausted error handling', () => {
-
     // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "RESOURCE_EXHAUSTED" error', async () => {
       await testResourceExhaustedError('RESOURCE_EXHAUSTED: Quota exceeded');

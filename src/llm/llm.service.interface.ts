@@ -234,7 +234,12 @@ export abstract class LLMService {
    * @returns True if the error is a retryable rate limit error.
    */
   protected isErrorObject(error: unknown): error is Error {
-    return typeof error === 'object' && error !== null && 'message' in error;
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error &&
+      typeof (error as Record<string, unknown>).message === 'string'
+    );
   }
 
   private isRateLimitError(error: unknown): boolean {

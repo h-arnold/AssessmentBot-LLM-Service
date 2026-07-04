@@ -11,7 +11,7 @@ const osMock = {
   cpus: jest.fn(),
 };
 
-jest.mock('os', () => osMock);
+jest.mock('node:os', () => osMock);
 
 describe('StatusService', () => {
   const originalEnvironment = process.env;

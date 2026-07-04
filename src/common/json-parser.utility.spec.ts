@@ -1,7 +1,7 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { JsonParserUtil as JsonParserUtility } from './json-parser.utility';
+import { JsonParserUtility } from './json-parser.utility';
 
 describe('JsonParserUtil', () => {
   let utility: JsonParserUtility;
@@ -71,7 +71,9 @@ describe('JsonParserUtil', () => {
   it('should handle JSON embedded within other text and markdown', () => {
     const embeddedJson =
       'Here is the JSON:\n```json\n{"user": {"id": 1, "name": "John Doe"}}\n```\nThanks!';
-    const expected: Record<string, unknown> = { user: { id: 1, name: 'John Doe' } };
+    const expected: Record<string, unknown> = {
+      user: { id: 1, name: 'John Doe' },
+    };
     expect(utility.parse(embeddedJson)).toEqual(expected);
   });
 

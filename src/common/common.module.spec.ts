@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { z } from 'zod';
 
 import { HttpExceptionFilter } from './http-exception.filter';
-import { JsonParserUtil as JsonParserUtility } from './json-parser.utility';
+import { JsonParserUtility } from './json-parser.utility';
 import { ZodValidationPipe } from './zod-validation.pipe';
 
 describe('CommonModule', () => {
@@ -30,7 +30,8 @@ describe('CommonModule', () => {
   it('should export shared providers', () => {
     const filter = module.get<HttpExceptionFilter>(HttpExceptionFilter);
     const pipe = module.get<ZodValidationPipe>(ZodValidationPipe);
-    const utility: JsonParserUtility = module.get<JsonParserUtility>(JsonParserUtility);
+    const utility: JsonParserUtility =
+      module.get<JsonParserUtility>(JsonParserUtility);
 
     expect(filter).toBeDefined();
     expect(pipe).toBeDefined();

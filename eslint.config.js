@@ -234,6 +234,26 @@ export default tseslint.config(
       'no-restricted-imports': 'off',
     },
   },
+  // Jest runs inside a CommonJS environment (tsconfig.module = CommonJS) that lacks
+  // both top-level await support and the Uint8Array.fromBase64() method (missing from
+  // Node.js v24 runtime despite being in the ESNext type definitions). These overrides
+  // will be removed when the project migrates from Jest to ViTest (which supports ESM
+  // natively), eliminating both constraints in a single change.
+  {
+    files: ['src/testing-main.ts'],
+    rules: {
+      'unicorn/prefer-top-level-await': 'off',
+    },
+  },
+  {
+    files: [
+      'src/common/pipes/image-validation.pipe.ts',
+      'src/common/pipes/image-validation.pipe.spec.ts',
+    ],
+    rules: {
+      'unicorn/prefer-uint8array-base64': 'off',
+    },
+  },
   // Scripts and prod-tests run outside the NestJS app — console output is legitimate
   {
     files: ['scripts/**', 'prod-tests/**'],

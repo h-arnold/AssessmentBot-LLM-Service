@@ -16,7 +16,7 @@ Adhere to these principles in all contributions:
 
 ## 2. Tech Stack & Key Libraries
 
-- **Runtime**: Node.js in a Docker container (`node:20-alpine`).
+- **Runtime**: Node.js in a Docker container (`node:24-alpine`).
 - **Language**: TypeScript.
 - **Framework**: NestJS.
 - **Authentication**: Passport.js (specifically `passport-http-bearer` for API keys).

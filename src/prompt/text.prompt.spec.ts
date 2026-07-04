@@ -17,36 +17,34 @@ const mockedReadFile = jest.mocked(readFile);
 
 function normaliseFilePath(filePath: PathLike | FileHandle): string {
   if (typeof filePath === 'string') return filePath;
-  if (Buffer.isBuffer(filePath)) return filePath.toString('utf-8');
+  if (Buffer.isBuffer(filePath)) return filePath.toString('utf8');
   if (filePath instanceof URL) return filePath.pathname;
 
   throw new Error('File handle paths are not supported in this test');
 }
 
 function getTemplateContent(filePath: PathLike | FileHandle): string {
-  const filePathStr = normaliseFilePath(filePath);
-  if (filePathStr.includes('text.system.prompt.md')) return systemTemplate;
-  if (filePathStr.includes('text.user.prompt.md')) return userTemplate;
+  const filePathString = normaliseFilePath(filePath);
+  if (filePathString.includes('text.system.prompt.md')) return systemTemplate;
+  if (filePathString.includes('text.user.prompt.md')) return userTemplate;
   throw new Error('File not found');
 }
 
 const textTask: PromptInput = PromptInputSchema.parse(
   JSON.parse(
-    readFileSync('test/data/textTask.json', { encoding: 'utf-8' }),
+    readFileSync('test/data/textTask.json', { encoding: 'utf8' }),
   ) as unknown,
 );
 
-let systemTemplate: string;
-let userTemplate: string;
+const systemTemplate: string = readFileSync(
+  path.join(process.cwd(), 'src/prompt/templates/text.system.prompt.md'),
+  { encoding: 'utf8' },
+);
+const userTemplate: string = readFileSync(
+  path.join(process.cwd(), 'src/prompt/templates/text.user.prompt.md'),
+  { encoding: 'utf8' },
+);
 beforeAll(() => {
-  systemTemplate = readFileSync(
-    path.join(process.cwd(), 'src/prompt/templates/text.system.prompt.md'),
-    { encoding: 'utf-8' },
-  );
-  userTemplate = readFileSync(
-    path.join(process.cwd(), 'src/prompt/templates/text.user.prompt.md'),
-    { encoding: 'utf-8' },
-  );
   mockedReadFile.mockImplementation(async (filePath) =>
     getTemplateContent(filePath),
   );
@@ -74,8 +72,6 @@ describe('TextPrompt', () => {
     );
     const message = await prompt.buildMessage();
 
-    // Log the rendered user message for debugging
-    console.info('--- Rendered TextPrompt User Message ---');
     if (!isSystemUserMessage(message)) {
       throw new Error(
         `Prompt did not return expected object shape.\nActual payload:\n${JSON.stringify(message)}`,

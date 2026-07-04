@@ -1,5 +1,5 @@
 import { LlmResponseSchema } from './types';
-import type { GeminiModelParams } from './types';
+import type { GeminiModelParameters } from './types';
 
 describe('LlmResponseSchema', () => {
   it('should validate a correct payload', () => {
@@ -72,44 +72,54 @@ describe('LlmResponseSchema', () => {
   });
 });
 
-describe('GeminiModelParams type', () => {
+describe('GeminiModelParameters type', () => {
   it('should accept a valid params object with thinking and systemInstruction', () => {
-    const params: GeminiModelParams = {
+    const parameters: GeminiModelParameters = {
       model: 'gemini-2.5-flash-lite',
       generationConfig: { temperature: 0 },
       thinking: { budget: 100 },
       systemInstruction: 'Be concise',
     };
 
-    expect(params.model).toBe('gemini-2.5-flash-lite');
-    expect(params.thinking?.budget).toBe(100);
-    expect(params.systemInstruction).toBe('Be concise');
+    expect(parameters).toMatchObject({
+      model: 'gemini-2.5-flash-lite',
+      generationConfig: { temperature: 0 },
+      thinking: { budget: 100 },
+      systemInstruction: 'Be concise',
+    });
   });
 
   it('should allow params with thinking omitted', () => {
-    const params: GeminiModelParams = {
+    const parameters: GeminiModelParameters = {
       model: 'gemini-2.5-flash',
       generationConfig: {},
     };
-    expect(params.thinking).toBeUndefined();
+    expect(parameters).toMatchObject({
+      model: 'gemini-2.5-flash',
+      generationConfig: {},
+    });
+    expect(parameters).not.toHaveProperty('thinking');
   });
 
   it('should allow params with systemInstruction omitted', () => {
-    const params: GeminiModelParams = {
+    const parameters: GeminiModelParameters = {
       model: 'gemini-2.5-flash',
     };
-    expect(params.systemInstruction).toBeUndefined();
+    expect(parameters).toMatchObject({
+      model: 'gemini-2.5-flash',
+    });
+    expect(parameters).not.toHaveProperty('systemInstruction');
   });
 
   it('should enforce types at compile-time for common mistakes', () => {
     // @ts-expect-error - thinking.budget must be a number
-    const bad1: GeminiModelParams = {
+    const bad1: GeminiModelParameters = {
       model: 'gemini-2.5-flash',
       thinking: { budget: 'not-a-number' },
     };
 
     // @ts-expect-error - systemInstruction must be a string
-    const bad2: GeminiModelParams = {
+    const bad2: GeminiModelParameters = {
       model: 'gemini-2.5-flash',
       systemInstruction: 123,
     };

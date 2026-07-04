@@ -8,58 +8,60 @@ type LoggerModuleAsyncOptions = {
   useFactory: (configService: ConfigService) => Params;
 };
 
-let loggerModuleOptions: LoggerModuleAsyncOptions | undefined;
+const forRootAsync = jest.fn() as jest.Mock & {
+  lastOptions?: LoggerModuleAsyncOptions;
+};
 
-const forRootAsync = jest.fn((options: LoggerModuleAsyncOptions) => {
-  loggerModuleOptions = options;
+forRootAsync.mockImplementation((options: LoggerModuleAsyncOptions) => {
+  forRootAsync.lastOptions = options;
 });
 
 jest.mock('nestjs-pino', () => ({
   LoggerModule: { forRootAsync },
 }));
 
+const getLoggerModuleOptions = (): LoggerModuleAsyncOptions => {
+  if (forRootAsync.lastOptions === undefined) {
+    throw new Error('LoggerModule.forRootAsync was not called');
+  }
+
+  return forRootAsync.lastOptions;
+};
+
+const buildConfigService = (
+  overrides: Partial<Record<string, string>>,
+): { get: jest.Mock } => ({
+  get: jest.fn((key: string) => {
+    const defaults = new Map<string, string>([
+      ['LOG_LEVEL', 'debug'],
+      ['NODE_ENV', 'development'],
+      ...Object.entries(overrides).filter(
+        (entry): entry is [string, string] => entry[1] !== undefined,
+      ),
+    ]);
+
+    return defaults.get(key);
+  }),
+});
+
+const loadModule = async (): Promise<{ AppModule: unknown }> => {
+  jest.resetModules();
+  forRootAsync.mockClear();
+  forRootAsync.lastOptions = undefined;
+  return import('./app.module');
+};
+
 describe('AppModule logging configuration', () => {
-  const originalEnv = process.env;
-
-  const getLoggerModuleOptions = (): LoggerModuleAsyncOptions => {
-    if (loggerModuleOptions === undefined) {
-      throw new Error('LoggerModule.forRootAsync was not called');
-    }
-
-    return loggerModuleOptions;
-  };
+  const originalEnvironment = process.env;
 
   afterEach(() => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
     jest.resetModules();
     jest.clearAllMocks();
   });
 
-  const loadModule = async (): Promise<{ AppModule: unknown }> => {
-    jest.resetModules();
-    forRootAsync.mockClear();
-    loggerModuleOptions = undefined;
-    return import('./app.module');
-  };
-
-  const buildConfigService = (
-    overrides: Partial<Record<string, string>>,
-  ): { get: jest.Mock } => ({
-    get: jest.fn((key: string) => {
-      const defaults = new Map<string, string>([
-        ['LOG_LEVEL', 'debug'],
-        ['NODE_ENV', 'development'],
-        ...Object.entries(overrides).filter(
-          (entry): entry is [string, string] => entry[1] !== undefined,
-        ),
-      ]);
-
-      return defaults.get(key);
-    }),
-  });
-
   it('uses the file transport when LOG_FILE is set', async () => {
-    process.env = { ...originalEnv, LOG_FILE: '/tmp/app.log' };
+    process.env = { ...originalEnvironment, LOG_FILE: 'test-app-log.log' };
 
     const module = await loadModule();
     expect(module.AppModule).toBeDefined();
@@ -73,30 +75,30 @@ describe('AppModule logging configuration', () => {
 
     expect(result.pinoHttp.transport).toEqual({
       target: 'pino/file',
-      options: { destination: '/tmp/app.log' },
+      options: { destination: 'test-app-log.log' },
     });
 
-    const reqWithId = { id: 'abc-123' } as IncomingMessage;
-    const reqWithoutId = {} as IncomingMessage;
-    const customProps = result.pinoHttp.customProps as (
-      req: IncomingMessage,
-      res: ServerResponse<IncomingMessage>,
+    const requestWithId = { id: 'abc-123' } as IncomingMessage;
+    const requestWithoutId = {} as IncomingMessage;
+    const customProperties = result.pinoHttp.customProps as (
+      request: IncomingMessage,
+      response: ServerResponse<IncomingMessage>,
     ) => { reqId: string | number | undefined };
 
     expect(
-      customProps(reqWithId, {} as ServerResponse<IncomingMessage>),
+      customProperties(requestWithId, {} as ServerResponse<IncomingMessage>),
     ).toEqual({
       reqId: 'abc-123',
     });
     expect(
-      customProps(reqWithoutId, {} as ServerResponse<IncomingMessage>),
+      customProperties(requestWithoutId, {} as ServerResponse<IncomingMessage>),
     ).toEqual({
       reqId: undefined,
     });
   });
 
   it('uses JSON logging without transport in production', async () => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
 
     await loadModule();
     const options = getLoggerModuleOptions();
@@ -110,7 +112,7 @@ describe('AppModule logging configuration', () => {
   });
 
   it('uses pino-pretty transport in development', async () => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
 
     await loadModule();
     const options = getLoggerModuleOptions();

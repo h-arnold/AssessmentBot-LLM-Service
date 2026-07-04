@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import path from 'node:path';
 
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -40,11 +40,11 @@ describe('ConfigModule', () => {
 
   it('should initialise successfully when .env file is missing but required env vars are set', async () => {
     // Temporarily remove .env file if it exists for this test
-    const originalDotEnvPath = path.resolve(process.cwd(), '.env');
-    let dotEnvExists = false;
-    if (fs.existsSync(originalDotEnvPath)) {
-      fs.renameSync(originalDotEnvPath, originalDotEnvPath + '.bak');
-      dotEnvExists = true;
+    const originalDotEnvironmentPath = path.resolve(process.cwd(), '.env');
+    let dotEnvironmentExists = false;
+    if (fs.existsSync(originalDotEnvironmentPath)) {
+      fs.renameSync(originalDotEnvironmentPath, originalDotEnvironmentPath + '.bak');
+      dotEnvironmentExists = true;
     }
 
     // Ensure required variables are set in process.env
@@ -59,12 +59,12 @@ describe('ConfigModule', () => {
       testModule = await Test.createTestingModule({
         imports: [ConfigModule],
       }).compile();
-    } catch (e) {
-      error = e;
+    } catch (error_) {
+      error = error_;
     } finally {
       // Restore .env file if it existed
-      if (dotEnvExists) {
-        fs.renameSync(originalDotEnvPath + '.bak', originalDotEnvPath);
+      if (dotEnvironmentExists) {
+        fs.renameSync(originalDotEnvironmentPath + '.bak', originalDotEnvironmentPath);
       }
     }
 

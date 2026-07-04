@@ -50,11 +50,11 @@ describe('ApiKeyStrategy', () => {
     it('should return the user object when authentication is successful', async () => {
       const user: User = { apiKey: 'test-key' };
       const token = 'valid-api-key';
-      const req = { headers: { authorization: 'Bearer ' + token } } as Request;
+      const request = { headers: { authorization: 'Bearer ' + token } } as Request;
 
       mockApiKeyService.validate.mockResolvedValue(user);
 
-      const result = await strategy.validate(req, token);
+      const result = await strategy.validate(request, token);
 
       expect(mockApiKeyService.validate).toHaveBeenCalledWith(token);
       expect(result).toEqual(user);
@@ -65,11 +65,11 @@ describe('ApiKeyStrategy', () => {
      */
     it('should throw an UnauthorizedException if authentication fails', async () => {
       const token = 'invalid-api-key';
-      const req = { headers: { authorization: 'Bearer ' + token } } as Request;
+      const request = { headers: { authorization: 'Bearer ' + token } } as Request;
 
       mockApiKeyService.validate.mockResolvedValue(null);
 
-      await expect(strategy.validate(req, token)).rejects.toThrow(
+      await expect(strategy.validate(request, token)).rejects.toThrow(
         UnauthorizedException,
       );
       expect(mockApiKeyService.validate).toHaveBeenCalledWith(token);
@@ -80,9 +80,9 @@ describe('ApiKeyStrategy', () => {
      */
     it('should throw an UnauthorizedException and log a warning for a malformed Bearer scheme', async () => {
       const token = 'any-key';
-      const req = { headers: { authorization: 'bearer ' + token } } as Request;
+      const request = { headers: { authorization: 'bearer ' + token } } as Request;
 
-      await expect(strategy.validate(req, token)).rejects.toThrow(
+      await expect(strategy.validate(request, token)).rejects.toThrow(
         new UnauthorizedException('Malformed Bearer scheme.'),
       );
 
@@ -97,11 +97,11 @@ describe('ApiKeyStrategy', () => {
     it('should not throw for a valid Bearer scheme', async () => {
       const user: User = { apiKey: 'test-key' };
       const token = 'valid-api-key';
-      const req = { headers: { authorization: 'Bearer ' + token } } as Request;
+      const request = { headers: { authorization: 'Bearer ' + token } } as Request;
 
       mockApiKeyService.validate.mockResolvedValue(user);
 
-      await expect(strategy.validate(req, token)).resolves.toEqual(user);
+      await expect(strategy.validate(request, token)).resolves.toEqual(user);
     });
   });
 });

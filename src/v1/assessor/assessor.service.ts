@@ -37,23 +37,7 @@ export class AssessorService {
   async createAssessment(dto: CreateAssessorDto): Promise<LlmResponse> {
     this.logger.log(`Creating assessment for task type: ${dto.taskType}.`);
     try {
-      const prompt = await this.promptFactory.create(dto);
-      this.logger.debug(
-        `Prompt created for task type: ${dto.taskType}. Building payload.`,
-      );
-
-      const message = await prompt.buildMessage();
-      const payloadSummary =
-        'images' in message
-          ? `image payload with ${message.images.length} images`
-          : `text payload with ${message.user.length} characters`;
-      this.logger.debug(
-        `LLM payload built for task type: ${dto.taskType} (${payloadSummary}).`,
-      );
-
-      const response = await this.llmService.send(message);
-      this.logger.log(`Assessment completed for task type: ${dto.taskType}.`);
-      return response;
+      return await this.executeAssessment(dto);
     } catch (error) {
       this.logger.error(
         `Assessment failed for task type: ${dto.taskType}.`,
@@ -61,5 +45,27 @@ export class AssessorService {
       );
       throw error;
     }
+  }
+
+  private async executeAssessment(
+    dto: CreateAssessorDto,
+  ): Promise<LlmResponse> {
+    const prompt = await this.promptFactory.create(dto);
+    this.logger.debug(
+      `Prompt created for task type: ${dto.taskType}. Building payload.`,
+    );
+
+    const message = await prompt.buildMessage();
+    const payloadSummary =
+      'images' in message
+        ? `image payload with ${message.images.length} images`
+        : `text payload with ${message.user.length} characters`;
+    this.logger.debug(
+      `LLM payload built for task type: ${dto.taskType} (${payloadSummary}).`,
+    );
+
+    const response = await this.llmService.send(message);
+    this.logger.log(`Assessment completed for task type: ${dto.taskType}.`);
+    return response;
   }
 }

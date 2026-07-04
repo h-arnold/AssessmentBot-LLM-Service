@@ -1,6 +1,7 @@
-import { ChildProcessWithoutNullStreams } from 'child_process';
-import * as path from 'path';
+import { ChildProcessWithoutNullStreams } from 'node:child_process';
+import path from 'node:path';
 
+import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
 import { startApp, stopApp, delay } from './utils/app-lifecycle';
@@ -10,7 +11,11 @@ describe('Authentication E2E Tests', () => {
   let appProcess: ChildProcessWithoutNullStreams;
   let appUrl: string;
   let apiKey: string;
-  const logFilePath = path.join(__dirname, 'logs', 'auth.e2e-spec.log');
+  const logFilePath = path.join(
+    getCurrentDirname(),
+    'logs',
+    'auth.e2e-spec.log',
+  );
 
   const INVALID_API_KEY = 'invalid_key';
 
@@ -51,7 +56,7 @@ describe('Authentication E2E Tests', () => {
     // Add delay before API call to avoid rate limiting
     await delay(2000);
 
-    await request(appUrl)
+    const response = await request(appUrl)
       .post('/v1/assessor')
       .set('Authorization', `Bearer ${apiKey}`)
       .send({
@@ -59,8 +64,9 @@ describe('Authentication E2E Tests', () => {
         reference: 'The quick brown fox jumps over the lazy dog.',
         template: 'Write a sentence about a fox.',
         studentResponse: 'A fox is a mammal.',
-      })
-      .expect(201);
+      });
+
+    expect(response.status).toBe(201);
 
     await waitForLog(logFilePath, (log) => {
       return (
@@ -70,7 +76,7 @@ describe('Authentication E2E Tests', () => {
       );
     });
 
-    expect(true).toBe(true); // Add a dummy assertion to satisfy the linter
+    // Verification above ensures the request was processed successfully
   });
 
   // 2.2 Unprotected Routes

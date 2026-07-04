@@ -1,15 +1,15 @@
-import { getCurrentDirname } from './file-utils';
+import { getCurrentDirname } from './file-utilities';
 
 describe('getCurrentDirname', () => {
-  it('should return process.cwd() in Jest test environment', () => {
+  it('should return process.cwd() by default', () => {
     const result = getCurrentDirname();
     expect(result).toBe(process.cwd());
   });
 
   it('should use fallback directory when provided', () => {
-    const fallbackDir = '/custom/test/path';
-    const result = getCurrentDirname(fallbackDir);
-    expect(result).toBe(fallbackDir);
+    const fallbackDirectory = '/custom/test/path';
+    const result = getCurrentDirname(fallbackDirectory);
+    expect(result).toBe(fallbackDirectory);
   });
 
   it('should return process.cwd() when no fallback is provided', () => {

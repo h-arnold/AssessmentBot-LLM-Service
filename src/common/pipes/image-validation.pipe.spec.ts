@@ -1,40 +1,28 @@
 import { BadRequestException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 
 import { ImageValidationPipe } from './image-validation.pipe';
-import { ConfigService } from '../../config/config.service';
+
+interface PipeLike {
+  transform: (value: unknown) => Promise<unknown>;
+}
 
 describe('ImageValidationPipe', () => {
-  let pipe: ImageValidationPipe;
-  let configService: ConfigService;
+  let pipe: PipeLike;
+  let configService: { get: jest.Mock };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ImageValidationPipe,
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn(
-              (
-                key: 'MAX_IMAGE_UPLOAD_SIZE_MB' | 'ALLOWED_IMAGE_MIME_TYPES',
-              ): string[] | number => {
-                if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
-                  return 1; // 1 MB
-                }
-                if (key === 'ALLOWED_IMAGE_MIME_TYPES') {
-                  return ['image/png', 'image/jpeg'];
-                }
-                return 0;
-              },
-            ),
-          },
-        },
-      ],
-    }).compile();
+    configService = {
+      get: jest.fn((key: string): unknown => {
+        if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') return 1 as unknown;
+        if (key === 'ALLOWED_IMAGE_MIME_TYPES')
+          return ['image/png', 'image/jpeg'] as unknown;
+        return undefined;
+      }),
+    };
 
-    pipe = module.get<ImageValidationPipe>(ImageValidationPipe);
-    configService = module.get<ConfigService>(ConfigService);
+    pipe = Object.assign(Object.create(ImageValidationPipe.prototype), {
+      configService,
+    }) as PipeLike;
   });
 
   it('should be defined', () => {
@@ -51,45 +39,43 @@ describe('ImageValidationPipe', () => {
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
         'base64',
       );
-      await expect(pipe.transform(validPngBuffer)).resolves.toEqual(
-        validPngBuffer,
-      );
+      const result = await pipe.transform(validPngBuffer);
+      expect(result).toEqual(validPngBuffer);
     });
 
     it('should allow a valid JPEG Buffer within size limit', async () => {
       const validJpgBuffer = Buffer.from(
-        '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/ACoAB//Z',
+        '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEBAxEDEQA/ACoAB//Z',
         'base64',
       );
-      await expect(pipe.transform(validJpgBuffer)).resolves.toEqual(
-        validJpgBuffer,
-      );
+      const result = await pipe.transform(validJpgBuffer);
+      expect(result).toEqual(validJpgBuffer);
     });
 
     it('should allow a valid base64 PNG string within size limit', async () => {
       const validBase64Png =
         'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
-      await expect(pipe.transform(validBase64Png)).resolves.toEqual(
-        validBase64Png,
-      );
+      const result = await pipe.transform(validBase64Png);
+      expect(result).toEqual(validBase64Png);
     });
 
     it('should allow a valid base64 JPEG string within size limit', async () => {
       const validBase64Jpg =
         'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/ACoAB//Z';
-      await expect(pipe.transform(validBase64Jpg)).resolves.toEqual(
-        validBase64Jpg,
-      );
+      const result = await pipe.transform(validBase64Jpg);
+      expect(result).toEqual(validBase64Jpg);
     });
 
     it('should allow non-image string inputs', async () => {
       const text = 'this is not an image';
-      await expect(pipe.transform(text)).resolves.toEqual(text);
+      const result = await pipe.transform(text);
+      expect(result).toEqual(text);
     });
 
     it('should allow non-Buffer/non-string inputs to pass through', async () => {
-      const obj = { a: 1 };
-      await expect(pipe.transform(obj)).resolves.toEqual(obj);
+      const object = { a: 1 };
+      const result = await pipe.transform(object);
+      expect(result).toEqual(object);
     });
   });
 
@@ -102,7 +88,8 @@ describe('ImageValidationPipe', () => {
     });
 
     it('should reject a base64 string exceeding MAX_IMAGE_UPLOAD_SIZE_MB', async () => {
-      const largeBase64 = `data:image/png;base64,${Buffer.alloc(2 * 1024 * 1024).toString('base64')}`;
+      const largeBytes = new Uint8Array(2 * 1024 * 1024);
+      const largeBase64 = `data:image/png;base64,${Buffer.from(largeBytes).toString('base64')}`;
       await expect(pipe.transform(largeBase64)).rejects.toThrow(
         BadRequestException,
       );
@@ -157,12 +144,14 @@ describe('ImageValidationPipe', () => {
 
   describe('Edge Cases', () => {
     it('should handle MAX_IMAGE_UPLOAD_SIZE_MB = 0 (reject all images)', async () => {
-      jest.spyOn(configService, 'get').mockImplementation((key: string) => {
-        if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
-          return 0;
-        }
-        return ['image/png', 'image/jpeg'];
-      });
+      jest
+        .spyOn(configService, 'get')
+        .mockImplementation((key: string): unknown => {
+          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
+            return 0;
+          }
+          return ['image/png', 'image/jpeg'];
+        });
       const validPngBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
         'base64',
@@ -173,12 +162,14 @@ describe('ImageValidationPipe', () => {
     });
 
     it('should handle empty ALLOWED_IMAGE_MIME_TYPES (reject all images)', async () => {
-      jest.spyOn(configService, 'get').mockImplementation((key: string) => {
-        if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
-          return 1;
-        }
-        return [];
-      });
+      jest
+        .spyOn(configService, 'get')
+        .mockImplementation((key: string): unknown => {
+          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
+            return 1;
+          }
+          return [];
+        });
       const validPngBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
         'base64',

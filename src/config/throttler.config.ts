@@ -1,6 +1,6 @@
 import { ThrottlerModuleOptions } from '@nestjs/throttler';
 
-import { configSchema } from './env.schema';
+import { configSchema } from './environment.schema';
 
 /**
  * @file Configures the application's rate-limiting (throttling) settings.
@@ -18,16 +18,16 @@ import { configSchema } from './env.schema';
  * configuration, but are available at compile time for the decorators to use.
  *
  * This approach allows for a clean, declarative, and type-safe way to manage rate-limiting on a per-route basis
- * while keeping the validation logic centralised in `env.schema.ts`.
+ * while keeping the validation logic centralised in `environment.schema.ts`.
  */
 
 // 1. Validate environment variables at compile time using the shared Zod schema.
-const validatedEnv = configSchema.parse(process.env);
+const validatedEnvironment = configSchema.parse(process.env);
 
 // 2. Extract the validated throttler values into constants.
-const throttlerTtl = validatedEnv.THROTTLER_TTL;
-const unauthenticatedLimit = validatedEnv.UNAUTHENTICATED_THROTTLER_LIMIT;
-const authenticatedLimit = validatedEnv.AUTHENTICATED_THROTTLER_LIMIT;
+const throttlerTtl = validatedEnvironment.THROTTLER_TTL;
+const unauthenticatedLimit = validatedEnvironment.UNAUTHENTICATED_THROTTLER_LIMIT;
+const authenticatedLimit = validatedEnvironment.AUTHENTICATED_THROTTLER_LIMIT;
 
 /**
  * The global throttler configuration for the application.

@@ -25,33 +25,29 @@ describe('PromptFactory', () => {
     expect(factory).toBeDefined();
   });
 
-  it("should return a TextPrompt for taskType 'TEXT'", () => {
+  it("should return a TextPrompt for taskType 'TEXT'", async () => {
     const dto: CreateAssessorDto = {
       taskType: TaskType.TEXT,
       reference: 'ref',
       studentResponse: 'stud',
       template: 'temp',
     };
-    return factory.create(dto).then((prompt) => {
-      expect(prompt).toBeInstanceOf(TextPrompt);
-      return undefined;
-    });
+    const prompt = await factory.create(dto);
+    expect(prompt).toBeInstanceOf(TextPrompt);
   });
 
-  it("should return a TablePrompt for taskType 'TABLE'", () => {
+  it("should return a TablePrompt for taskType 'TABLE'", async () => {
     const dto: CreateAssessorDto = {
       taskType: TaskType.TABLE,
       reference: 'ref',
       studentResponse: 'stud',
       template: 'temp',
     };
-    return factory.create(dto).then((prompt) => {
-      expect(prompt).toBeInstanceOf(TablePrompt);
-      return undefined;
-    });
+    const prompt = await factory.create(dto);
+    expect(prompt).toBeInstanceOf(TablePrompt);
   });
 
-  it("should return an ImagePrompt for taskType 'IMAGE'", () => {
+  it("should return an ImagePrompt for taskType 'IMAGE'", async () => {
     const dto: CreateAssessorDto = {
       taskType: TaskType.IMAGE,
       reference: 'ref',
@@ -59,17 +55,15 @@ describe('PromptFactory', () => {
       template: 'temp',
       images: [],
     };
-    return factory.create(dto).then((prompt) => {
-      expect(prompt).toBeInstanceOf(ImagePrompt);
-      return undefined;
-    });
+    const prompt = await factory.create(dto);
+    expect(prompt).toBeInstanceOf(ImagePrompt);
   });
 
-  it('should throw an error for an unsupported taskType', () => {
+  it('should throw an error for an unsupported taskType', async () => {
     const dto = {
       taskType: 'INVALID',
     } as unknown as CreateAssessorDto;
-    return expect(factory.create(dto)).rejects.toThrow(
+    await expect(factory.create(dto)).rejects.toThrow(
       'Unsupported task type: INVALID',
     );
   });

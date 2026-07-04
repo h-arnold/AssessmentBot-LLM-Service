@@ -36,7 +36,7 @@ export class ApiKeyService {
     const apiKeysFromConfig = this.configService.get('API_KEYS');
     this.apiKeys = Array.isArray(apiKeysFromConfig) ? apiKeysFromConfig : [];
     this.logger.debug(`Loaded API keys: ${JSON.stringify(this.apiKeys)}`);
-    if (!this.apiKeys.length) {
+    if (this.apiKeys.length === 0) {
       this.logger.warn(
         'No API keys configured. All requests will be unauthorised.',
       );

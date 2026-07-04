@@ -2,7 +2,6 @@ import { Logger, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { ApiKeyService } from './api-key.service';
-import { User } from './user.interface';
 import { ConfigService, Config } from '../config/config.service';
 
 describe('ApiKeyService', () => {

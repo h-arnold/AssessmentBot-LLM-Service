@@ -44,6 +44,9 @@ export default tseslint.config(
         ...globals.jest,
       },
     },
+    plugins: {
+      sonarjs,
+    },
     rules: {
       // unicorn rules customisation (mirrors the frontend config)
       'unicorn/no-array-for-each': 'off',
@@ -59,10 +62,25 @@ export default tseslint.config(
       'unicorn/switch-case-braces': 'off',
       'unicorn/numeric-separators-style': 'off',
       'unicorn/consistent-boolean-name': 'off',
+      // Error.isError is only typed in lib.esnext.error.d.ts (Stage 3 TC39 proposal,
+      // not yet part of any released ECMAScript standard). Using it requires adding
+      // "ESNext" to the compilerOptions.lib array, which pulls in all unstable/future
+      // type definitions — an unacceptable trade-off just to satisfy this rule.
+      // The sole advantage of Error.isError over instanceof Error is handling
+      // cross-realm errors (from iframes or Node.js vm modules). This is a NestJS
+      // backend running in a single Node.js process with no vm module usage, so
+      // cross-realm errors cannot occur. instanceof Error is the idiomatic,
+      // fully type-safe, and sufficient approach here.
+      'unicorn/prefer-error-is-error': 'off',
       'unicorn/no-process-exit': 'off',
       'unicorn/prefer-temporal': 'off',
       'unicorn/consistent-class-member-order': 'off',
       'unicorn/max-nested-calls': 'warn',
+    },
+  },
+  {
+    rules: {
+      ...sonarjs.configs.recommended.rules,
     },
   },
   {
@@ -99,13 +117,32 @@ export default tseslint.config(
     files: ['test/**/*.ts', 'src/**/*.spec.ts'], // Apply type-aware rules and Jest rules to test files
     languageOptions: {
       parserOptions: {
-        project: ['./tsconfig.json', './jest-e2e.config.cjs'],
+        project: ['./tsconfig.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
       ...jest.configs.recommended.rules, // Apply Jest recommended rules
       // You might want to add more specific rules for test files here
+    },
+  },
+  // Override @typescript-eslint/no-unsafe-* rules for spec files.
+  // NestJS's @Injectable() decorator prevents the type checker from fully
+  // resolving the constructor/method types of decorated classes. Any attempt
+  // to create instances in tests (via TestingModule.get(), Object.create(),
+  // or direct construction) leaves the value "tainted from any" in the
+  // typescript-eslint type tracker, even after explicit `as` casts. These
+  // warnings are unavoidable when testing NestJS @Injectable()-decorated
+  // classes and provide no real safety value — a test that compiles and runs
+  // correctly is the proper safety check. See also:
+  // https://github.com/nestjs/nest/issues/13191
+  {
+    files: ['src/**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {
@@ -155,7 +192,7 @@ export default tseslint.config(
           ignoreContent: [
             'test-key',
             'test-api-key',
-            '^data:image\\/png;base64,',
+            String.raw`^data:image\/png;base64,`,
             'your_database_url_here',
             'your_api_key_here',
           ],
@@ -195,6 +232,41 @@ export default tseslint.config(
     files: ['src/**/*.spec.ts', 'src/test/**'],
     rules: {
       'no-restricted-imports': 'off',
+    },
+  },
+  // Jest runs inside a CommonJS environment (tsconfig.module = CommonJS) that lacks
+  // both top-level await support and the Uint8Array.fromBase64() method (missing from
+  // Node.js v24 runtime despite being in the ESNext type definitions). These overrides
+  // will be removed when the project migrates from Jest to ViTest (which supports ESM
+  // natively), eliminating both constraints in a single change.
+  //
+  // unicorn/prefer-module: The isRunningDirectly() function uses a try/catch to
+  // detect ESM vs CommonJS. In the CommonJS fallback branch it must call
+  // typeof require !== 'undefined' && require.main === module — the only reliable
+  // way to check whether the current file is the entry point in CJS. The unicorn
+  // rule banning require/module references is correct for normal source code but
+  // cannot be applied to this deliberate dual-environment detection logic.
+  {
+    files: ['src/main.ts'],
+    rules: {
+      'unicorn/prefer-top-level-await': 'off',
+      'unicorn/prefer-module': 'off',
+    },
+  },
+  {
+    files: ['src/testing-main.ts'],
+    rules: {
+      'unicorn/prefer-top-level-await': 'off',
+      'unicorn/prefer-module': 'off',
+    },
+  },
+  {
+    files: [
+      'src/common/pipes/image-validation.pipe.ts',
+      'src/common/pipes/image-validation.pipe.spec.ts',
+    ],
+    rules: {
+      'unicorn/prefer-uint8array-base64': 'off',
     },
   },
   // Scripts and prod-tests run outside the NestJS app — console output is legitimate

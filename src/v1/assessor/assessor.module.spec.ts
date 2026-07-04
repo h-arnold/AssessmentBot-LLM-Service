@@ -7,7 +7,7 @@ import { AssessorModule } from './assessor.module';
 import { AssessorService } from './assessor.service';
 import { ConfigModule, ConfigService } from '../../config';
 
-const getMockConfigValue = (key: string): string | number | undefined => {
+const getMockConfigValue = (key: string): unknown => {
   switch (key) {
     case 'GEMINI_API_KEY':
       return 'test-key';

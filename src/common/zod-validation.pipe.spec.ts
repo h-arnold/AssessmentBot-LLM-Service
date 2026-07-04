@@ -74,21 +74,22 @@ describe('ZodValidationPipe', () => {
   });
 
   describe('nested validation', () => {
+    const addressSchema = z.object({
+      street: z.string(),
+      city: z.string(),
+    });
+    const userSchema = z.object({
+      id: z.uuid(),
+      name: z.string().min(3),
+      address: addressSchema,
+    });
+    const productSchema = z.object({
+      productId: z.string(),
+      quantity: z.number().min(1),
+    });
     const nestedSchema = z.object({
-      user: z.object({
-        id: z.uuid(),
-        name: z.string().min(3),
-        address: z.object({
-          street: z.string(),
-          city: z.string(),
-        }),
-      }),
-      products: z.array(
-        z.object({
-          productId: z.string(),
-          quantity: z.number().min(1),
-        }),
-      ),
+      user: userSchema,
+      products: z.array(productSchema),
     });
     let nestedPipe: ZodValidationPipe;
 
@@ -150,7 +151,7 @@ describe('ZodValidationPipe', () => {
       password: 'short',
     };
 
-    const originalNodeEnv = process.env.NODE_ENV;
+    const originalNodeEnvironment = process.env.NODE_ENV;
     process.env.NODE_ENV = 'development';
 
     let thrownError: unknown;
@@ -160,7 +161,7 @@ describe('ZodValidationPipe', () => {
       thrownError = error;
     }
 
-    process.env.NODE_ENV = originalNodeEnv;
+    process.env.NODE_ENV = originalNodeEnvironment;
     expect(thrownError).toBeInstanceOf(BadRequestException);
     const response = (
       thrownError as BadRequestException
@@ -181,24 +182,24 @@ describe('ZodValidationPipe', () => {
 
   it('should sanitise validation error messages in production', () => {
     const sensitiveSchema = z.object({
-      apiKey: z.string().refine((val) => val.startsWith('sk-'), {
+      apiKey: z.string().refine((value) => value.startsWith('sk-'), {
         message: 'Invalid API Key format',
       }),
     });
     const sensitivePipe = new ZodValidationPipe(sensitiveSchema);
 
-    const originalNodeEnv = process.env.NODE_ENV;
+    const originalNodeEnvironment = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
 
-    let prodError: unknown;
+    let productionError: unknown;
     try {
       sensitivePipe.transform({ apiKey: 'invalid' }, {} as ArgumentMetadata);
     } catch (error) {
-      prodError = error;
+      productionError = error;
     }
-    expect(prodError).toBeInstanceOf(BadRequestException);
+    expect(productionError).toBeInstanceOf(BadRequestException);
     const response = (
-      prodError as BadRequestException
+      productionError as BadRequestException
     ).getResponse() as ZodErrorResponse;
     expect(response).toHaveProperty('message', 'Validation failed');
     expect(response).toHaveProperty('errors');
@@ -206,7 +207,7 @@ describe('ZodValidationPipe', () => {
     // In production, specific error messages should be generic or sanitised
     expect(response.errors[0].message).not.toContain('Invalid API Key format');
     expect(response.errors[0].message).toEqual('Invalid input'); // Zod's default for refined errors
-    process.env.NODE_ENV = originalNodeEnv;
+    process.env.NODE_ENV = originalNodeEnvironment;
   });
 });
 

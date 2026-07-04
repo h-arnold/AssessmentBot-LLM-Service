@@ -30,14 +30,14 @@ const normalisePath = (filePath: PathOrFileDescriptor): string => {
   }
 
   if (Buffer.isBuffer(filePath)) {
-    return filePath.toString('utf-8');
+    return filePath.toString('utf8');
   }
 
   return '';
 };
 
 describe('.env.example file', () => {
-  const expectedRequiredVars = ['NODE_ENV', 'PORT', 'APP_NAME', 'APP_VERSION'];
+  const expectedRequiredVariables = ['NODE_ENV', 'PORT', 'APP_NAME', 'APP_VERSION'];
 
   beforeEach(() => {
     mockExistsSync.mockReset();
@@ -66,23 +66,23 @@ API_KEY=your_api_key_here
 
   it('should contain all required variables', () => {
     const exampleContent = fs.readFileSync('.env.example', {
-      encoding: 'utf-8',
+      encoding: 'utf8',
     });
     const exampleConfig = dotenv.parse(exampleContent);
 
-    expectedRequiredVars.forEach((key) => {
+    for (const key of expectedRequiredVariables) {
       const matchedEntry = Object.entries(exampleConfig).find(
         ([entryKey]) => entryKey === key,
       );
 
       expect(matchedEntry).toBeDefined();
       expect(matchedEntry?.[1]).not.toBe('');
-    });
+    }
   });
 
   it('should use placeholder values', () => {
     const exampleContent = fs.readFileSync('.env.example', {
-      encoding: 'utf-8',
+      encoding: 'utf8',
     });
     const exampleConfig = dotenv.parse(exampleContent);
 

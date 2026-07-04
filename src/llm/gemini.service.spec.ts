@@ -2,7 +2,6 @@ import {
   GoogleGenerativeAI,
   GoogleGenerativeAIFetchError,
 } from '@google/generative-ai';
-import { Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import { GeminiService } from './gemini.service';
@@ -12,7 +11,7 @@ import {
 } from './llm.service.interface';
 import { ResourceExhaustedError } from './resource-exhausted.error';
 import { LlmResponse } from './types';
-import { JsonParserUtil } from '../common/json-parser.util';
+import { JsonParserUtility } from '../common/json-parser.utility';
 import { ConfigService } from '../config/config.service';
 
 // Only mock the GoogleGenerativeAI class, not the error classes
@@ -68,30 +67,29 @@ const expectValidResponse = (result: LlmResponse, score: number): void => {
 describe('GeminiService', () => {
   let service: GeminiService;
   let configService: ConfigService;
-  let jsonParserUtil: JsonParserUtil;
-  let logger: Logger;
+  let mockParse: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Mock ConfigService
     configService = {
-      get: jest.fn((key: string) => {
+      get: jest.fn((key: string): string | null => {
         if (key === 'GEMINI_API_KEY') return 'test-api-key';
-        if (key === 'LLM_BACKOFF_BASE_MS') return 100;
-        if (key === 'LLM_MAX_RETRIES') return 2;
+        if (key === 'LLM_BACKOFF_BASE_MS') return '100';
+        if (key === 'LLM_MAX_RETRIES') return '2';
         return null;
       }),
     } as unknown as ConfigService;
 
     // Mock JsonParserUtil
-    jsonParserUtil = {
-      parse: jest.fn((json: string): unknown => {
-        return JSON.parse(json) as unknown;
-      }),
-    } as unknown as JsonParserUtil;
+    mockParse = jest.fn((json: string): unknown => {
+      return JSON.parse(json) as unknown;
+    });
 
-    service = new GeminiService(configService, jsonParserUtil);
+    service = new GeminiService(configService, {
+      parse: mockParse,
+    } as unknown as JsonParserUtility);
   });
 
   it('should be defined', () => {
@@ -150,14 +148,12 @@ describe('GeminiService', () => {
         },
       });
 
-      (jsonParserUtil.parse as jest.Mock).mockReturnValueOnce(
-        JSON.parse(repairedJson),
-      );
+      mockParse.mockReturnValueOnce(JSON.parse(repairedJson));
 
       const payload = createStringPayload();
       await service.send(payload);
 
-      expect(jsonParserUtil.parse).toHaveBeenCalledWith(malformedJson);
+      expect(mockParse).toHaveBeenCalledWith(malformedJson);
     });
   });
 
@@ -189,7 +185,7 @@ describe('GeminiService', () => {
         },
       });
 
-      (jsonParserUtil.parse as jest.Mock).mockImplementation(() => {
+      mockParse.mockImplementation(() => {
         throw new Error('Malformed or irreparable JSON string provided.');
       });
 
@@ -213,41 +209,40 @@ describe('GeminiService', () => {
     });
   });
 
+  const testRetryBehaviorSuccess = async (
+    errors: Error[],
+    expectedCallCount: number,
+  ): Promise<void> => {
+    const payload = createStringPayload();
+
+    // Chain the mock rejections followed by success
+    let mockChain = mockGenerateContent;
+    for (const error of errors) {
+      mockChain = mockChain.mockRejectedValueOnce(error);
+    }
+    mockChain.mockResolvedValueOnce(createValidResponse(2));
+
+    const result = await service.send(payload);
+    expectValidResponse(result, 2);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(expectedCallCount);
+  };
+
+  const testRetryBehaviorFailure = async (
+    errors: Error[],
+    expectedCallCount: number,
+  ): Promise<void> => {
+    const payload = createStringPayload();
+
+    // Mock all calls to fail
+    for (const error of errors) {
+      mockGenerateContent.mockRejectedValueOnce(error);
+    }
+
+    await expect(service.send(payload)).rejects.toThrow();
+    expect(mockGenerateContent).toHaveBeenCalledTimes(expectedCallCount);
+  };
+
   describe('retry logic', () => {
-    // Helper function to test retry behavior
-    const testRetryBehaviorSuccess = async (
-      errors: Error[],
-      expectedCallCount: number,
-    ): Promise<void> => {
-      const payload = createStringPayload();
-
-      // Chain the mock rejections followed by success
-      let mockChain = mockGenerateContent;
-      errors.forEach((error) => {
-        mockChain = mockChain.mockRejectedValueOnce(error);
-      });
-      mockChain.mockResolvedValueOnce(createValidResponse(2));
-
-      const result = await service.send(payload);
-      expectValidResponse(result, 2);
-      expect(mockGenerateContent).toHaveBeenCalledTimes(expectedCallCount);
-    };
-
-    const testRetryBehaviorFailure = async (
-      errors: Error[],
-      expectedCallCount: number,
-    ): Promise<void> => {
-      const payload = createStringPayload();
-
-      // Mock all calls to fail
-      errors.forEach((error) => {
-        mockGenerateContent.mockRejectedValueOnce(error);
-      });
-
-      await expect(service.send(payload)).rejects.toThrow();
-      expect(mockGenerateContent).toHaveBeenCalledTimes(expectedCallCount);
-    };
-
     // eslint-disable-next-line jest/expect-expect
     it('should retry on 429 errors and eventually succeed', async () => {
       await testRetryBehaviorSuccess(
@@ -290,30 +285,27 @@ describe('GeminiService', () => {
     });
   });
 
+  const testResourceExhaustedError = async (
+    errorMessage: string,
+    statusCode: number = 429,
+  ): Promise<void> => {
+    const payload = createStringPayload();
+
+    const error = errorMessage.includes('RESOURCE_EXHAUSTED')
+      ? new GoogleGenerativeAIFetchError(errorMessage, statusCode)
+      : new Error(errorMessage);
+
+    if (!(error instanceof GoogleGenerativeAIFetchError)) {
+      (error as Error & { status?: number }).status = statusCode;
+    }
+
+    mockGenerateContent.mockRejectedValueOnce(error);
+
+    await expect(service.send(payload)).rejects.toThrow(ResourceExhaustedError);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1); // Should not retry
+  };
+
   describe('resource exhausted error handling', () => {
-    // Helper function to test resource exhausted error patterns
-    const testResourceExhaustedError = async (
-      errorMessage: string,
-      statusCode: number = 429,
-    ): Promise<void> => {
-      const payload = createStringPayload();
-
-      const error = errorMessage.includes('RESOURCE_EXHAUSTED')
-        ? new GoogleGenerativeAIFetchError(errorMessage, statusCode)
-        : new Error(errorMessage);
-
-      if (!(error instanceof GoogleGenerativeAIFetchError)) {
-        (error as Error & { status?: number }).status = statusCode;
-      }
-
-      mockGenerateContent.mockRejectedValueOnce(error);
-
-      await expect(service.send(payload)).rejects.toThrow(
-        ResourceExhaustedError,
-      );
-      expect(mockGenerateContent).toHaveBeenCalledTimes(1); // Should not retry
-    };
-
     // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "RESOURCE_EXHAUSTED" error', async () => {
       await testResourceExhaustedError('RESOURCE_EXHAUSTED: Quota exceeded');
@@ -345,9 +337,12 @@ describe('GeminiService', () => {
 
       mockGenerateContent.mockRejectedValueOnce(originalError);
 
-      const thrownError = await service
-        .send(payload)
-        .catch((error: unknown) => error);
+      let thrownError: unknown;
+      try {
+        await service.send(payload);
+      } catch (error: unknown) {
+        thrownError = error;
+      }
 
       expect(thrownError).toBeInstanceOf(ResourceExhaustedError);
       expect((thrownError as ResourceExhaustedError).originalError).toBe(

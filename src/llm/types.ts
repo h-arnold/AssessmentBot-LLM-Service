@@ -41,7 +41,7 @@ export const LlmResponseSchema = z.object({
   spag: AssessmentCriterionSchema,
 });
 
-export type GeminiModelParams = ModelParams & {
+export type GeminiModelParameters = ModelParams & {
   thinking?: { budget: number };
   systemInstruction?: string;
 };

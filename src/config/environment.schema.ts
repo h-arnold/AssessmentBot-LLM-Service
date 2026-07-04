@@ -42,19 +42,19 @@ export const configSchema = z.object({
   API_KEYS: z
     .string()
     .optional()
-    .transform((val) =>
-      val === undefined ? undefined : val.split(',').map((s) => s.trim()),
+    .transform((value) =>
+      value === undefined ? undefined : value.split(',').map((s) => s.trim()),
     )
     .refine(
-      (arr) =>
-        arr === undefined || arr.every((s) => /^[a-zA-Z0-9_-]+$/.test(s)),
+      (array) =>
+        array === undefined || array.every((s) => /^[a-zA-Z0-9_-]+$/.test(s)),
       { message: 'Invalid API key format' },
     ),
   MAX_IMAGE_UPLOAD_SIZE_MB: z.coerce.number().int().min(0).default(1),
   ALLOWED_IMAGE_MIME_TYPES: z
     .string()
     .default('image/png')
-    .transform((val) => val.split(',').map((s) => s.trim())),
+    .transform((value) => value.split(',').map((s) => s.trim())),
   GEMINI_API_KEY: z.string().min(1),
   LOG_LEVEL: z
     .enum(['info', 'error', 'warn', 'debug', 'verbose', 'fatal'])

@@ -1,34 +1,49 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import path from 'node:path';
+
+import { Logger } from '@nestjs/common';
+import { getCurrentDirname } from 'src/common/file-utilities';
 
 import { waitForLog, LogObject } from './utils/log-watcher';
 
+const logger = new Logger('LogWatcherUnit');
+
 jest.setTimeout(5000);
 
+function isUnitReady(log: LogObject): boolean {
+  return log.msg === 'unit-ready';
+}
+
+function isAfterMalformed(log: LogObject): boolean {
+  return log.msg === 'after-malformed';
+}
+
 describe('log-watcher', () => {
-  const logsDir = path.join(__dirname, 'logs');
-  const logFilePath = path.join(logsDir, 'waitForLog.unit.log');
+  const logsDirectory = path.join(getCurrentDirname(), 'logs');
+  const logFilePath = path.join(logsDirectory, 'waitForLog.unit.log');
 
   beforeAll(() => {
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
+    if (!fs.existsSync(logsDirectory)) {
+      fs.mkdirSync(logsDirectory, { recursive: true });
     }
     // Ensure the file exists empty
-    fs.writeFileSync(logFilePath, '', 'utf-8');
+    fs.writeFileSync(logFilePath, '', 'utf8');
   });
 
   afterAll(() => {
-    try {
-      if (fs.existsSync(logFilePath)) fs.unlinkSync(logFilePath);
-    } catch (err) {
-      // Log cleanup failures so CI flakes are easier to diagnose
-      console.debug('Failed to cleanup test logs:', err);
+    if (fs.existsSync(logFilePath)) {
+      try {
+        fs.unlinkSync(logFilePath);
+      } catch (error) {
+        logger.debug('Failed to cleanup test logs:', error);
+      }
     }
-    try {
-      if (fs.existsSync(logsDir)) fs.rmdirSync(logsDir);
-    } catch (err) {
-      // Log cleanup failures so CI flakes are easier to diagnose
-      console.debug('Failed to remove logs dir:', err);
+    if (fs.existsSync(logsDirectory)) {
+      try {
+        fs.rmdirSync(logsDirectory);
+      } catch (error) {
+        logger.debug('Failed to remove logs dir:', error);
+      }
     }
   });
 
@@ -43,15 +58,14 @@ describe('log-watcher', () => {
   });
 
   it('resolves when a matching log line appears', async () => {
-    const predicate = (log: LogObject): boolean => log.msg === 'unit-ready';
-    const p = waitForLog(logFilePath, predicate, 3000);
+    const p = waitForLog(logFilePath, isUnitReady, 3000);
 
     // Append a valid JSON line after a short delay
     setTimeout((): void => {
       fs.appendFileSync(
         logFilePath,
         JSON.stringify({ msg: 'unit-ready' }) + '\n',
-        'utf-8',
+        'utf8',
       );
     }, 50);
 
@@ -59,17 +73,15 @@ describe('log-watcher', () => {
   });
 
   it('skips malformed lines and still resolves when valid line appears', async () => {
-    const predicate = (log: LogObject): boolean =>
-      log.msg === 'after-malformed';
-    const p = waitForLog(logFilePath, predicate, 3000);
+    const p = waitForLog(logFilePath, isAfterMalformed, 3000);
 
     // Append a malformed line then a valid line
     setTimeout((): void => {
-      fs.appendFileSync(logFilePath, "{not: 'json'}\n", 'utf-8');
+      fs.appendFileSync(logFilePath, "{not: 'json'}\n", 'utf8');
       fs.appendFileSync(
         logFilePath,
         JSON.stringify({ msg: 'after-malformed' }) + '\n',
-        'utf-8',
+        'utf8',
       );
     }, 50);
 

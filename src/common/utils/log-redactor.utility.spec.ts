@@ -1,6 +1,6 @@
-import { IncomingMessage } from 'http';
+import { IncomingMessage } from 'node:http';
 
-import { LogRedactor } from './log-redactor.util';
+import { LogRedactor } from './log-redactor.utility';
 
 describe('LogRedactor', () => {
   it('redacts authorisation headers without mutating the original request', () => {

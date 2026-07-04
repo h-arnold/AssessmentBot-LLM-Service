@@ -8,18 +8,30 @@ import { jsonrepair } from 'jsonrepair';
  *
  * @example
  * ```typescript
- * const jsonParser = new JsonParserUtil();
+ * const jsonParser = new JsonParserUtility(new Logger('JsonParserUtility'));
  * const parsedObject = jsonParser.parse('```json\n{"key": "value"}\n```');
  * ```
  *
  * @throws {BadRequestException} Thrown when the provided JSON string is irreparable or malformed.
  */
 @Injectable()
-export class JsonParserUtil {
+export class JsonParserUtility {
   constructor(private readonly logger: Logger) {}
 
   private parseJsonValue(jsonString: string): unknown {
     return JSON.parse(jsonString) as unknown;
+  }
+
+  private parseAndValidate(jsonContent: string): unknown {
+    const repairedJsonString = jsonrepair(jsonContent);
+    const parsed = this.parseJsonValue(repairedJsonString);
+
+    if (typeof parsed !== 'object' || parsed === null) {
+      throw new Error('Parsed JSON is not a structured object or array.');
+    }
+
+    this.logger.debug(`Repaired JSON for debug: ${repairedJsonString}`);
+    return parsed;
   }
 
   /**
@@ -65,15 +77,7 @@ export class JsonParserUtil {
     }
 
     try {
-      const repairedJsonString = jsonrepair(jsonContent);
-      const parsed = this.parseJsonValue(repairedJsonString);
-
-      if (typeof parsed !== 'object' || parsed === null) {
-        throw new Error('Parsed JSON is not a structured object or array.');
-      }
-
-      this.logger.debug(`Repaired JSON for debug: ${repairedJsonString}`);
-      return parsed;
+      return this.parseAndValidate(jsonContent);
     } catch (error) {
       this.logger.debug(`JSON parsing failed for input: ${jsonString}`, error);
       this.logger.error(

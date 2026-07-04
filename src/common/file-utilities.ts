@@ -1,29 +1,16 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 /**
- * Utility function to get current directory path that works in both
- * Node.js ESM runtime and Jest test environment
+ * Utility function to get the project root directory path.
  *
- * @param fallbackDir - Fallback directory for tests, defaults to process.cwd()
+ * Returns `process.cwd()` which is the standard way to resolve paths relative
+ * to the project root in both Jest and production environments.
+ *
+ * @param fallbackDirectory - Fallback directory, defaults to process.cwd()
  */
-export function getCurrentDirname(fallbackDir?: string): string {
-  try {
-    // Use dynamic evaluation to avoid TypeScript compilation issues in Jest
-    // This will work in ESM runtime but fail gracefully in Jest
-    const getImportMetaUrl = new Function(
-      'return import.meta.url',
-    ) as () => string;
-    const metaUrl = getImportMetaUrl();
-    return path.dirname(fileURLToPath(metaUrl));
-  } catch (error) {
-    if (error instanceof SyntaxError || error instanceof ReferenceError) {
-      return fallbackDir ?? process.cwd();
-    }
-
-    throw error;
-  }
+export function getCurrentDirname(fallbackDirectory?: string): string {
+  return fallbackDirectory ?? process.cwd();
 }
 
 /**
@@ -53,10 +40,10 @@ export async function readMarkdown(
     candidates.push(basePath);
   } else {
     candidates.push('src/prompt/templates', 'dist/src/prompt/templates');
-    // Relative to this file at runtime (dist/src/common/file-utils.js -> ../prompt/templates)
+    // Relative to this file at runtime (dist/src/common/file-utilities.js -> ../prompt/templates)
     try {
-      const currentDir = getCurrentDirname();
-      candidates.push(path.resolve(currentDir, '../prompt/templates'));
+      const currentDirectory = getCurrentDirname();
+      candidates.push(path.resolve(currentDirectory, '../prompt/templates'));
     } catch {
       // ignore
     }
@@ -64,27 +51,27 @@ export async function readMarkdown(
 
   const tried: string[] = [];
   for (const candidate of candidates) {
-    const baseDir = path.resolve(candidate);
-    const resolvedPath = path.resolve(baseDir, name);
-    // Security: ensure resolved path is within baseDir
-    if (!resolvedPath.startsWith(baseDir)) continue;
+    const baseDirectory = path.resolve(candidate);
+    const resolvedPath = path.resolve(baseDirectory, name);
+    // Security: ensure resolved path is within baseDirectory
+    if (!resolvedPath.startsWith(baseDirectory)) continue;
     tried.push(resolvedPath);
     try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const content = await fs.readFile(resolvedPath, { encoding: 'utf-8' });
+      const content = await fs.readFile(resolvedPath, { encoding: 'utf8' });
       return content;
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       if (
-        err &&
-        typeof err === 'object' &&
-        'code' in err &&
-        (err as { code?: string }).code === 'ENOENT'
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: string }).code === 'ENOENT'
       ) {
         // Try next candidate
         continue;
       }
       // Re-throw other errors (e.g., permission issues)
-      throw err;
+      throw error;
     }
   }
   throw new Error(

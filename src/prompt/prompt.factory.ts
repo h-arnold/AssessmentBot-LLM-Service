@@ -4,7 +4,7 @@ import { ImagePrompt } from './image.prompt';
 import { Prompt } from './prompt.base';
 import { TablePrompt } from './table.prompt';
 import { TextPrompt } from './text.prompt';
-import { readMarkdown } from '../common/file-utils';
+import { readMarkdown } from '../common/file-utilities';
 import {
   CreateAssessorDto,
   TaskType,

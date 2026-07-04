@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { z } from 'zod';
 
 import { HttpExceptionFilter } from './http-exception.filter';
-import { JsonParserUtil } from './json-parser.util';
+import { JsonParserUtility } from './json-parser.utility';
 import { ZodValidationPipe } from './zod-validation.pipe';
 
 describe('CommonModule', () => {
@@ -17,7 +17,7 @@ describe('CommonModule', () => {
           provide: ZodValidationPipe,
           useValue: new ZodValidationPipe(z.any()),
         }, // Provide a mock instance with a valid Zod schema
-        JsonParserUtil,
+        JsonParserUtility,
         Logger,
       ],
     }).compile();
@@ -30,10 +30,11 @@ describe('CommonModule', () => {
   it('should export shared providers', () => {
     const filter = module.get<HttpExceptionFilter>(HttpExceptionFilter);
     const pipe = module.get<ZodValidationPipe>(ZodValidationPipe);
-    const util = module.get<JsonParserUtil>(JsonParserUtil);
+    const utility: JsonParserUtility =
+      module.get<JsonParserUtility>(JsonParserUtility);
 
     expect(filter).toBeDefined();
     expect(pipe).toBeDefined();
-    expect(util).toBeDefined();
+    expect(utility).toBeDefined();
   });
 });

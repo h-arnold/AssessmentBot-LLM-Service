@@ -1,3 +1,5 @@
+import { randomInt } from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
@@ -118,7 +120,7 @@ export abstract class LLMService {
       );
       throw new ResourceExhaustedError(
         'API quota exhausted. Please try again later or upgrade your plan.',
-        error,
+        { originalError: error },
       );
     }
 
@@ -159,11 +161,11 @@ export abstract class LLMService {
     maxRetries: number,
     baseBackoffMs: number,
   ): Promise<void> {
-    const delay = baseBackoffMs * Math.pow(2, attempt) + Math.random() * 100;
+    const delay = baseBackoffMs * Math.pow(2, attempt) + randomInt(0, 100);
 
     this.logger.warn(
       `Rate limit encountered on attempt ${attempt + 1}/${maxRetries + 1}. ` +
-        `Retrying in ${delay}ms. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Retrying in ${delay}ms. Error: ${this.isErrorObject(error) ? error.message : 'Unknown error'}`,
     );
 
     await this.sleep(delay);
@@ -173,7 +175,7 @@ export abstract class LLMService {
     const messagePrefix =
       'Failed to get a valid and structured response from the LLM.';
 
-    if (error instanceof Error) {
+    if (this.isErrorObject(error)) {
       return `${messagePrefix}\nOriginal error: ${error.message}\nStack: ${error.stack || 'N/A'}`;
     }
 
@@ -181,7 +183,7 @@ export abstract class LLMService {
   }
 
   private getErrorStack(error: unknown): string | undefined {
-    return error instanceof Error ? error.stack : undefined;
+    return this.isErrorObject(error) ? error.stack : undefined;
   }
 
   /**
@@ -210,7 +212,7 @@ export abstract class LLMService {
     }
 
     // Check for resource exhausted patterns in error messages
-    if (error instanceof Error) {
+    if (this.isErrorObject(error)) {
       const message = error.message.toLowerCase();
       const patterns = [
         'resource_exhausted',
@@ -231,6 +233,15 @@ export abstract class LLMService {
    * @param error The error to check.
    * @returns True if the error is a retryable rate limit error.
    */
+  protected isErrorObject(error: unknown): error is Error {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error &&
+      typeof (error as Record<string, unknown>).message === 'string'
+    );
+  }
+
   private isRateLimitError(error: unknown): boolean {
     // First check if it's a resource exhausted error - those shouldn't be retried
     if (this.isResourceExhaustedError(error)) {
@@ -244,7 +255,7 @@ export abstract class LLMService {
     }
 
     // Check for error messages that might indicate retryable rate limiting
-    if (error instanceof Error) {
+    if (this.isErrorObject(error)) {
       const message = error.message.toLowerCase();
       return (
         message.includes('rate limit') || message.includes('too many requests')

@@ -37,18 +37,18 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, 'bearer') {
   /**
    * Validates the API key from the request.
    *
-   * @param req - The incoming Express request object.
+   * @param request - The incoming Express request object.
    * @param apiKey - The API key extracted from the `Authorization` header.
    *
    * @returns The user object associated with the validated API key.
    * @throws {UnauthorizedException} If the Bearer scheme is malformed, the API key is invalid, or no user is found.
    */
-  async validate(req: Request, apiKey: string): Promise<User> {
-    const authHeader = req.headers.authorization;
+  async validate(request: Request, apiKey: string): Promise<User> {
+    const authHeader = request.headers.authorization;
 
     if (authHeader && !authHeader.startsWith('Bearer ')) {
       this.logger.warn(
-        `Malformed Bearer scheme detected: "${authHeader.split(' ')[0]}"`,
+        `Malformed Bearer scheme detected: "${authHeader.split(' ', 1)[0]}"`,
       );
       throw new UnauthorizedException('Malformed Bearer scheme.');
     }

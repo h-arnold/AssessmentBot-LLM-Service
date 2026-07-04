@@ -58,9 +58,9 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
    * @param host - The arguments host, providing access to request and response.
    */
   catch(exception: unknown, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const context = host.switchToHttp();
+    const response = context.getResponse<Response>();
+    const request = context.getRequest<Request>();
 
     // Handle specific Express PayloadTooLargeError separately for clarity.
     if (this.isPayloadTooLargeError(exception)) {
@@ -168,13 +168,13 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       message = exceptionResponse;
     } else if (
       typeof exceptionResponse === 'object' &&
-      exceptionResponse !== null
+      exceptionResponse != null
     ) {
       // Extract message, which can be a string or an array of strings.
       if ('message' in exceptionResponse) {
-        const msg = (exceptionResponse as { message: string | string[] })
+        const message_ = (exceptionResponse as { message: string | string[] })
           .message;
-        message = Array.isArray(msg) ? msg.join(', ') : msg;
+        message = Array.isArray(message_) ? message_.join(', ') : message_;
       } else {
         message = 'Internal server error';
       }
@@ -222,7 +222,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       this.logger.error(
         logContext,
         logMessage,
-        exception instanceof Error ? exception.stack : undefined,
+        this.isErrorObject(exception) ? exception.stack : undefined,
       );
     } else {
       // Handles 4xx and the specific PayloadTooLargeError case
@@ -245,9 +245,10 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     path: string,
     errors?: ZodErrorDetail[],
   ): void {
+    const now = new Date();
     const errorResponse: Record<string, unknown> = {
       statusCode: status,
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
       path,
       message,
     };
@@ -278,5 +279,9 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     if ('x-api-key' in sanitised) sanitised['x-api-key'] = '[REDACTED]';
 
     return sanitised;
+  }
+
+  private isErrorObject(value: unknown): value is Error {
+    return value instanceof Error;
   }
 }

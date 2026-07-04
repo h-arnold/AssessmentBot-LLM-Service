@@ -1,6 +1,8 @@
-const nestFactoryCreate = jest.fn();
-const jsonMiddleware = jest.fn();
-const json = jest.fn(() => jsonMiddleware);
+import { jest, describe, it, expect, afterEach } from '@jest/globals';
+
+const nestFactoryCreate: jest.Mock = jest.fn();
+const jsonMiddleware: jest.Mock = jest.fn();
+const json: jest.Mock = jest.fn(() => jsonMiddleware);
 
 class Logger {}
 class LoggerErrorInterceptor {}
@@ -23,10 +25,10 @@ jest.mock('./config/config.service', () => ({
 }));
 
 describe('bootstrap', () => {
-  const originalEnv = process.env;
+  const originalEnvironment = process.env;
 
   afterEach(() => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
     jest.resetModules();
     jest.clearAllMocks();
   });
@@ -55,18 +57,13 @@ describe('bootstrap', () => {
   const loadBootstrap = async (options?: {
     bufferLogs?: boolean;
   }): Promise<LoadBootstrapResult> => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
 
     const loggerInstance = { log: jest.fn() };
     const expressInstance = { set: jest.fn() };
     const configService = {
       getGlobalPayloadLimit: jest.fn(() => '1mb'),
-      get: jest.fn((key: string) => {
-        if (key === 'PORT') {
-          return '3030';
-        }
-        return undefined;
-      }),
+      get: jest.fn((key: string) => (key === 'PORT' ? '3030' : undefined)),
     };
 
     const httpAdapter = {

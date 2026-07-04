@@ -1,7 +1,7 @@
 import { ZodError } from 'zod';
 
 import {
-  createAssessorDtoSchema,
+  assessorDtoSchema,
   CreateAssessorDto,
   TaskType,
 } from './create-assessor.dto';
@@ -15,7 +15,7 @@ describe('CreateAssessorDto', () => {
         template: 'Sample template text',
         studentResponse: 'Sample student response',
       };
-      const result = createAssessorDtoSchema.safeParse(validPayload);
+      const result = assessorDtoSchema.safeParse(validPayload);
       expect(result.success).toBe(true);
     });
 
@@ -26,7 +26,7 @@ describe('CreateAssessorDto', () => {
         template: 'Sample template table',
         studentResponse: 'Sample student response table',
       };
-      const result = createAssessorDtoSchema.safeParse(validPayload);
+      const result = assessorDtoSchema.safeParse(validPayload);
       expect(result.success).toBe(true);
     });
 
@@ -37,7 +37,7 @@ describe('CreateAssessorDto', () => {
         template: 'base64-encoded-image',
         studentResponse: 'base64-encoded-image',
       };
-      const result = createAssessorDtoSchema.safeParse(validPayload);
+      const result = assessorDtoSchema.safeParse(validPayload);
       expect(result.success).toBe(true);
     });
 
@@ -48,7 +48,7 @@ describe('CreateAssessorDto', () => {
         template: Buffer.from('image data'),
         studentResponse: Buffer.from('image data'),
       };
-      const result = createAssessorDtoSchema.safeParse(validPayload);
+      const result = assessorDtoSchema.safeParse(validPayload);
       expect(result.success).toBe(true);
     });
 
@@ -58,7 +58,7 @@ describe('CreateAssessorDto', () => {
         template: 'test',
         studentResponse: 'test',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
       const error = (result as { error: ZodError }).error;
       expect(error.issues[0].path).toContain('taskType');
@@ -70,7 +70,7 @@ describe('CreateAssessorDto', () => {
         template: 'test',
         studentResponse: 'test',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
       const error = (result as { error: ZodError }).error;
       expect(error.issues[0].path).toContain('reference');
@@ -83,7 +83,7 @@ describe('CreateAssessorDto', () => {
         template: 'test',
         studentResponse: 'test',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
       const error = (result as { error: ZodError }).error;
       expect(error.issues[0].path).toContain('reference');
@@ -96,7 +96,7 @@ describe('CreateAssessorDto', () => {
         template: '',
         studentResponse: 'test',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(true);
     });
 
@@ -107,7 +107,7 @@ describe('CreateAssessorDto', () => {
         template: 'test',
         studentResponse: '',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(true);
     });
 
@@ -119,7 +119,7 @@ describe('CreateAssessorDto', () => {
         studentResponse: 'test',
         extraField: 'not allowed',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
       const error = (result as { error: ZodError }).error;
       expect(error.issues[0].message).toContain('Unrecognized key');
@@ -132,7 +132,7 @@ describe('CreateAssessorDto', () => {
         template: 'test',
         studentResponse: 'test',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
     });
 
@@ -143,7 +143,7 @@ describe('CreateAssessorDto', () => {
         template: undefined,
         studentResponse: 'test',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
     });
 
@@ -154,7 +154,7 @@ describe('CreateAssessorDto', () => {
         template: Buffer.from('a buffer'),
         studentResponse: 'another string',
       };
-      const result = createAssessorDtoSchema.safeParse(payload);
+      const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
       const error = (result as { error: ZodError }).error;
       expect(error.issues[0].message).toContain(
@@ -172,7 +172,7 @@ describe('CreateAssessorDto', () => {
         studentResponse:
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
       };
-      const result = createAssessorDtoSchema.safeParse(validPayload);
+      const result = assessorDtoSchema.safeParse(validPayload);
       expect(result.success).toBe(true);
     });
   });

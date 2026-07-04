@@ -36,7 +36,7 @@
 import path from 'node:path';
 
 import { Logger } from '@nestjs/common';
-import { getCurrentDirname } from 'src/common/file-utils';
+import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
 import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
@@ -45,7 +45,11 @@ import { getLogObjects, waitForLog } from './utils/log-watcher';
 describe('Logging (True E2E)', () => {
   let app: AppInstance;
   const logger = new Logger('LoggingE2ETest');
-  const logFilePath = path.join(getCurrentDirname(), 'logs', 'logging.e2e-spec.log');
+  const logFilePath = path.join(
+    getCurrentDirname(),
+    'logs',
+    'logging.e2e-spec.log',
+  );
 
   beforeAll(async () => {
     app = await startApp(logFilePath);

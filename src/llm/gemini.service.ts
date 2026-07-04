@@ -8,8 +8,8 @@ import {
   LlmPayload,
   StringPromptPayload,
 } from './llm.service.interface';
-import { LlmResponse, LlmResponseSchema, GeminiModelParams as GeminiModelParameters } from './types';
-import { JsonParserUtil as JsonParserUtility } from '../common/json-parser.utility';
+import { LlmResponse, LlmResponseSchema, GeminiModelParameters } from './types';
+import { JsonParserUtility } from '../common/json-parser.utility';
 import { ConfigService } from '../config/config.service';
 
 /**
@@ -48,7 +48,8 @@ export class GeminiService extends LLMService {
    * @throws Error if the API call fails or the response is invalid.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    const modelParameters: GeminiModelParameters = this.buildModelParams(payload);
+    const modelParameters: GeminiModelParameters =
+      this.buildModelParams(payload);
     const contents = this.buildContents(payload);
 
     this.geminiLogger.debug(
@@ -245,10 +246,6 @@ export class GeminiService extends LLMService {
       : parsedJson;
 
     return LlmResponseSchema.parse(dataToValidate);
-  }
-
-  private isErrorObject(value: unknown): value is Error {
-    return value instanceof Error;
   }
 
   private extractStatusCode(error: unknown): number | undefined {

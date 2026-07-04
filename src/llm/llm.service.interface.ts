@@ -233,7 +233,7 @@ export abstract class LLMService {
    * @param error The error to check.
    * @returns True if the error is a retryable rate limit error.
    */
-  private isErrorObject(error: unknown): error is Error {
+  protected isErrorObject(error: unknown): error is Error {
     return typeof error === 'object' && error !== null && 'message' in error;
   }
 

@@ -91,16 +91,14 @@ export const assessorDtoSchema = z
          *   { path: "/images/image2.jpg", mimeType: "image/jpeg" }
          * ]
          */
-        images: z
-          .array(imageObject)
-          .optional(),
+        images: z.array(imageObject).optional(),
         systemPromptFile: z.string().optional(),
       })
       .strict(),
   ])
   .superRefine((data, context) => {
     if (data.taskType !== TaskType.IMAGE) {
-    	return;
+      return;
     }
 
     const allStrings =
@@ -114,7 +112,7 @@ export const assessorDtoSchema = z
 
     if (!allStrings && !allBuffers) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message:
           'For IMAGE taskType, reference, template, and studentResponse must all be of the same type (either all strings or all Buffers).',
       });

@@ -1,13 +1,17 @@
 import path from 'node:path';
 
-import { getCurrentDirname } from 'src/common/file-utils';
+import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
 import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
 
 describe('Throttler (e2e)', () => {
   let app: AppInstance;
-  const logFilePath = path.join(getCurrentDirname(), 'logs', 'throttler.e2e-spec.log');
+  const logFilePath = path.join(
+    getCurrentDirname(),
+    'logs',
+    'throttler.e2e-spec.log',
+  );
 
   beforeAll(async () => {
     // As we are not testing the throttler service itself, but rather the implementation of the throttler,
@@ -38,9 +42,9 @@ describe('Throttler (e2e)', () => {
       const throttledResponse = await request(app.appUrl).get('/health');
       expect(throttledResponse.status).toBe(429);
       expect(throttledResponse.headers['retry-after']).toBeDefined();
-      expect(
-        Number(throttledResponse.headers['retry-after']),
-      ).toBeGreaterThan(0);
+      expect(Number(throttledResponse.headers['retry-after'])).toBeGreaterThan(
+        0,
+      );
 
       // 3. Reset the limit after the TTL expires
       await new Promise((resolve) => setTimeout(resolve, app.throttlerTtl));

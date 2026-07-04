@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { getCurrentDirname } from 'src/common/file-utils';
+import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
 import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';

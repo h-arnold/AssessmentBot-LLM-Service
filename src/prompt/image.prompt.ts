@@ -187,12 +187,12 @@ export class ImagePrompt extends Prompt {
       );
       throw new Error('Disallowed image MIME type');
     }
-    const baseDir = path.join(
+    const baseDirectory = path.join(
       getCurrentDirname(),
       '../../../docs/ImplementationPlan/Stage6/ExampleData/ImageTasks',
     );
-    const relativePath = path.join(baseDir, imagePath);
-    if (!relativePath.startsWith(baseDir)) {
+    const relativePath = path.join(baseDirectory, imagePath);
+    if (!relativePath.startsWith(baseDirectory)) {
       this.logger.warn(`Blocked unauthorised image path: ${imagePath}.`);
       throw new Error('Unauthorised file path');
     }

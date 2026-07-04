@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { Logger } from '@nestjs/common';
 import * as dotenv from 'dotenv';
-import { getCurrentDirname } from 'src/common/file-utils';
+import { getCurrentDirname } from 'src/common/file-utilities';
 
 import { waitForLog } from './log-watcher';
 
@@ -101,7 +101,12 @@ export async function startApp(
   }
 
   if (testEnvironment.E2E_MOCK_LLM === 'true') {
-    const shimPath = path.join(getCurrentDirname(), 'test', 'utils', 'llm-http-shim.cjs');
+    const shimPath = path.join(
+      getCurrentDirname(),
+      'test',
+      'utils',
+      'llm-http-shim.cjs',
+    );
     const existingNodeOptions = testEnvironment.NODE_OPTIONS ?? '';
     const shimOption = `--require "${shimPath}"`;
     testEnvironment.NODE_OPTIONS = existingNodeOptions
@@ -216,7 +221,10 @@ export async function startApp(
     appProcess.stderr.removeAllListeners('data');
   } catch (error) {
     // Best-effort cleanup failed — log for diagnostics
-    appLifecycleLogger.debug('Failed to remove listeners during startup cleanup:', error);
+    appLifecycleLogger.debug(
+      'Failed to remove listeners during startup cleanup:',
+      error,
+    );
   }
 
   // Derive return values from the final, effective environment
@@ -244,7 +252,7 @@ export async function startApp(
  */
 export function stopApp(appProcess: ChildProcessWithoutNullStreams): void {
   if (!(appProcess && !appProcess.killed)) {
-  	return;
+    return;
   }
 
   try {

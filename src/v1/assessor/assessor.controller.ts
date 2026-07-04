@@ -59,7 +59,7 @@ export class AssessorController {
    * image data using the ImageValidationPipe to ensure proper format, size,
    * and MIME type compliance.
    *
-   * @param createAssessorDto - Validated data transfer object containing task details
+   * @param assessorDto - Validated data transfer object containing task details
    * @returns Promise resolving to LLM assessment response with scoring and reasoning
    * @throws {BadRequestException} If validation fails for any field
    * @throws {UnauthorizedException} If API key authentication fails
@@ -67,16 +67,16 @@ export class AssessorController {
   @Post()
   async create(
     @Body(new ZodValidationPipe(assessorDtoSchema))
-    createAssessorDto: CreateAssessorDto,
+    assessorDto: CreateAssessorDto,
   ): Promise<LlmResponse> {
     // If taskType is IMAGE, validate image fields using ImageValidationPipe
-    if (createAssessorDto.taskType === 'IMAGE') {
+    if (assessorDto.taskType === 'IMAGE') {
       const imagePipe = new ImageValidationPipe(this.configService);
       // Validate each image field
-      await imagePipe.transform(createAssessorDto.reference);
-      await imagePipe.transform(createAssessorDto.studentResponse);
-      await imagePipe.transform(createAssessorDto.template);
+      await imagePipe.transform(assessorDto.reference);
+      await imagePipe.transform(assessorDto.studentResponse);
+      await imagePipe.transform(assessorDto.template);
     }
-    return this.assessorService.createAssessment(createAssessorDto);
+    return this.assessorService.createAssessment(assessorDto);
   }
 }

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { getCurrentDirname } from 'src/common/file-utils';
+import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
 import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
@@ -23,7 +23,11 @@ interface TaskData {
 
 describe('AssessorController (e2e)', () => {
   let app: AppInstance;
-  const logFilePath = path.join(getCurrentDirname(), 'logs', 'assessor.e2e-spec.log');
+  const logFilePath = path.join(
+    getCurrentDirname(),
+    'logs',
+    'assessor.e2e-spec.log',
+  );
 
   let textTask: TaskData = {
     taskType: 'TEXT',

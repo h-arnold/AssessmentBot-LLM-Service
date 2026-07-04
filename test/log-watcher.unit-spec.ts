@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import path from 'node:path';
 
 import { Logger } from '@nestjs/common';
-import { getCurrentDirname } from 'src/common/file-utils';
+import { getCurrentDirname } from 'src/common/file-utilities';
 
 import { waitForLog, LogObject } from './utils/log-watcher';
 

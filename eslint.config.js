@@ -239,10 +239,18 @@ export default tseslint.config(
   // Node.js v24 runtime despite being in the ESNext type definitions). These overrides
   // will be removed when the project migrates from Jest to ViTest (which supports ESM
   // natively), eliminating both constraints in a single change.
+  //
+  // unicorn/prefer-module: The isRunningDirectly() function uses a try/catch to
+  // detect ESM vs CommonJS. In the CommonJS fallback branch it must call
+  // typeof require !== 'undefined' && require.main === module — the only reliable
+  // way to check whether the current file is the entry point in CJS. The unicorn
+  // rule banning require/module references is correct for normal source code but
+  // cannot be applied to this deliberate dual-environment detection logic.
   {
     files: ['src/testing-main.ts'],
     rules: {
       'unicorn/prefer-top-level-await': 'off',
+      'unicorn/prefer-module': 'off',
     },
   },
   {

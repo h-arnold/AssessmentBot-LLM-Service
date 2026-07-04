@@ -1,7 +1,7 @@
 ---
 description: Coordinates subagents to implement changes following a structured implement/review loop
 mode: all
-model: opencode/quen-3.7-plus-free
+model: opencode/qwen-3.7-plus-free
 steps: 100
 ---
 

@@ -8,7 +8,7 @@ Remove the requirement for CommonJS module output from the codebase. The codebas
 
 The ESLint configuration already documents this intent (`eslint.config.js`, lines 237–248):
 
-> _"Jest runs inside a CommonJS environment (tsconfig.module = CommonJS) that lacks both top-level await support and the Uint8Array.fromBase64() method... These overrides will be removed when the project migrates from Jest to ViTest (which supports ESM natively), eliminating both constraints in a single change."_
+> _"Jest runs inside a CommonJS environment (tsconfig.module = CommonJS) that lacks both top-level await support and the Uint8Array.fromBase64() method... These overrides will be removed when the project migrates from Jest to Vitest (which supports ESM natively), eliminating both constraints in a single change."_
 
 The source code is already pure ESM syntax. Zero `require()`, `module.exports`, `__dirname`, or `__filename` calls exist in any `.ts` source file. The CommonJS requirement is entirely in configuration and test infrastructure.
 

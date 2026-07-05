@@ -17,8 +17,8 @@ Before starting development, ensure you have the following installed:
 ### 1. Clone and Install Dependencies
 
 ```bash
-git clone https://github.com/h-arnold/Assessment Bot LLM Service.git
-cd Assessment Bot LLM Service
+git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
+cd AssessmentBot-LLM-Service
 npm install
 ```
 

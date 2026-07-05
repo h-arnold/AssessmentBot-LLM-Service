@@ -213,13 +213,22 @@ export default tseslint.config(
       'import-x/no-commonjs': 'error',
 
       // JSDoc rules to enforce documentation standards
-      ...jsdoc.configs['recommended'].rules,
-      'jsdoc/require-description-complete-sentence': 'warn',
+      // Use TypeScript-specific recommended config — it disables type
+      // annotations in JSDoc blocks (TypeScript already provides types)
+      // and enables no-types to flag redundant annotations
+      ...jsdoc.configs['flat/recommended-typescript'].rules,
+      // Override check-tag-names to avoid warnings for conventional
+      // NestJS documentation tags (@module, @class, @abstract, @property)
+      // that are redundant in TypeScript but idiomatic in this codebase
+      'jsdoc/check-tag-names': ['warn', { typed: false }],
+      'jsdoc/no-types': 'off',
+      'jsdoc/require-description-complete-sentence': 'error',
       'jsdoc/require-returns': 'error',
       'jsdoc/require-returns-description': 'error',
       'jsdoc/require-param-description': 'error',
       'jsdoc/require-example': 'off',
       'jsdoc/require-description': 'error',
+      'jsdoc/require-throws-description': 'error',
     },
   },
   {

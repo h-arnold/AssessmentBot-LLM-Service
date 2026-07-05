@@ -60,8 +60,8 @@ export class AssessorController {
    *   containing task details.
    * @returns {Promise<LlmResponse>} Promise resolving to LLM assessment
    *   response with scoring and reasoning.
-   * @throws {Error} If validation fails for any field.
-   * @throws {Error} If API key authentication fails.
+   * @throws {BadRequestException} If validation fails for any field.
+   * @throws {UnauthorizedException} If API key authentication fails.
    */
   @Post()
   async create(

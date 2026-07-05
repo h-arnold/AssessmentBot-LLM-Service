@@ -45,7 +45,7 @@ sudo ufw allow 443   # HTTPS
 1.  **Clone the repository:**
 
     ```bash
-    git clone https://github.com/h-arnold/Assessment Bot LLM Service.git /opt/assessmentbot
+    git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git /opt/assessmentbot
     cd /opt/assessmentbot
     ```
 

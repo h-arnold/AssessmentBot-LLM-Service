@@ -250,6 +250,14 @@ export abstract class LLMService {
     );
   }
 
+  /**
+   * Determines whether an error represents a retryable rate limit condition.
+   * Checks for HTTP 429 status codes and message patterns like
+   * 'rate limit' or 'too many requests'. Resource exhausted errors (non-retryable)
+   * are explicitly excluded.
+   * @param error - The error to check.
+   * @returns True if the error indicates a retryable rate limit.
+   */
   private isRateLimitError(error: unknown): boolean {
     // First check if it's a resource exhausted error - those shouldn't be retried
     if (this.isResourceExhaustedError(error)) {

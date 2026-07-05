@@ -16,8 +16,8 @@ The production image uses a multi-stage build to create a minimal, secure runtim
 1.  **Clone the repository**:
 
     ```bash
-    git clone https://github.com/h-arnold/Assessment Bot LLM Service.git
-    cd Assessment Bot LLM Service
+    git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
+    cd AssessmentBot-LLM-Service
     ```
 
 2.  **Set up environment variables**:

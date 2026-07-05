@@ -22,7 +22,7 @@ This project adheres to the [Contributor Covenant Code of Conduct](https://www.c
 
 ### Reporting Bugs
 
-If you find a bug, please open an issue on our [GitHub Issues page](https://github.com/h-arnold/Assessment Bot LLM Service/issues). When reporting a bug, please include:
+If you find a bug, please open an issue on our [GitHub Issues page](https://github.com/h-arnold/AssessmentBot-LLM-Service/issues). When reporting a bug, please include:
 
 - A clear and concise description of the bug.
 - Steps to reproduce the behavior.
@@ -33,7 +33,7 @@ If you find a bug, please open an issue on our [GitHub Issues page](https://gith
 
 ### Suggesting Enhancements
 
-For feature requests or enhancements, please open an issue on our [GitHub Issues page](https://github.com/h-arnold/Assessment Bot LLM Service/issues). Describe the enhancement, why it would be useful, and any potential solutions.
+For feature requests or enhancements, please open an issue on our [GitHub Issues page](https://github.com/h-arnold/AssessmentBot-LLM-Service/issues). Describe the enhancement, why it would be useful, and any potential solutions.
 
 ### Pull Request Guidelines
 

@@ -1,6 +1,6 @@
 # Production Image Testing Guide
 
-This document provides instructions for running tests against a production-like Docker image of the AssessmentBot-Backend.
+This document provides instructions for running tests against a production-like Docker image of the Assessment Bot LLM Service.
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Common Module
 
-The Common Module (`src/common/common.module.ts`) provides a set of shared, injectable services and globally applied filters used across the AssessmentBot-Backend application.
+The Common Module (`src/common/common.module.ts`) provides a set of shared, injectable services and globally applied filters used across the Assessment Bot LLM Service application.
 
 ## Overview
 

@@ -4,7 +4,7 @@
  * This suite verifies that logs are correctly generated, formatted, and contain the expected fields and redactions.
  * It interacts with the running application via HTTP requests and inspects the resulting log file for correctness.
  *
- * @file /workspaces/AssessmentBot-Backend/test/logging.e2e-spec.ts
+ * @file /workspaces/Assessment Bot LLM Service/test/logging.e2e-spec.ts
  *
  * @remarks
  * - The log file is not cleared between tests to preserve log entries for asynchronous operations.

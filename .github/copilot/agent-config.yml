@@ -10,7 +10,7 @@ environment:
   # Environment variables required for development and testing
   variables:
     NODE_ENV: "development"
-    APP_NAME: "AssessmentBot-Backend"
+    APP_NAME: "Assessment Bot LLM Service"
     APP_VERSION: "1.0.0"
     LOG_LEVEL: "debug"
     PORT: "3000"

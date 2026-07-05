@@ -232,7 +232,7 @@ describe('ConfigService', () => {
     it('APP_NAME should return default value when not set', () => {
       delete process.env.APP_NAME;
       const configService = new ConfigService();
-      expect(configService.get('APP_NAME')).toBe('AssessmentBot-Backend');
+      expect(configService.get('APP_NAME')).toBe('Assessment Bot LLM Service');
     });
 
     it('APP_VERSION should be optional and return undefined', () => {
@@ -331,7 +331,7 @@ describe('ConfigService', () => {
           return `
 NODE_ENV=development
 PORT=3000
-APP_NAME=AssessmentBot-Backend
+APP_NAME=Assessment Bot LLM Service
 APP_VERSION=1.0.0
 DATABASE_URL=your_database_url_here
 API_KEY=your_api_key_here

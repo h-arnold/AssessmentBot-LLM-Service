@@ -1,6 +1,6 @@
 # End-to-End (E2E) Testing
 
-This directory contains the end-to-end tests for the AssessmentBot-Backend.
+This directory contains the end-to-end tests for the Assessment Bot LLM Service.
 
 For detailed information on the testing strategy, how to run tests, and how to configure the environment, please see the main [Testing Guide](../../docs/testing/README.md).
 

@@ -1,6 +1,6 @@
 # Git Workflow
 
-This document outlines the branching strategy and commit conventions for the AssessmentBot-Backend project.
+This document outlines the branching strategy and commit conventions for the Assessment Bot LLM Service project.
 
 ## Branching Strategy
 

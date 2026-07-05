@@ -1,6 +1,6 @@
 # Rate Limiting
 
-This document details the rate limiting (throttling) implementation in the Assessment Bot Backend API.
+This document details the rate limiting (throttling) implementation in the Assessment Bot LLM Service API.
 
 ## Overview
 

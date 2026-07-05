@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document provides a comprehensive overview of the AssessmentBot-Backend architecture, a NestJS-based API service that leverages Large Language Models (LLMs) to provide automated assessment services for educational content.
+This document provides a comprehensive overview of the Assessment Bot LLM Service architecture, a NestJS-based API service that leverages Large Language Models (LLMs) to provide automated assessment services for educational content.
 
 ## High-Level Architecture
 
@@ -172,7 +172,7 @@ The system uses NestJS's built-in dependency injection container with the follow
 
 #### Environment Differences: Production vs. Development
 
-The AssessmentBot-Backend project uses two different Node.js environments to optimize for both production reliability and development convenience:
+The Assessment Bot LLM Service project uses two different Node.js environments to optimize for both production reliability and development convenience:
 
 - **Production (`node:22-alpine`)**: The production Docker image is based on the official `node:22-alpine` image. Alpine Linux is chosen for its minimal footprint, resulting in smaller, faster, and more secure containers. This environment is highly optimized for deployment and does not include extra development tools or utilities.
 

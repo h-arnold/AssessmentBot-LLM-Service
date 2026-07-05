@@ -1,6 +1,6 @@
 # CI/CD Pipeline
 
-This guide covers the continuous integration and deployment pipeline for the AssessmentBot-Backend project using GitHub Actions.
+This guide covers the continuous integration and deployment pipeline for the Assessment Bot LLM Service project using GitHub Actions.
 
 ## Overview
 
@@ -36,7 +36,7 @@ The CI pipeline (`/.github/workflows/ci.yml`) runs on every pull request and inc
 
 # CI/CD Pipeline
 
-This guide covers the continuous integration and deployment pipeline for the AssessmentBot-Backend project using GitHub Actions.
+This guide covers the continuous integration and deployment pipeline for the Assessment Bot LLM Service project using GitHub Actions.
 
 ## Overview
 
@@ -64,7 +64,7 @@ The CI pipeline (`/.github/workflows/ci.yml`) runs on every pull request and inc
 
 # CI/CD Pipeline
 
-This guide covers the continuous integration and deployment pipeline for the AssessmentBot-Backend project using GitHub Actions.
+This guide covers the continuous integration and deployment pipeline for the Assessment Bot LLM Service project using GitHub Actions.
 
 ## Overview
 

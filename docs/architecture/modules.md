@@ -1,6 +1,6 @@
 # Module Responsibilities
 
-This document provides a detailed breakdown of each module in the AssessmentBot-Backend system, including their responsibilities, dependencies, and key components.
+This document provides a detailed breakdown of each module in the Assessment Bot LLM Service system, including their responsibilities, dependencies, and key components.
 
 ## Core Modules
 

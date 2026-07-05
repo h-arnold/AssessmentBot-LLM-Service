@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document provides an overview of the Assessment Bot Backend API, detailing available endpoints, authentication methods, and data structures.
+This document provides an overview of the Assessment Bot LLM Service API, detailing available endpoints, authentication methods, and data structures.
 
 ## Base URL
 

@@ -52,7 +52,7 @@ describe('.env.example file', () => {
       return `
 NODE_ENV=development
 PORT=3000
-APP_NAME=AssessmentBot-Backend
+APP_NAME=Assessment Bot LLM Service
 APP_VERSION=1.0.0
 DATABASE_URL=your_database_url_here
 API_KEY=your_api_key_here
@@ -88,7 +88,7 @@ API_KEY=your_api_key_here
 
     expect(exampleConfig.NODE_ENV).toBe('development');
     expect(exampleConfig.PORT).toBe('3000');
-    expect(exampleConfig.APP_NAME).toBe('AssessmentBot-Backend');
+    expect(exampleConfig.APP_NAME).toBe('Assessment Bot LLM Service');
     expect(exampleConfig.APP_VERSION).toBe('1.0.0');
   });
 });

@@ -1,6 +1,6 @@
 # Error Codes
 
-This document details the error handling mechanisms and HTTP status codes returned by the Assessment Bot Backend API, including error formats, common scenarios, and troubleshooting guidance.
+This document details the error handling mechanisms and HTTP status codes returned by the Assessment Bot LLM Service API, including error formats, common scenarios, and troubleshooting guidance.
 
 ## Overview
 

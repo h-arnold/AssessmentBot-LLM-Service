@@ -1,6 +1,6 @@
 # Debugging Guide
 
-This document provides comprehensive guidance on debugging techniques and tools available for the AssessmentBot-Backend project.
+This document provides comprehensive guidance on debugging techniques and tools available for the Assessment Bot LLM Service project.
 
 ## Debugging Setup
 

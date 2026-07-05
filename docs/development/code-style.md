@@ -1,6 +1,6 @@
 # Code Style Guide
 
-This document outlines the coding standards and conventions for the AssessmentBot-Backend project.
+This document outlines the coding standards and conventions for the Assessment Bot LLM Service project.
 
 ## Language and Spelling Standards
 

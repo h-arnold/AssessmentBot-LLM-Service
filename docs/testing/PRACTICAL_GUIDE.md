@@ -1,6 +1,6 @@
 # Practical Testing Guide
 
-This document provides practical examples and patterns for writing effective unit tests and managing test data in the AssessmentBot-Backend project.
+This document provides practical examples and patterns for writing effective unit tests and managing test data in the Assessment Bot LLM Service project.
 
 ## 1. Unit & Integration Testing
 

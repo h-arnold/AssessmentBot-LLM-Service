@@ -1,5 +1,5 @@
 {
-  "name": "assessmentbot-backend",
+  "name": "assessmentbot-llm-service",
   "version": "0.1.12",
   "description": "The backend for Assessment Bot, which provides LLM services.",
   "author": "Hamish Arnold",
@@ -109,7 +109,7 @@
       "ajv": "8.18.0"
     }
   },
-  "homepage": "https://github.com/h-arnold/AssessmentBot-Backend#readme",
+  "homepage": "https://github.com/h-arnold/Assessment Bot LLM Service#readme",
   "lint-staged": {
     "*.ts": "eslint --fix",
     "*.{js,ts,json,md}": "prettier --write",
@@ -117,9 +117,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/h-arnold/AssessmentBot-Backend.git"
+    "url": "git+https://github.com/h-arnold/Assessment Bot LLM Service.git"
   },
   "bugs": {
-    "url": "https://github.com/h-arnold/AssessmentBot-Backend/issues"
+    "url": "https://github.com/h-arnold/Assessment Bot LLM Service/issues"
   }
 }

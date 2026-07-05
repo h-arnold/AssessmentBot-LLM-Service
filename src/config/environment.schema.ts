@@ -37,7 +37,7 @@ import { z } from 'zod';
 export const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  APP_NAME: z.string().default('AssessmentBot-Backend'),
+  APP_NAME: z.string().default('Assessment Bot LLM Service'),
   APP_VERSION: z.string().optional(),
   API_KEYS: z
     .string()

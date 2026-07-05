@@ -1,6 +1,6 @@
 # Data Flow
 
-This document describes the complete request/response flow through the AssessmentBot-Backend system, from initial HTTP request to final LLM response.
+This document describes the complete request/response flow through the Assessment Bot LLM Service system, from initial HTTP request to final LLM response.
 
 ## Overview
 

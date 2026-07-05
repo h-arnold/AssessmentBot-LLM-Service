@@ -1,6 +1,6 @@
 # Prompt Module
 
-The Prompt Module (`src/prompt/`) provides prompt generation and management services for the AssessmentBot-Backend application, implementing a factory pattern to create task-specific prompts for LLM assessment requests.
+The Prompt Module (`src/prompt/`) provides prompt generation and management services for the Assessment Bot LLM Service application, implementing a factory pattern to create task-specific prompts for LLM assessment requests.
 
 ## Overview
 

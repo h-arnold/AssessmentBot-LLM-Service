@@ -1,8 +1,8 @@
-# Assessment Bot - Backend
+# Assessment Bot - LLM Service
 
-![CI - Unit & E2E Tests](https://github.com/h-arnold/AssessmentBot-Backend/actions/workflows/ci.yml/badge.svg)
-![CodeQL](https://github.com/h-arnold/AssessmentBot-Backend/actions/workflows/codeql.yml/badge.svg)
-![SonarQube](https://github.com/h-arnold/AssessmentBot-Backend/actions/workflows/sonarqube.yml/badge.svg)
+![CI - Unit & E2E Tests](https://github.com/h-arnold/Assessment Bot LLM Service/actions/workflows/ci.yml/badge.svg)
+![CodeQL](https://github.com/h-arnold/Assessment Bot LLM Service/actions/workflows/codeql.yml/badge.svg)
+![SonarQube](https://github.com/h-arnold/Assessment Bot LLM Service/actions/workflows/sonarqube.yml/badge.svg)
 
 ## Introduction
 
@@ -38,8 +38,8 @@ This method starts the application along with a Caddy reverse proxy and Fail2ban
 1.  **Clone the repository**:
 
     ```bash
-    git clone https://github.com/h-arnold/AssessmentBot-Backend.git
-    cd AssessmentBot-Backend
+    git clone https://github.com/h-arnold/Assessment Bot LLM Service.git
+    cd Assessment Bot LLM Service
     ```
 
 2.  **Set up environment variables**:
@@ -82,8 +82,8 @@ Common flags:
 1.  **Clone and install**:
 
     ```bash
-    git clone https://github.com/h-arnold/AssessmentBot-Backend.git
-    cd AssessmentBot-Backend
+    git clone https://github.com/h-arnold/Assessment Bot LLM Service.git
+    cd Assessment Bot LLM Service
     npm install
     ```
 

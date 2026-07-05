@@ -1,6 +1,6 @@
 # E2E Testing Guide
 
-This document provides instructions for setting up and running the End-to-End (E2E) tests for the AssessmentBot-Backend.
+This document provides instructions for setting up and running the End-to-End (E2E) tests for the Assessment Bot LLM Service.
 
 ## Running E2E Tests
 

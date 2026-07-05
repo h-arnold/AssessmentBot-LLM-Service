@@ -1,6 +1,6 @@
 # Design Patterns
 
-This document catalogues the design patterns used throughout the AssessmentBot-Backend codebase, explaining their implementation, benefits, and specific use cases within the system.
+This document catalogues the design patterns used throughout the Assessment Bot LLM Service codebase, explaining their implementation, benefits, and specific use cases within the system.
 
 ## Creational Patterns
 

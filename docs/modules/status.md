@@ -1,6 +1,6 @@
 # Status Module
 
-The Status Module (`src/status/`) provides health checks and system status functionality for the AssessmentBot-Backend application, offering essential monitoring and diagnostic capabilities for operational oversight.
+The Status Module (`src/status/`) provides health checks and system status functionality for the Assessment Bot LLM Service application, offering essential monitoring and diagnostic capabilities for operational oversight.
 
 ## Overview
 

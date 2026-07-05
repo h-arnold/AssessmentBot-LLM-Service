@@ -1,6 +1,6 @@
 # Template Management
 
-This guide covers the management of prompt templates in the AssessmentBot-Backend system. Templates are crucial for maintaining consistent and effective LLM interactions whilst allowing for customisation across different task types.
+This guide covers the management of prompt templates in the Assessment Bot LLM Service system. Templates are crucial for maintaining consistent and effective LLM interactions whilst allowing for customisation across different task types.
 
 ## Template Overview
 

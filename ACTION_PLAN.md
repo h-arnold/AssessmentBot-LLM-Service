@@ -95,6 +95,34 @@ This plan is organised into small, independently testable sections. Each section
 - The production build must still compile successfully.
 - Do not change any source code logic in this section.
 
+**Lessons from Section 0 Validation (critical — read before starting):**
+
+These findings were validated on 2026-07-05 against the actual codebase. Future agents must apply these patterns; ignoring them will produce non-obvious failures.
+
+- **`"type": "module"` and `"module": "NodeNext"` are coupled.** Under `NodeNext`, TypeScript inspects the nearest `package.json`'s `type` field to decide the output module format. Setting only `tsconfig.json` to `"module": "NodeNext"` (without `"type": "module"` in `package.json`) silently produces **CommonJS** output. **Both changes must land in the same commit.** Verify the output is actually ESM by inspecting `dist/src/main.js` for `import`/`export` and the absence of `"use strict"` / `__createBinding` helpers.
+
+- **All relative imports require explicit `.js` extensions.** Under `NodeNext`, `tsc` enforces Node's ESM resolver rule and emits `TS2835` for every relative import without an extension. This is the largest mechanical change in Section 1.
+  - **Scope (validated by grep):** 69 imports across 27 non-spec source files (full file list below). Spec files (83 imports) are migrated in Section 3; `test/` files (14 imports) in Section 4.
+  - **Pattern:** `import { Foo } from './foo'` → `import { Foo } from './foo.js'`. The `.js` extension is correct even though the source file is `.ts` — TypeScript resolves it to the `.ts` file at compile time and emits `.js` in output.
+  - **Files needing `.js` extension on relative imports (source only, non-spec):** `src/app.module.ts`, `src/auth/api-key.service.ts`, `src/auth/api-key.strategy.ts`, `src/auth/auth.module.ts`, `src/bootstrap.ts`, `src/common/common.module.ts`, `src/common/http-exception.filter.ts`, `src/common/pipes/image-validation.pipe.ts`, `src/config/config.module.ts`, `src/config/config.service.ts`, `src/config/index.ts`, `src/config/throttler.config.ts`, `src/llm/gemini.service.ts`, `src/llm/llm.module.ts`, `src/llm/llm.service.interface.ts`, `src/prompt/image.prompt.ts`, `src/prompt/prompt.base.ts`, `src/prompt/prompt.factory.ts`, `src/prompt/prompt.module.ts`, `src/prompt/table.prompt.ts`, `src/prompt/text.prompt.ts`, `src/status/status.controller.ts`, `src/status/status.module.ts`, `src/status/status.service.ts`, `src/v1/assessor/assessor.controller.ts`, `src/v1/assessor/assessor.module.ts`, `src/v1/assessor/assessor.service.ts`.
+
+- **`status.controller.ts` — TS1272 decorated-signature type import.** When `isolatedModules` + `emitDecoratorMetadata` are both enabled, a _type referenced in a decorated signature_ (return type of a `@Get()` method, parameter type of an `@Inject()`-ed param, etc.) cannot share an `import` statement with a _value_. Currently `import { StatusService, HealthCheckResponse } from './status.service'` mixes a value (`StatusService`) with a type (`HealthCheckResponse` used as `@Get('health')` return type). **Fix:** split into `import { StatusService } from './status.service.js'` + `import type { HealthCheckResponse } from './status.service.js'`. Note the `.js` extension on _both_ statements. Scan all other decorated signatures for the same pattern; several files use the modern `import { X, type Y }` inline syntax which is **already safe** — do not "fix" those, only split shared imports where TS1272 fires.
+
+- **`status.service.ts` — TS1543 JSON import attribute.** `import * as packageJson from '../../package.json'` fails under `NodeNext` ESM with `TS1543: Importing a JSON file into an ECMAScript module requires a 'type: "json"' import attribute`. **Fix:** `import * as packageJson from '../../package.json' with { type: 'json' }`. The same change applies to `src/status/status.service.spec.ts` (but the spec is migrated in Section 3). Verify the project's `tsconfig.json` `resolveJsonModule: true` is still set (it is). TypeScript 6.0+ supports the `with` syntax; the older `assert` syntax is deprecated — use `with`.
+
+- **`assessor.controller.ts` — `src/...` path-alias imports.** This file has 5 imports using the `src/...` path alias (e.g., `from 'src/auth/api-key.guard'`). Under `NodeNext`, path aliases in source files are **not resolved by Node at runtime** unless a loader is configured. They will compile (TypeScript resolves them via `tsconfig.json` `paths`), but `node dist/src/main.js` will fail at runtime with `ERR_MODULE_NOT_FOUND`. **Options for the implementer (pick the simplest):**
+  1. **Convert to relative imports** (e.g., `from '../../auth/api-key.guard.js'`). This is the simplest, runtime-safe, no-extra-config approach and is recommended. Verify the relative depth against the dist layout.
+  2. Or keep path aliases and configure `tsconfig-paths` as an ESM loader in production — rejected as out of scope and contradicts the statelessness goal.
+  - **Vitest note:** Section 2's Vitest config will need `resolve.alias` to support `src/...` aliases in spec/test files. But for production source, option 1 (relative imports) is strongly preferred so the runtime has zero path-resolution coupling to the build tool. Only `assessor.controller.ts` uses `src/...` imports in production source — fix it here.
+
+- **`nest build` crashes on compilation errors.** When `tsconfig.json` is set to `NodeNext` but the source still has un-fixed imports, `npm run build` (which runs `nest build`) emits `Aborted (core dumped)` instead of a clean error list. **Do not panic.** This is the NestJS CLI crashing on error output, not a real crash. **Diagnose with `npx tsc --project tsconfig.build.json`** directly — it prints the actual `TS2835`/`TS1272`/`TS1543` errors cleanly. Once fixes are applied, `nest build` will succeed again. This is noted here so future agents don't waste time investigating the apparent crash.
+
+- **`ignoreDeprecations: "6.0"` must be retained.** Section 0 confirmed that `baseUrl` (used by `tsconfig.json` for `paths`) triggers `TS5101` on TypeScript 6.x without `ignoreDeprecations: "6.0"`. The plan's step 1 says "remove if no longer needed" — it **is** still needed because `baseUrl`/`paths` are still used. Do **not** remove `ignoreDeprecations` in this section.
+
+- **`vitest` is already installed on this branch.** Section 0 ran `npm install --save-dev vitest` and then rolled back `package-lock.json`. The `node_modules/vitest` directory may still exist on worktrees where Section 0 was run, but **`package.json` does not list vitest as a dependency**. Section 2 is responsible for adding it to `package.json` properly. Do not assume vitest is installed — verify before use.
+
+- **Decorator metadata preservation is confirmed (R8 mitigated).** Vitest's default transformer preserves `emitDecoratorMetadata`. Do **not** add explicit `@Inject()` decorators as a "safety" measure — it is unnecessary churn and the plan explicitly decided against it. Constructor injection works as-is.
+
 **Acceptance Criteria:**
 
 1. `tsconfig.json` uses `"module": "NodeNext"` and `"moduleResolution": "NodeNext"`.
@@ -113,7 +141,7 @@ This section is configuration-only. Verification is via build and runtime checks
    - Change `"module": "CommonJS"` → `"module": "NodeNext"`.
    - Change `"moduleResolution": "node"` → `"moduleResolution": "NodeNext"`.
    - Change `"types": ["node", "jest"]` → `"types": ["node"]`.
-   - Remove `"ignoreDeprecations": "6.0"` if no longer needed.
+   - **Keep `"ignoreDeprecations": "6.0"`** — Section 0 validated that `baseUrl` (used for `paths`) still requires this flag on TypeScript 6.x; removing it produces `TS5101`. See "Lessons" above.
    - Note: `tsconfig.build.json` extends `tsconfig.json` and overrides `types` to `["node"]`. After this change, the override becomes redundant (base already has `["node"]`). No change needed to `tsconfig.build.json`, but the redundant override can be cleaned up.
 
 2. **Delete `tsconfig.test.json`:**
@@ -142,22 +170,49 @@ This section is configuration-only. Verification is via build and runtime checks
 6. **Convert `scripts/health-check.js` to ESM:**
    - Replace `const http = require('node:http')` with `import http from 'node:http'`.
 
-7. **Verify build and runtime:**
-   - Run `npm run build` — must succeed.
-   - Inspect `dist/src/main.js` — must use `import`/`export` syntax.
-   - Run `node dist/src/main.js` — must start the server.
+7. **Add `.js` extensions to all relative imports in non-spec source files.**
+   - This is the largest mechanical change in Section 1 (~69 imports across 27 files — full file list in "Lessons" above).
+   - Pattern: `from './foo'` → `from './foo.js'`. The `.js` extension is correct even for `.ts` sources.
+   - Keep the existing modern `import { X, type Y } from './foo.js'` inline syntax untouched — it is already safe.
+   - Only touch **non-spec** files here (`src/**/*.ts`, excluding `*.spec.ts`). Spec/test files are migrated in Sections 3 and 4 respectively, so do **not** edit them in this section — leaving their imports unextended is correct because they are broken until Section 3 anyway.
+   - Scope-limited change: this is mechanical and must not alter any logic. Run `eslint --fix` afterwards; the `import-x` plugin will not auto-fix missing extensions, but it will surface any import the regex missed.
+
+8. **Fix `src/status/status.controller.ts` — split the type import (TS1272).**
+   - Current: `import { StatusService, HealthCheckResponse } from './status.service'`
+   - Target: `import { StatusService } from './status.service.js'` + `import type { HealthCheckResponse } from './status.service.js'`
+   - `HealthCheckResponse` is only a return type of a `@Get()`-decorated method, so it must be a type-only import. See "Lessons" above for the full rationale.
+   - Scan other decorated signatures for the same shared value+type import pattern; only the inline `import { X, type Y }` syntax or split type imports are valid — do not touch inline-modifier imports that already compile.
+
+9. **Fix `src/status/status.service.ts` — JSON import attribute (TS1543).**
+   - Current: `import * as packageJson from '../../package.json'`
+   - Target: `import * as packageJson from '../../package.json' with { type: 'json' }`
+   - Use the `with` syntax (not the deprecated `assert`). Applies to the production source file here; `src/status/status.service.spec.ts` is fixed in Section 3.
+
+10. **Fix `src/v1/assessor/assessor.controller.ts` — convert `src/...` path-alias imports to relative.**
+    - 5 imports use `from 'src/...'` (path alias). Convert to relative imports with `.js` extensions (e.g., `from '../../auth/api-key.guard.js'`). Verify relative depth against `src/v1/assessor/` location.
+    - See "Lessons" above — runtime resolution of `src/...` aliases is not safe under Node ESM without extra loader config, and the plan explicitly avoids that.
+
+11. **Verify build and runtime:**
+    - Run `npx tsc --project tsconfig.build.json` **first** to get a clean error list. Fix any remaining `TS2835`/`TS1272`/`TS1543` errors.
+    - Then run `npm run build` — must succeed. (If `nest build` still aborts, run `npx tsc` again to diagnose — see "Lessons" above about the `nest build` crash on errors.)
+    - Inspect `dist/src/main.js` — confirm it uses `import`/`export` syntax and **not** `"use strict"` or `__createBinding` helpers (those indicate CJS output — see "Lessons" about `type: "module"` coupling).
+    - Run `node dist/src/main.js` — must start the server.
 
 **Refactor:**
 
-- Review any TypeScript compilation errors that arise from `NodeNext` module resolution (e.g., missing `.js` extensions in relative imports). Fix them.
+- After verification, run `npx tsc --project tsconfig.build.json` once more and confirm zero errors. Any remaining `TS2835` means a relative import was missed — find and fix it.
+- Do **not** remove `ignoreDeprecations: "6.0"` — it is still required because `baseUrl`/`paths` are still in use (see "Lessons" above). The plan's original step 1 provisionally suggested removal; this validation overrides it.
+- `tsconfig.build.json`'s `"types": ["node"]` override becomes redundant (base now also has `["node"]`). Optional cleanup only.
 
 **Section Checks:**
 
 - [ ] `npm run build` succeeds.
-- [ ] `dist/` output uses ESM syntax.
+- [ ] `dist/` output uses ESM syntax (verify `dist/src/main.js` starts with `import`, not `"use strict"`).
 - [ ] `node dist/src/main.js` starts the server.
 - [ ] No `require()` or `module.exports` in any source file.
 - [ ] `tsconfig.test.json` is deleted.
+- [ ] Zero `TS2835` / `TS1272` / `TS1543` errors from `npx tsc --project tsconfig.build.json`.
+- [ ] `assessor.controller.ts` no longer imports via `src/...` path aliases.
 
 ---
 
@@ -169,6 +224,13 @@ This section is configuration-only. Verification is via build and runtime checks
 
 - Tests will not pass until Section 3 (test file migration) is complete.
 - Install Vitest and remove Jest in a single commit to avoid a broken intermediate state.
+
+**Cross-Section Notes from Section 0 Validation (read before starting):**
+
+- **`vitest` may already be in `node_modules` from Section 0**, but it is **not** in `package.json` dependencies (Section 0 rolled back `package-lock.json`). Do not assume a clean install — run the `npm install --save-dev vitest` step explicitly so the dependency is recorded.
+- **Vitest config needs `resolve.alias` for `src/...` path aliases.** Validation found 9 `test/` files that import via `from 'src/common/file-utilities'` (path alias). Section 1 converts production source away from `src/...` aliases (only `assessor.controller.ts` used them), but test files are out of scope for Section 1 and still rely on the alias. **Both the unit and e2e Vitest workspace projects must declare `resolve: { alias: { 'src': '<repo root abs path>/src' } }`** (or use `pathToFileURL`-relative resolution). Without this, `test/**/*.e2e-spec.ts` files will fail to import `getCurrentDirname` with `ERR_MODULE_NOT_FOUND` or `Cannot find module 'src/...'`. Regex/grep pattern: `from 'src/`. Verify the alias resolves to the **source** `.ts` files (not `dist/`), because tests import the live TypeScript source.
+- **`reflect-metadata` must be imported FIRST in `vitest.setup.ts`.** Section 0 confirmed import ordering matters — static ESM imports execute in source order, so `import 'reflect-metadata'` must precede any `@nestjs/*` imports for decorator metadata to be captured. The plan's step 5 already specifies this; do not reorder.
+- **`nest build` may crash on its own output if errors exist** (see Section 1 notes). If `npm run test:e2e:mocked` fails because `npm run build` aborted, run `npx tsc --project tsconfig.build.json` to see the real errors.
 
 **Acceptance Criteria:**
 
@@ -237,6 +299,11 @@ This section is configuration-only. Verification is via build and runtime checks
    - Workspace approach:
      ```typescript
      import { defineWorkspace } from 'vitest/config';
+     import { resolve } from 'node:path';
+
+     // Shared alias for `src/...` path-alias imports used by test files.
+     // Resolves to the TypeScript source (not dist) so tests exercise live code.
+     const srcAlias = { src: resolve(process.cwd(), 'src') };
 
      export default defineWorkspace([
        {
@@ -248,6 +315,7 @@ This section is configuration-only. Verification is via build and runtime checks
            globals: true,
            reporters: ['default', 'junit'],
            outputFile: './junit/vitest-junit.xml',
+           alias: srcAlias,
          },
        },
        {
@@ -260,6 +328,7 @@ This section is configuration-only. Verification is via build and runtime checks
            globals: true,
            testTimeout: 30000,
            pool: 'forks',
+           alias: srcAlias,
          },
        },
        {
@@ -271,6 +340,7 @@ This section is configuration-only. Verification is via build and runtime checks
            globals: true,
            testTimeout: 30000,
            pool: 'forks',
+           alias: srcAlias,
          },
        },
        {
@@ -282,11 +352,13 @@ This section is configuration-only. Verification is via build and runtime checks
            globals: true,
            testTimeout: 600000,
            pool: 'forks',
+           alias: srcAlias,
          },
        },
      ]);
      ```
-   - If workspace mode fails, fall back to separate `vitest.config.ts`, `vitest.e2e.config.ts`, etc.
+   - **Critical:** The `alias: srcAlias` line on every project enables `from 'src/common/file-utilities'` imports in `test/` files. Validation found 9 `test/` files use this alias — without it, all E2E tests fail with `ERR_MODULE_NOT_FOUND`. See "Cross-Section Notes" above for details.
+   - If workspace mode fails, fall back to separate `vitest.config.ts`, `vitest.e2e.config.ts`, etc. Each file must define the same `resolve.alias`.
 
 7. **Create `vitest.e2e.setup.ts`:**
    - This file applies the LLM mock for E2E tests:
@@ -364,6 +436,13 @@ This section is configuration-only. Verification is via build and runtime checks
 - Each batch should be verified by running the tests.
 - Use the migration table in SPEC.md section 4.
 
+**Cross-Section Notes from Section 0 Validation (read before starting):**
+
+- **Spec files still have un-extended relative imports.** Section 1 deliberately left all `*.spec.ts` relative imports without `.js` extensions (they were already broken under Vitest at that stage, so fixing them prematurely would have created noise). **This section must add `.js` extensions to all relative imports in spec files** as part of making them pass under Vitest's `NodeNext`-aware resolver. There are 83 such imports. Apply the same `from './foo'` → `from './foo.js'` pattern.
+- **`status.service.spec.ts` JSON import needs the `with { type: 'json' }` attribute** — same TS1543 fix as the production source (fixed in Section 1). Apply it here when migrating the spec.
+- **Constructor injection works without `@Inject()` — confirmed.** Do not add `@Inject()` decorators to spec mocks "for safety". Use `provide: SomeService, useValue: mockObject` as before — Vitest preserves `emitDecoratorMetadata` (R8 mitigation, see Section 0 results).
+- **Vitest is type-unaware at runtime; types come from `vitest/globals`.** Section 2's config enables `globals: true`. `describe`/`it`/`expect`/`beforeEach` work as globals. For `Mock` types, import from `vitest` (replaces `jest.Mock`). Do not import from `@jest/globals` — it no longer exists after Section 2.
+
 **Acceptance Criteria:**
 
 1. All 36 spec files use Vitest API (`vi.fn()`, `vi.mock()`, etc.) instead of Jest API.
@@ -438,6 +517,12 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 - E2E tests require `npm run build` before running.
 - E2E tests spawn a child process — verify the ESM entry point works.
 - Prod tests run against the Docker image — may need separate handling.
+
+**Cross-Section Notes from Section 0 Validation (read before starting):**
+
+- **`test/` files have 14 un-extended relative imports** (deferred from Section 1, same as Section 3). Apply `from './foo'` → `from './foo.js'` when migrating.
+- **E2E child-process entry point is `dist/src/testing-main.js`.** Section 0 confirmed this starts as ESM under Node 24. The `app-lifecycle.ts` spawn pattern does not need to change beyond Section 2's removal of the `--require` shim block.
+- **ESM entry-point detection (`import.meta.url` comparison) was validated.** `testing-main.js` correctly detects direct execution under ESM. No code change needed beyond Section 1's `isRunningDirectly()` rewrite.
 
 **Acceptance Criteria:**
 

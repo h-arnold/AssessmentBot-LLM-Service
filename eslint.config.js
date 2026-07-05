@@ -2,6 +2,7 @@ import stylistic from '@stylistic/eslint-plugin';
 import prettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import-x';
 import jest from 'eslint-plugin-jest';
+import jsdoc from 'eslint-plugin-jsdoc';
 import n from 'eslint-plugin-n';
 import noSecrets from 'eslint-plugin-no-secrets';
 import regexp from 'eslint-plugin-regexp';
@@ -20,6 +21,7 @@ export default tseslint.config(
       '@typescript-eslint': tseslint.plugin,
       '@stylistic': stylistic,
       jest,
+      jsdoc,
       'no-secrets': noSecrets,
       n,
       regexp,
@@ -209,6 +211,20 @@ export default tseslint.config(
       'n/no-path-concat': 'error',
       '@typescript-eslint/no-var-requires': 'error',
       'import-x/no-commonjs': 'error',
+
+      // JSDoc rules to enforce documentation standards
+      ...jsdoc.configs['recommended'].rules,
+      'jsdoc/require-description-complete-sentence': [
+        'warn',
+        {
+          treatSingleLinePhrasesAsIncomplete: true,
+        },
+      ],
+      'jsdoc/require-returns': 'error',
+      'jsdoc/require-returns-description': 'error',
+      'jsdoc/require-param-description': 'error',
+      'jsdoc/require-example': 'off',
+      'jsdoc/require-description': 'error',
     },
   },
   {

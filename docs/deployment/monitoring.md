@@ -1,6 +1,6 @@
 # Monitoring & Observability
 
-This guide covers the built-in monitoring, logging, and observability features of the AssessmentBot-Backend application.
+This guide covers the built-in monitoring, logging, and observability features of the Assessment Bot LLM Service application.
 
 ## Overview
 

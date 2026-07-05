@@ -54,8 +54,9 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * The main entry point for the exception filter.
-   * @param exception - The exception that was thrown.
-   * @param host - The arguments host, providing access to request and response.
+   * @param {unknown} exception - The exception that was thrown.
+   * @param {ArgumentsHost} host - The arguments host, providing access to
+   *   request and response.
    */
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
@@ -89,8 +90,9 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Checks if an exception is an Express 'entity.too.large' error.
-   * @param exception - The exception to check.
-   * @returns True if the exception is a PayloadTooLargeError.
+   * @param {unknown} exception - The exception to check.
+   * @returns {exception is { type: string }} True if the exception is a
+   *   PayloadTooLargeError.
    */
   private isPayloadTooLargeError(
     exception: unknown,
@@ -105,8 +107,8 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Handles the specific case of an Express PayloadTooLargeError.
-   * @param request - The incoming request object.
-   * @param response - The outgoing response object.
+   * @param {Request} request - The incoming request object.
+   * @param {Response} response - The outgoing response object.
    */
   private handlePayloadTooLargeError(
     request: Request,
@@ -121,9 +123,10 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Handles the specific case of a ResourceExhaustedError.
-   * @param exception - The ResourceExhaustedError instance.
-   * @param request - The incoming request object.
-   * @param response - The outgoing response object.
+   * @param {ResourceExhaustedError} exception - The ResourceExhaustedError
+   *   instance.
+   * @param {Request} request - The incoming request object.
+   * @param {Response} response - The outgoing response object.
    */
   private handleResourceExhaustedError(
     exception: ResourceExhaustedError,
@@ -139,8 +142,8 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Extracts error details (status, message, errors) from an exception.
-   * @param exception - The exception to process.
-   * @returns An object containing the structured error details.
+   * @param {unknown} exception - The exception to process.
+   * @returns {ErrorDetails} An object containing the structured error details.
    */
   private getErrorDetails(exception: unknown): ErrorDetails {
     if (exception instanceof HttpException) {
@@ -155,8 +158,8 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Extracts details specifically from a NestJS HttpException.
-   * @param exception - The HttpException instance.
-   * @returns An object containing the structured error details.
+   * @param {HttpException} exception - The HttpException instance.
+   * @returns {ErrorDetails} An object containing the structured error details.
    */
   private getHttpExceptionDetails(exception: HttpException): ErrorDetails {
     const status = exception.getStatus();
@@ -197,10 +200,10 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Logs the error with the appropriate level and context.
-   * @param status - The HTTP status code of the error.
-   * @param message - The error message to log.
-   * @param request - The incoming request object.
-   * @param exception - The original exception, used for stack traces.
+   * @param {number} status - The HTTP status code of the error.
+   * @param {string} message - The error message to log.
+   * @param {Request} request - The incoming request object.
+   * @param {unknown} exception - The original exception, used for stack traces.
    */
   private logError(
     status: number,
@@ -232,11 +235,11 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Constructs and sends the final JSON error response.
-   * @param response - The outgoing response object.
-   * @param status - The HTTP status code.
-   * @param message - The error message.
-   * @param path - The request path.
-   * @param errors - Optional array of validation errors.
+   * @param {Response} response - The outgoing response object.
+   * @param {number} status - The HTTP status code.
+   * @param {string} message - The error message.
+   * @param {string} path - The request path.
+   * @param {ZodErrorDetail[]} [errors] - Optional array of validation errors.
    */
   private sendResponse(
     response: Response,
@@ -262,8 +265,10 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
   /**
    * Sanitises request headers to remove sensitive information before logging.
-   * @param headers - The original request headers.
-   * @returns A new object with redacted headers.
+   * @param {Record<string, string | string[] | undefined>} headers - The
+   *   original request headers.
+   * @returns {Record<string, string | string[]>} A new object with redacted
+   *   headers.
    */
   private sanitiseHeaders(
     headers: Record<string, string | string[] | undefined>,

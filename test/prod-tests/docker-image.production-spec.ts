@@ -23,6 +23,12 @@ interface AssessorPayload {
   [k: string]: unknown;
 }
 
+/**
+ * Send a POST request with a JSON body to the assessor endpoint.
+ * @param {Record<string, unknown>} payload - The request payload.
+ * @returns {Promise<{ status: number; json: unknown }>} The HTTP status code
+ *   and parsed JSON response.
+ */
 async function postJson(
   payload: Record<string, unknown>,
 ): Promise<{ status: number; json: unknown }> {
@@ -76,6 +82,11 @@ async function postJson(
   });
 }
 
+/**
+ * Evaluate an assessor payload against the running Docker container.
+ * @param {string} _label - A label for the test case (unused).
+ * @param {AssessorPayload} payload - The assessor payload to send.
+ */
 async function evaluate(
   _label: string,
   payload: AssessorPayload,

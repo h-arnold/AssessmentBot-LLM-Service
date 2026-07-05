@@ -1,6 +1,6 @@
 # Request & Response Schemas
 
-This document details the data schemas for the Assessment Bot Backend API, validated using Zod.
+This document details the data schemas for the Assessment Bot LLM Service API, validated using Zod.
 
 ## Assessment Request (`/v1/assessor`)
 

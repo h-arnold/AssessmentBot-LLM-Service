@@ -10,10 +10,18 @@ import { waitForLog } from './log-watcher';
 
 const appLifecycleLogger = new Logger('AppLifecycle');
 
+/**
+ * Listener for child process stderr output.
+ * @param {Buffer} data - The stderr data buffer.
+ */
 function stderrListener(data: Buffer): void {
   appLifecycleLogger.error(`stderr: ${data}`);
 }
 
+/**
+ * Listener for child process stdout output.
+ * @param {Buffer} data - The stdout data buffer.
+ */
 function stdoutListener(data: Buffer): void {
   appLifecycleLogger.debug(`stdout: ${data}`);
 }
@@ -32,12 +40,15 @@ export interface AppInstance {
 }
 
 /**
- * Starts the application in a child process for E2E testing, waits for it to be ready, and returns process info.
- *
- * @param logFilePath - The path to the log file to use for the app process.
- * @param environmentOverrides - A plain JavaScript object to override default environment variables.
- * @returns An object containing the app process, base URL, and API key.
- * @throws If the application fails to start within 30 seconds.
+ * Starts the application in a child process for E2E testing, waits for it to
+ * be ready, and returns process info.
+ * @param {string} logFilePath - The path to the log file to use for the app
+ *   process.
+ * @param {Record<string, string>} [environmentOverrides] - A plain JavaScript
+ *   object to override default environment variables.
+ * @returns {Promise<AppInstance>} An object containing the app process, base
+ *   URL, and API key.
+ * @throws {Error} If the application fails to start within 30 seconds.
  */
 export async function startApp(
   logFilePath: string,
@@ -247,8 +258,8 @@ export async function startApp(
 
 /**
  * Stops the running application process by sending SIGTERM.
- *
- * @param appProcess - The child process running the application.
+ * @param {ChildProcessWithoutNullStreams} appProcess - The child process
+ *   running the application.
  */
 export function stopApp(appProcess: ChildProcessWithoutNullStreams): void {
   if (!(appProcess && !appProcess.killed)) {
@@ -283,9 +294,8 @@ export const API_CALL_DELAY_MS = 2000;
 /**
  * Delays execution for a specified number of milliseconds.
  * Useful for rate limiting test API calls to avoid hitting Gemini API limits.
- *
- * @param ms - The number of milliseconds to delay.
- * @returns A Promise that resolves after the delay.
+ * @param {number} ms - The number of milliseconds to delay.
+ * @returns {Promise<void>} A promise that resolves after the delay.
  */
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

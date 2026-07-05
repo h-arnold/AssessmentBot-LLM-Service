@@ -8,6 +8,9 @@ import process from 'node:process';
 
 import * as dotenv from 'dotenv';
 
+/**
+ * Start the production application.
+ */
 export async function start(): Promise<void> {
   dotenv.config({ path: '.env' });
   const { bootstrap } = await import('./bootstrap');
@@ -30,6 +33,11 @@ if (isRunningDirectly()) {
   })();
 }
 
+/**
+ * Check whether the current module is the main entry point.
+ * @returns {boolean} True if the module is the main entry point and not running
+ *   under Jest.
+ */
 function isRunningDirectly(): boolean {
   return (
     typeof require !== 'undefined' &&

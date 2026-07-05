@@ -1,6 +1,6 @@
 # API Key Management
 
-This document outlines best practices for managing API keys within the Assessment Bot Backend, covering generation, rotation, usage, and security considerations.
+This document outlines best practices for managing API keys within the Assessment Bot LLM Service, covering generation, rotation, usage, and security considerations.
 
 ## 1. API Key Generation Best Practices
 

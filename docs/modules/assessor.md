@@ -1,6 +1,6 @@
 # Assessor Module (v1)
 
-The Assessor Module (`src/v1/assessor/`) is the core assessment functionality of the AssessmentBot-Backend application, responsible for processing assessment requests and generating comprehensive evaluations using Large Language Models.
+The Assessor Module (`src/v1/assessor/`) is the core assessment functionality of the Assessment Bot LLM Service application, responsible for processing assessment requests and generating comprehensive evaluations using Large Language Models.
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Prompt System
 
-This document outlines the architecture and development process for the prompt generation system used in the AssessmentBot-Backend.
+This document outlines the architecture and development process for the prompt generation system used in the Assessment Bot LLM Service.
 
 ## Architecture
 

@@ -17,9 +17,10 @@ export class AssessorService {
   private readonly logger = new Logger(AssessorService.name);
   /**
    * Constructs an instance of AssessorService.
-   *
-   * @param llmService - The service responsible for interacting with the LLM (Large Language Model).
-   * @param promptFactory - The factory responsible for generating prompts for the LLM.
+   * @param {LLMService} llmService - The service responsible for interacting
+   *   with the LLM.
+   * @param {PromptFactory} promptFactory - The factory responsible for
+   *   generating prompts for the LLM.
    */
   constructor(
     private readonly llmService: LLMService,
@@ -28,11 +29,13 @@ export class AssessorService {
 
   /**
    * Creates an assessment based on the provided data transfer object (DTO).
+   *
    * This method generates a prompt using the `promptFactory`, builds a message,
    * and sends it to the LLM service for processing.
-   *
-   * @param dto - The data transfer object containing the details required to create an assessment.
-   * @returns A promise that resolves to an `LlmResponse` containing the result of the assessment.
+   * @param {CreateAssessorDto} dto - The data transfer object containing the
+   *   details required to create an assessment.
+   * @returns {Promise<LlmResponse>} A promise that resolves to an LlmResponse
+   *   containing the result of the assessment.
    */
   async createAssessment(dto: CreateAssessorDto): Promise<LlmResponse> {
     this.logger.log(`Creating assessment for task type: ${dto.taskType}.`);

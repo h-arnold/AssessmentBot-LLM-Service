@@ -13,11 +13,11 @@ import { LlmPayload } from '../llm/llm.service.interface';
  * empty task template.
  */
 export const PromptInputSchema = z.object({
-  /** The reference or model solution for the task */
+  /** The reference or model solution for the task. */
   referenceTask: z.string(),
-  /** The student's submitted response to the task */
+  /** The student's submitted response to the task. */
   studentTask: z.string(),
-  /** The original task prompt or template given to the student */
+  /** The original task prompt or template given to the student. */
   emptyTask: z.string(),
 });
 
@@ -32,11 +32,10 @@ export type PromptInput = z.infer<typeof PromptInputSchema>;
  * This class provides common functionality for prompt generation including:
  * - Input validation using Zod schemas
  * - Template loading and rendering with Mustache
- * - Common properties and lifecycle management
+ * - Common properties and lifecycle management.
  *
  * Subclasses must implement the `buildMessage` method to create
  * task-specific LLM payloads appropriate for their assessment type.
- *
  * @abstract
  */
 export abstract class Prompt {
@@ -54,12 +53,14 @@ export abstract class Prompt {
    * This constructor validates the provided inputs against the schema,
    * stores the validated data as instance properties, and configures
    * the prompt with template and system prompt information.
-   *
-   * @param inputs - Raw input data to be validated against PromptInputSchema
-   * @param logger - Logger instance for recording prompt operations
-   * @param userTemplateName - Optional name of the markdown template for user message parts
-   * @param systemPrompt - Optional system prompt string for LLM context
-   * @throws Error if input validation fails
+   * @param {unknown} inputs - Raw input data to be validated against
+   *   PromptInputSchema.
+   * @param {Logger} logger - Logger instance for recording prompt operations.
+   * @param {string} [userTemplateName] - Optional name of the markdown
+   *   template for user message parts.
+   * @param {string} [systemPrompt] - Optional system prompt string for LLM
+   *   context.
+   * @throws {Error} If input validation fails.
    */
   constructor(
     inputs: unknown,
@@ -84,7 +85,7 @@ export abstract class Prompt {
 
   /**
    * Logs the length of each input element at info level.
-   * @param inputs The validated PromptInput object.
+   * @param {PromptInput} inputs The validated PromptInput object.
    */
   private logInputLengths(inputs: PromptInput): void {
     const lengths = [
@@ -97,9 +98,10 @@ export abstract class Prompt {
 
   /**
    * Renders a template string using mustache with the provided data.
-   * @param template The template string to render.
-   * @param data A record of key-value pairs to substitute in the template.
-   * @returns The rendered string.
+   * @param {string} template The template string to render.
+   * @param {Record<string, string>} data A record of key-value pairs to
+   *   substitute in the template.
+   * @returns {string} The rendered string.
    */
   protected render(template: string, data: Record<string, string>): string {
     this.logger.debug(
@@ -118,14 +120,10 @@ export abstract class Prompt {
 
   /**
    * Builds the final payload to be sent to the LLM service.
-   * This method must be implemented by all subclasses.
-   * @returns A Promise that resolves to the LlmPayload.
-   */
-  /**
-   * Builds the final payload to be sent to the LLM service.
+   *
    * This is the default implementation for text and table prompts.
    * Subclasses can override if needed (e.g., ImagePrompt).
-   * @returns A Promise that resolves to the LlmPayload.
+   * @returns {Promise<LlmPayload>} A Promise that resolves to the LlmPayload.
    */
   public async buildMessage(): Promise<LlmPayload> {
     this.logger.debug(`Building message for ${this.constructor.name}`);

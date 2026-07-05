@@ -1,6 +1,6 @@
 # LLM Module
 
-The LLM Module (`src/llm/`) provides Large Language Model integration services for the AssessmentBot-Backend application, implementing an abstract service layer with Google Gemini as the concrete implementation.
+The LLM Module (`src/llm/`) provides Large Language Model integration services for the Assessment Bot LLM Service application, implementing an abstract service layer with Google Gemini as the concrete implementation.
 
 ## Overview
 

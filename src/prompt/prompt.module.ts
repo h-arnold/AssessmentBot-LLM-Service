@@ -8,14 +8,13 @@ import { PromptFactory } from './prompt.factory';
  * This module provides the infrastructure for creating and managing prompts
  * that are sent to Large Language Models. It includes factory patterns for
  * generating different types of prompts based on task requirements.
- *
  * @module PromptModule
  *
- * @providers
+ * **providers:**
  * - `PromptFactory`: Factory for creating task-specific prompt instances
  * - `Logger`: Logging functionality for prompt operations
  *
- * @exports
+ * **exports:**
  * - `PromptFactory`: Makes the factory available to other modules
  */
 @Module({

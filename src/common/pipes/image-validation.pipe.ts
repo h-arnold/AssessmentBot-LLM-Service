@@ -7,17 +7,13 @@ import { ConfigService } from '../../config/config.service';
 /**
  * A pipe for validating image uploads, ensuring they meet size and format requirements.
  * This pipe supports both binary image buffers and base64-encoded image strings.
- *
  * @class ImageValidationPipe
  * @implements {PipeTransform}
- *
- * @constructor
+ * @class
  * @param {ConfigService} configService - Service for accessing configuration values.
- *
- * @method transform
+ * @function transform
  * Validates the provided image data based on its type (Buffer or base64 string).
  * Throws a `BadRequestException` if the image fails validation.
- *
  * @param {unknown} value - The image data to validate. Can be a Buffer or a base64 string.
  * @returns {Promise<unknown>} - The validated image data, or the original value if validation passes.
  *

@@ -15,9 +15,10 @@ export type AssessmentCriterion = z.infer<typeof AssessmentCriterionSchema>;
  *
  * Defines the structure and validation rules for individual assessment
  * criteria used in LLM-generated assessments.
- *
- * @property score - Integer between 0 and 5 representing the assessment score
- * @property reasoning - Non-empty string explaining the rationale for the score
+ * @property {number} score - Integer between 0 and 5 representing the
+ *   assessment score.
+ * @property {string} reasoning - Non-empty string explaining the rationale for
+ *   the score.
  */
 export const AssessmentCriterionSchema = z.object({
   score: z.number().int().min(0).max(5),
@@ -30,10 +31,12 @@ export const AssessmentCriterionSchema = z.object({
  * This schema ensures that LLM responses conform to the expected structure
  * with exactly three assessment criteria: completeness, accuracy, and SPAG
  * (Spelling, Punctuation, and Grammar).
- *
- * @property completeness - Assessment of how complete the response is
- * @property accuracy - Assessment of the factual accuracy of the response
- * @property spag - Assessment of spelling, punctuation, and grammar quality
+ * @property {AssessmentCriterion} completeness - Assessment of how complete
+ *   the response is.
+ * @property {AssessmentCriterion} accuracy - Assessment of the factual accuracy
+ *   of the response.
+ * @property {AssessmentCriterion} spag - Assessment of spelling, punctuation,
+ *   and grammar quality.
  */
 export const LlmResponseSchema = z.object({
   completeness: AssessmentCriterionSchema,

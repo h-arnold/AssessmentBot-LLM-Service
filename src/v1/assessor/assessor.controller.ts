@@ -16,7 +16,6 @@ import { LlmResponse } from '../../llm/types';
 /**
  * @class AssessorController
  * @description Controller responsible for handling all assessment-related API requests.
- *
  * @remarks
  * This controller is part of the v1 API. It is protected by the `ApiKeyGuard`, ensuring that only
  * authorised clients can access its endpoints. It provides a single endpoint for creating new assessments.
@@ -32,7 +31,6 @@ import { LlmResponse } from '../../llm/types';
  * - The `create` method uses the `ZodValidationPipe` to validate the incoming request body against the `assessorDtoSchema`.
  * - For tasks of type `IMAGE`, it also programmatically uses the `ImageValidationPipe` to perform more complex,
  *   asynchronous validation on the image data itself.
- *
  * @see AppModule - Where the global `ThrottlerGuard` is configured.
  * @see config/throttler.config.ts - Where the `authenticatedThrottler` configuration is defined.
  * @see auth/api-key.guard.ts - The guard that protects this controller.
@@ -58,11 +56,12 @@ export class AssessorController {
    * For IMAGE task types, this method performs additional validation on the
    * image data using the ImageValidationPipe to ensure proper format, size,
    * and MIME type compliance.
-   *
-   * @param assessorDto - Validated data transfer object containing task details
-   * @returns Promise resolving to LLM assessment response with scoring and reasoning
-   * @throws {BadRequestException} If validation fails for any field
-   * @throws {UnauthorizedException} If API key authentication fails
+   * @param {CreateAssessorDto} assessorDto - Validated data transfer object
+   *   containing task details.
+   * @returns {Promise<LlmResponse>} Promise resolving to LLM assessment
+   *   response with scoring and reasoning.
+   * @throws {BadRequestException} If validation fails for any field.
+   * @throws {UnauthorizedException} If API key authentication fails.
    */
   @Post()
   async create(

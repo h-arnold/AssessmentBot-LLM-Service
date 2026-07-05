@@ -1,6 +1,6 @@
 # Development Workflow
 
-This document outlines the local development practices and procedures for the AssessmentBot-Backend project.
+This document outlines the local development practices and procedures for the Assessment Bot LLM Service project.
 
 ## Prerequisites
 
@@ -17,8 +17,8 @@ Before starting development, ensure you have the following installed:
 ### 1. Clone and Install Dependencies
 
 ```bash
-git clone https://github.com/h-arnold/AssessmentBot-Backend.git
-cd AssessmentBot-Backend
+git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
+cd AssessmentBot-LLM-Service
 npm install
 ```
 

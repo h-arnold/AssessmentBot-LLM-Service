@@ -1,6 +1,6 @@
 // See https://containers.dev/ for full reference
 {
-  "name": "AssessmentBot-Backend DevContainer",
+  "name": "Assessment Bot LLM Service DevContainer",
   // Use the typescript-node base image (Node.js + TypeScript tooling).
   // Keep the Ubuntu variant behavior from the original image where applicable.
   "image": "mcr.microsoft.com/devcontainers/typescript-node:latest",

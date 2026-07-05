@@ -1,6 +1,6 @@
 # Authentication & Authorisation
 
-This document provides a detailed technical breakdown of the authentication and authorisation mechanism implemented in the AssessmentBot-Backend.
+This document provides a detailed technical breakdown of the authentication and authorisation mechanism implemented in the Assessment Bot LLM Service.
 
 ## Overview
 

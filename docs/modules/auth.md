@@ -1,6 +1,6 @@
 # Authentication Module (`AuthModule`)
 
-This document provides an overview of the `AuthModule`, which is responsible for handling all authentication and authorisation concerns within the AssessmentBot-Backend.
+This document provides an overview of the `AuthModule`, which is responsible for handling all authentication and authorisation concerns within the Assessment Bot LLM Service.
 
 ## Primary Responsibility
 

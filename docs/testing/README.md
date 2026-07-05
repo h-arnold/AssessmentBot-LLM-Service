@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document provides a concise overview of the testing strategy, tools, and practices for the AssessmentBot-Backend project.
+This document provides a concise overview of the testing strategy, tools, and practices for the Assessment Bot LLM Service project.
 
 ## Guiding Principles
 

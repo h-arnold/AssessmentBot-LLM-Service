@@ -1,6 +1,6 @@
 # App Module
 
-The App Module (`src/app.module.ts`) is the root module of the AssessmentBot-Backend application, responsible for orchestrating and wiring together all other modules in the system.
+The App Module (`src/app.module.ts`) is the root module of the Assessment Bot LLM Service application, responsible for orchestrating and wiring together all other modules in the system.
 
 ## Overview
 

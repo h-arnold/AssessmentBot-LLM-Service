@@ -11,9 +11,9 @@
  *
  * Validates that the provided value is an object containing both 'system' and 'user'
  * properties that are both strings. This is commonly used for LLM prompt payloads.
- *
- * @param message - The value to check
- * @returns True if the value matches the expected system-user message structure
+ * @param {unknown} message - The value to check.
+ * @returns {message is { system: string; user: string }} True if the value
+ *   matches the expected system-user message structure.
  */
 export function isSystemUserMessage(
   message: unknown,

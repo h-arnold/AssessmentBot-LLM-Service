@@ -12,6 +12,11 @@ export interface BootstrapOptions {
 
 type ExpressAppWithSet = Pick<Express, 'set'>;
 
+/**
+ * Bootstrap the NestJS application with the provided options.
+ * @param {BootstrapOptions} options - Configuration options for bootstrapping
+ *   the application.
+ */
 export async function bootstrap(options: BootstrapOptions = {}): Promise<void> {
   const { bufferLogs = true, host = '0.0.0.0' } = options;
   const app = await NestFactory.create(AppModule, {
@@ -21,9 +26,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<void> {
   app.useGlobalInterceptors(new LoggerErrorInterceptor());
 
   // Set Express query parser to 'extended' for compatibility with qs-style query strings
-  const expressApp = app
-    .getHttpAdapter()
-    .getInstance() as ExpressAppWithSet;
+  const expressApp = app.getHttpAdapter().getInstance() as ExpressAppWithSet;
   expressApp.set('query parser', 'extended');
 
   const configService = app.get(ConfigService);

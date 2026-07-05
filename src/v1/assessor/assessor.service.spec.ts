@@ -69,7 +69,7 @@ describe('AssessorService', () => {
     process.env.API_KEYS = 'test-api-key';
     process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
     process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png,image/jpeg';
-    process.env.APP_NAME = 'AssessmentBot-Backend';
+    process.env.APP_NAME = 'Assessment Bot LLM Service';
     process.env.APP_VERSION = 'test-version';
     process.env.LOG_LEVEL = 'debug';
   });

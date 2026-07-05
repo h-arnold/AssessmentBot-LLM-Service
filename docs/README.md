@@ -1,6 +1,6 @@
-# AssessmentBot-Backend Documentation
+# Assessment Bot LLM Service Documentation
 
-Welcome to the comprehensive documentation for the AssessmentBot-Backend project. This documentation provides detailed information about the architecture, development, deployment, and usage of the assessment system.
+Welcome to the comprehensive documentation for the Assessment Bot LLM Service project. This documentation provides detailed information about the architecture, development, deployment, and usage of the assessment system.
 
 ## Table of Contents
 

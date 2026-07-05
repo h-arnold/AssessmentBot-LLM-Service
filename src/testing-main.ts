@@ -8,6 +8,9 @@ import process from 'node:process';
 
 import * as dotenv from 'dotenv';
 
+/**
+ * Start the testing application.
+ */
 export async function startTest(): Promise<void> {
   dotenv.config({ path: '.test.env' });
   const { bootstrap } = await import('./bootstrap');
@@ -30,6 +33,10 @@ if (isRunningDirectly()) {
   })();
 }
 
+/**
+ * Check whether the current module is the main entry point.
+ * @returns {boolean} True if the module is the main entry point.
+ */
 function isRunningDirectly(): boolean {
   return typeof require !== 'undefined' && require.main === module;
 }

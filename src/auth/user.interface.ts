@@ -6,6 +6,6 @@
  * API key that was used for authentication.
  */
 export interface User {
-  /** The validated API key that was used to authenticate the user */
+  /** The validated API key that was used to authenticate the user. */
   apiKey: string;
 }

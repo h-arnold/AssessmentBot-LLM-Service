@@ -1,10 +1,10 @@
 # Docker Deployment
 
-This guide covers the containerised deployment of the AssessmentBot-Backend using Docker and Docker Compose.
+This guide covers the containerised deployment of the Assessment Bot LLM Service using Docker and Docker Compose.
 
 ## Overview
 
-The AssessmentBot-Backend supports two Docker deployment scenarios:
+The Assessment Bot LLM Service supports two Docker deployment scenarios:
 
 - **Development**: Local development with hot-reloading and debugging capabilities, using `Docker/Dockerfile`.
 - **Production**: Optimised, secure containers for production environments, using `Docker/Dockerfile.prod`.
@@ -16,8 +16,8 @@ The production image uses a multi-stage build to create a minimal, secure runtim
 1.  **Clone the repository**:
 
     ```bash
-    git clone https://github.com/h-arnold/AssessmentBot-Backend.git
-    cd AssessmentBot-Backend
+    git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
+    cd AssessmentBot-LLM-Service
     ```
 
 2.  **Set up environment variables**:

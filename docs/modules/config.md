@@ -1,6 +1,6 @@
 # Config Module
 
-The Config Module (`src/config/config.module.ts`) provides validation-aware configuration management for the AssessmentBot-Backend application. It acts as an architectural boundary that ensures all configuration access is validated and type-safe.
+The Config Module (`src/config/config.module.ts`) provides validation-aware configuration management for the Assessment Bot LLM Service application. It acts as an architectural boundary that ensures all configuration access is validated and type-safe.
 
 ## Overview
 
@@ -98,7 +98,7 @@ Configuration is validated against the `configSchema` defined in `src/config/env
 export const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  APP_NAME: z.string().default('AssessmentBot-Backend'),
+  APP_NAME: z.string().default('Assessment Bot LLM Service'),
   APP_VERSION: z.string().optional(),
   API_KEYS: z.string().optional().transform(/* comma-separated to array */),
   MAX_IMAGE_UPLOAD_SIZE_MB: z.coerce.number().int().min(0).default(1),
@@ -124,7 +124,7 @@ export const configSchema = z.object({
 
 - `NODE_ENV`: Environment mode (development/production/test)
 - `PORT`: Server port (default: 3000)
-- `APP_NAME`: Application identifier (default: 'AssessmentBot-Backend')
+- `APP_NAME`: Application identifier (default: 'Assessment Bot LLM Service')
 - `APP_VERSION`: Optional version string
 
 #### Authentication & Security

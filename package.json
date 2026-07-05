@@ -1,12 +1,12 @@
 {
-  "name": "assessmentbot-backend",
+  "name": "assessmentbot-llm-service",
   "version": "0.1.12",
   "description": "The backend for Assessment Bot, which provides LLM services.",
   "author": "Hamish Arnold",
   "private": true,
   "license": "ISC",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "build": "nest build",
@@ -77,6 +77,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import-x": "^4.16.2",
     "eslint-plugin-jest": "^29.15.2",
+    "eslint-plugin-jsdoc": "^63.0.11",
     "eslint-plugin-n": "^18.2.1",
     "eslint-plugin-no-secrets": "^2.3.3",
     "eslint-plugin-prettier": "^5.5.5",
@@ -109,7 +110,7 @@
       "ajv": "8.18.0"
     }
   },
-  "homepage": "https://github.com/h-arnold/AssessmentBot-Backend#readme",
+  "homepage": "https://github.com/h-arnold/AssessmentBot-LLM-Service#readme",
   "lint-staged": {
     "*.ts": "eslint --fix",
     "*.{js,ts,json,md}": "prettier --write",
@@ -117,9 +118,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/h-arnold/AssessmentBot-Backend.git"
+    "url": "git+https://github.com/h-arnold/AssessmentBot-LLM-Service.git"
   },
   "bugs": {
-    "url": "https://github.com/h-arnold/AssessmentBot-Backend/issues"
+    "url": "https://github.com/h-arnold/AssessmentBot-LLM-Service/issues"
   }
 }

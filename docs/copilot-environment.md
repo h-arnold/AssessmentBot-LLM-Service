@@ -1,6 +1,6 @@
 # GitHub Copilot Coding Agent Environment Setup
 
-This document outlines the GitHub Copilot Coding Agent environment configuration for the AssessmentBot-Backend repository.
+This document outlines the GitHub Copilot Coding Agent environment configuration for the Assessment Bot LLM Service repository.
 
 ## Overview
 

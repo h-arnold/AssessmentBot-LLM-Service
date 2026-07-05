@@ -9,6 +9,12 @@ const SILENCE_PATTERNS = [
   /type:\s*ignore/i,
 ];
 
+/**
+ * Check whether the given text contains any silencing rule patterns.
+ * @param {string} text - The text to check for silencing rules.
+ * @returns {string | null} The matched pattern source, or null if no silencing
+ *   rule is found.
+ */
 function hasSilencingRule(text: string): string | null {
   for (const pattern of SILENCE_PATTERNS) {
     if (pattern.test(text)) return pattern.source;

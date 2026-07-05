@@ -19,7 +19,7 @@ These variables have default values but can be customised to change application 
 
 - `NODE_ENV`: Application environment (`development`, `production`, `test`). Default is `production`.
 - `PORT`: Port on which the server runs. Default is `3000`.
-- `APP_NAME`: Application name. Default is `AssessmentBot-Backend`.
+- `APP_NAME`: Application name. Default is `Assessment Bot LLM Service`.
 - `APP_VERSION`: Application version. Optional, defaults to the version in `package.json`.
 - `LOG_LEVEL`: Logging verbosity level (`fatal`, `error`, `warn`, `info`, `debug`, `verbose`). Default is `info`.
 

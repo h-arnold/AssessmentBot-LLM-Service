@@ -52,9 +52,28 @@ This plan is organised into small, independently testable sections. Each section
 
 **Section Checks:**
 
-- [ ] All 5 acceptance criteria pass.
-- [ ] Temporary changes are rolled back.
-- [ ] Any issues discovered are recorded as blockers before proceeding.
+- [x] All 6 acceptance criteria pass (see results below).
+- [x] Temporary changes are rolled back.
+- [x] Any issues discovered are recorded as blockers before proceeding.
+
+**Validation Results (completed 2026-07-05):**
+
+1. ✅ **NestJS ESM compilation:** A minimal NestJS app with `emitDecoratorMetadata: true` and `"module": "NodeNext"` compiles and starts successfully. Constructor injection works without explicit `@Inject()` decorators.
+2. ✅ **TestingModule under Vitest:** `Test.createTestingModule()` works under Vitest. Constructor injection resolves dependencies correctly. **Risk R8 is mitigated** — Vitest's default transformer preserves decorator metadata.
+3. ✅ **ESM build output:** `tsc` with `"module": "NodeNext"` and `"type": "module"` in `package.json` produces pure ESM output (`import`/`export`, `import.meta.url`). No `require()` or `module.exports` in output.
+4. ✅ **Runtime startup:** `node dist/main.js` starts the minimal NestJS app as ESM. DI container initialises, routes are mapped, server listens.
+5. ✅ **reflect-metadata ordering:** `import 'reflect-metadata'` at the top of the entry point works correctly under ESM. Decorator metadata is emitted by `tsc` and resolved by NestJS DI.
+6. ✅ **Vitest transformer preserves metadata:** `Reflect.getMetadata('design:paramtypes', ...)` returns correct constructor parameter types in Vitest tests. No explicit `@Inject()` needed.
+
+**Issues discovered (to be addressed in Section 1):**
+
+- **TS2835:** All relative imports need `.js` extensions under `NodeNext` module resolution. ~95 imports across source files.
+- **TS1272:** `status.controller.ts` imports `HealthCheckResponse` (a type) alongside `StatusService` (a value). Must split into `import type { HealthCheckResponse }` when `isolatedModules` + `emitDecoratorMetadata` are enabled.
+- **TS1543:** `status.service.ts` imports `package.json` — under `NodeNext` ESM, JSON imports require `with { type: "json" }` import attribute.
+- **`nest build` crash:** `nest build` aborts when compilation errors exist (does not handle errors gracefully). Direct `tsc` invocation works correctly. Not a blocker once import extensions are fixed.
+- **`package.json` `"type": "module"` required:** Without it, `NodeNext` produces CJS output. Both changes must land together.
+
+**No blockers. Proceeding to Section 1 is safe.**
 
 **Blockers if validation fails:**
 

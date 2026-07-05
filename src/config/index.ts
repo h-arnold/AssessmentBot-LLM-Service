@@ -1,6 +1,5 @@
 /**
  * @file Barrel file for the configuration module.
- *
  * @remarks
  * This file re-exports the essential public-facing components of the configuration module,
  * making them easier to import into other parts of the application.

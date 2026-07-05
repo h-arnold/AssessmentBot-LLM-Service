@@ -4,7 +4,6 @@ import { configSchema } from './environment.schema';
 
 /**
  * @file Configures the application's rate-limiting (throttling) settings.
- *
  * @remarks
  * This file provides the configuration for the `@nestjs/throttler` module.
  * A key architectural decision here is to parse environment variables directly at compile time.
@@ -26,7 +25,8 @@ const validatedEnvironment = configSchema.parse(process.env);
 
 // 2. Extract the validated throttler values into constants.
 const throttlerTtl = validatedEnvironment.THROTTLER_TTL;
-const unauthenticatedLimit = validatedEnvironment.UNAUTHENTICATED_THROTTLER_LIMIT;
+const unauthenticatedLimit =
+  validatedEnvironment.UNAUTHENTICATED_THROTTLER_LIMIT;
 const authenticatedLimit = validatedEnvironment.AUTHENTICATED_THROTTLER_LIMIT;
 
 /**

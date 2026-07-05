@@ -12,11 +12,14 @@ import { Prompt } from './prompt.base';
 export class TablePrompt extends Prompt {
   /**
    * Initialises the TablePrompt instance with table-specific configuration.
-   *
-   * @param inputs - Raw input data to be validated containing table information
-   * @param logger - Logger instance for recording table prompt operations
-   * @param userTemplateName - Optional name of the user template file (defaults to table template)
-   * @param systemPrompt - Optional system prompt string providing context for table assessment
+   * @param {unknown} inputs - Raw input data to be validated containing table
+   *   information.
+   * @param {Logger} logger - Logger instance for recording table prompt
+   *   operations.
+   * @param {string} [userTemplateName] - Optional name of the user template
+   *   file (defaults to table template).
+   * @param {string} [systemPrompt] - Optional system prompt string providing
+   *   context for table assessment.
    */
   constructor(
     inputs: unknown,

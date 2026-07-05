@@ -15,11 +15,11 @@ export const LogRedactor = {
    * Creates a shallow copy of the incoming HTTP request and removes or masks
    * sensitive headers such as authorization tokens to prevent them from
    * appearing in log files.
-   *
-   * @param request - The incoming HTTP request
-   * @returns A cloned and redacted request object safe for logging
+   * @param {IncomingMessage} request - The incoming HTTP request.
+   * @returns {IncomingMessage} A cloned and redacted request object safe for
+   *   logging.
    */
-redactRequest(request: IncomingMessage): IncomingMessage {
+  redactRequest(request: IncomingMessage): IncomingMessage {
     // Shallow clone the request object
     const clonedRequest = Object.assign({}, request);
     // Clone headers to avoid mutating the original

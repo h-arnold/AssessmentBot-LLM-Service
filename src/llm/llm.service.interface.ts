@@ -15,7 +15,7 @@ export type StringPromptPayload = {
   system: string;
   /** The user-provided prompt or question. */
   user: string;
-  /** Optional temperature for sampling (default: 0) */
+  /** Optional temperature for sampling (default: 0). */
   temperature?: number;
 };
 
@@ -29,7 +29,7 @@ export type ImagePromptPayload = {
   images: Array<{ mimeType: string; data?: string; uri?: string }>;
   /** Optional messages array. */
   messages?: Array<{ content: string }>;
-  /** Optional temperature for sampling (default: 0) */
+  /** Optional temperature for sampling (default: 0). */
   temperature?: number;
 };
 
@@ -51,14 +51,17 @@ export abstract class LLMService {
 
   /**
    * Sends a payload to the LLM provider to generate an assessment.
-   * This method includes automatic retry logic with exponential backoff for 429 rate limit errors.
-   * Resource exhausted errors (quota exceeded) are not retried and bubble up immediately.
    *
-   * @param payload The content to be sent to the LLM. This can be a simple string
-   * or a complex object for multimodal inputs (e.g., text and images).
-   * The payload may include an optional `temperature` parameter (default: 0).
-   * @returns A Promise that resolves to a validated LlmResponse object.
-   * @throws ResourceExhaustedError if the API quota has been exceeded.
+   * This method includes automatic retry logic with exponential backoff for
+   * 429 rate limit errors. Resource exhausted errors (quota exceeded) are not
+   * retried and bubble up immediately.
+   * @param {LlmPayload} payload The content to be sent to the LLM. This can be
+   *   a simple string or a complex object for multimodal inputs (e.g., text and
+   *   images). The payload may include an optional `temperature` parameter
+   *   (default: 0).
+   * @returns {Promise<LlmResponse>} A Promise that resolves to a validated
+   *   LlmResponse object.
+   * @throws {ResourceExhaustedError} If the API quota has been exceeded.
    */
   async send(payload: LlmPayload): Promise<LlmResponse> {
     const maxRetries = this.configService.get('LLM_MAX_RETRIES');
@@ -187,20 +190,26 @@ export abstract class LLMService {
   }
 
   /**
-   * Internal method that subclasses must implement to handle the actual LLM API call.
-   * This method should not include retry logic, as that is handled by the base class.
+   * Internal method that subclasses must implement to handle the actual LLM
+   * API call.
    *
-   * @param payload The LlmPayload to be sent to the specific LLM provider.
-   * @returns A Promise that resolves to a validated LlmResponse object.
+   * This method should not include retry logic, as that is handled by the base
+   * class.
+   * @param {LlmPayload} payload The LlmPayload to be sent to the specific LLM
+   *   provider.
+   * @returns {Promise<LlmResponse>} A Promise that resolves to a validated
+   *   LlmResponse object.
    */
   protected abstract _sendInternal(payload: LlmPayload): Promise<LlmResponse>;
 
   /**
-   * Checks if an error is a resource exhausted error (HTTP 429 with specific patterns).
-   * Resource exhausted errors indicate API quota limits have been reached and should
-   * not be retried.
-   * @param error The error to check.
-   * @returns True if the error is a resource exhausted error.
+   * Checks if an error is a resource exhausted error (HTTP 429 with specific
+   * patterns).
+   *
+   * Resource exhausted errors indicate API quota limits have been reached and
+   * should not be retried.
+   * @param {unknown} error The error to check.
+   * @returns {boolean} True if the error is a resource exhausted error.
    */
   private isResourceExhaustedError(error: unknown): boolean {
     // Use the utility function to extract status code from various error formats
@@ -228,10 +237,9 @@ export abstract class LLMService {
   }
 
   /**
-   * Checks if an error is a rate limit error (HTTP 429) that should be retried.
-   * This method excludes resource exhausted errors which should not be retried.
-   * @param error The error to check.
-   * @returns True if the error is a retryable rate limit error.
+   * Checks if a value is an Error object.
+   * @param {unknown} error The value to check.
+   * @returns {error is Error} True if the value is an Error object.
    */
   protected isErrorObject(error: unknown): error is Error {
     return (
@@ -267,9 +275,11 @@ export abstract class LLMService {
 
   /**
    * Utility function to extract HTTP status code from various error formats.
+   *
    * This is designed to work with different LLM SDK error structures.
-   * @param error The error to extract status code from.
-   * @returns The HTTP status code if found, undefined otherwise.
+   * @param {unknown} error The error to extract status code from.
+   * @returns {number | undefined} The HTTP status code if found, undefined
+   *   otherwise.
    */
   private extractErrorStatusCode(error: unknown): number | undefined {
     if (!error || typeof error !== 'object') {
@@ -302,7 +312,8 @@ export abstract class LLMService {
 
   /**
    * Utility method to sleep for a specified duration.
-   * @param ms The number of milliseconds to sleep.
+   * @param {number} ms - The number of milliseconds to sleep.
+   * @returns {Promise<void>} A promise that resolves after the specified delay.
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));

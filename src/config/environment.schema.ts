@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 /**
  * @file Defines the Zod schema for environment variables, serving as the single source of truth for configuration validation.
- *
  * @remarks
  * This schema is crucial for ensuring that the application starts with a valid and type-safe configuration.
  * It is used in two key places:
@@ -18,7 +17,6 @@ import { z } from 'zod';
 
 /**
  * The Zod schema for validating and transforming all environment variables for the application.
- *
  * @property {string} NODE_ENV - The application environment (e.g., 'development', 'production', 'test').
  * @property {number} PORT - The port on which the server will run.
  * @property {string} APP_NAME - The name of the application.

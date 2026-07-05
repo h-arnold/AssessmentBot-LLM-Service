@@ -3,16 +3,12 @@
  *
  * This suite verifies that logs are correctly generated, formatted, and contain the expected fields and redactions.
  * It interacts with the running application via HTTP requests and inspects the resulting log file for correctness.
- *
- * @file /workspaces/Assessment Bot LLM Service/test/logging.e2e-spec.ts
- *
+ * @file /workspaces/Assessment Bot LLM Service/test/logging.e2e-spec.ts.
  * @remarks
  * - The log file is not cleared between tests to preserve log entries for asynchronous operations.
  * - Tests depend on log file contents and may require manual log file management for debugging.
- *
- * @suite Logging (True E2E)
- *
- * @test
+ * **suite:** Logging (True E2E)
+ * **test plan:**
  * 1. Should Propagate Request Context to Injected Loggers
  *    - Ensures that request context (e.g., req.id) is propagated to all relevant log entries.
  * 2. Should Output Valid JSON
@@ -29,7 +25,6 @@
  *    - Placeholder test for log level configuration.
  * 8. Should Handle Large Payloads Without Breaking JSON Output
  *    - Ensures that large request payloads do not break log output formatting.
- *
  * @see startApp, stopApp, getLogObjects, waitForLog
  */
 

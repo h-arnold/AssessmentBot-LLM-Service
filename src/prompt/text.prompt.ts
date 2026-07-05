@@ -13,11 +13,14 @@ import { Prompt } from './prompt.base';
 export class TextPrompt extends Prompt {
   /**
    * Initialises the TextPrompt instance with text-specific configuration.
-   *
-   * @param inputs - Raw input data to be validated containing text information
-   * @param logger - Logger instance for recording text prompt operations
-   * @param userTemplateName - Optional name of the user template file (defaults to text template)
-   * @param systemPrompt - Optional system prompt string providing context for text assessment
+   * @param {unknown} inputs - Raw input data to be validated containing text
+   *   information.
+   * @param {Logger} logger - Logger instance for recording text prompt
+   *   operations.
+   * @param {string} [userTemplateName] - Optional name of the user template
+   *   file (defaults to text template).
+   * @param {string} [systemPrompt] - Optional system prompt string providing
+   *   context for text assessment.
    */
   constructor(
     inputs: unknown,

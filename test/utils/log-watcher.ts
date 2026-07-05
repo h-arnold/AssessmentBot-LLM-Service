@@ -62,9 +62,8 @@ export interface LogObject {
 
 /**
  * Reads a log file and parses each line as a LogObject.
- *
- * @param logFilePath - The path to the log file to read.
- * @returns An array of LogObject entries parsed from the file.
+ * @param {string} logFilePath - The path to the log file to read.
+ * @returns {LogObject[]} An array of LogObject entries parsed from the file.
  */
 export function getLogObjects(logFilePath: string): LogObject[] {
   if (!fs.existsSync(logFilePath)) {
@@ -90,12 +89,14 @@ export function getLogObjects(logFilePath: string): LogObject[] {
 }
 
 /**
- * Waits until a log entry matching the given predicate appears in the log file, or times out.
- *
- * @param logFilePath - The path to the log file to monitor.
- * @param predicate - A function that returns true for the desired log entry.
- * @param timeoutMs - The maximum time to wait in milliseconds.
- * @throws If the timeout is reached before a matching log is found.
+ * Waits until a log entry matching the given predicate appears in the log
+ * file, or times out.
+ * @param {string} logFilePath - The path to the log file to monitor.
+ * @param {(log: LogObject) => boolean} predicate - A function that returns true
+ *   for the desired log entry.
+ * @param {number} timeoutMs - The maximum time to wait in milliseconds.
+ * @param {AbortSignal} [signal] - An optional abort signal.
+ * @throws {Error} If the timeout is reached before a matching log is found.
  */
 export async function waitForLog(
   logFilePath: string,

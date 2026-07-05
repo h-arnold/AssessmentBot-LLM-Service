@@ -35,17 +35,20 @@ export class GeminiService extends LLMService {
   }
 
   /**
-   * Internal method that sends a payload to the Gemini API to generate an assessment.
-   * This method is called by the base class's send method, which handles retry logic.
+   * Internal method that sends a payload to the Gemini API to generate an
+   * assessment.
    *
-   * This method dynamically selects the appropriate Gemini model based on the payload type
-   * (text-only or multimodal with images). It attempts to repair malformed JSON
-   * in the response and validates the final structure against the LlmResponseSchema.
-   *
-   * @param payload The LlmPayload containing the prompt and any associated data.
-   * @returns A Promise that resolves to a validated LlmResponse object.
-   * @throws ZodError if the response validation fails.
-   * @throws Error if the API call fails or the response is invalid.
+   * This method is called by the base class's send method, which handles retry
+   * logic. It dynamically selects the appropriate Gemini model based on the
+   * payload type (text-only or multimodal with images). It attempts to repair
+   * malformed JSON in the response and validates the final structure against
+   * the LlmResponseSchema.
+   * @param {LlmPayload} payload The LlmPayload containing the prompt and any
+   *   associated data.
+   * @returns {Promise<LlmResponse>} A Promise that resolves to a validated
+   *   LlmResponse object.
+   * @throws {ZodError} If the response validation fails.
+   * @throws {Error} If the API call fails or the response is invalid.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
     const modelParameters: GeminiModelParameters =
@@ -86,8 +89,9 @@ export class GeminiService extends LLMService {
 
   /**
    * Type guard to check if the payload is for an image prompt.
-   * @param payload The payload to check.
-   * @returns True if the payload is an ImagePromptPayload.
+   * @param {LlmPayload} payload The payload to check.
+   * @returns {payload is ImagePromptPayload} True if the payload is an
+   *   ImagePromptPayload.
    */
   private isImagePromptPayload(
     payload: LlmPayload,
@@ -97,8 +101,9 @@ export class GeminiService extends LLMService {
 
   /**
    * Type guard to check if the payload is for a string prompt.
-   * @param payload The payload to check.
-   * @returns True if the payload is a StringPromptPayload.
+   * @param {LlmPayload} payload The payload to check.
+   * @returns {payload is StringPromptPayload} True if the payload is a
+   *   StringPromptPayload.
    */
   private isStringPromptPayload(
     payload: LlmPayload,
@@ -108,11 +113,12 @@ export class GeminiService extends LLMService {
 
   /**
    * Builds the model parameters for the Gemini API call.
+   *
    * Selects the appropriate Gemini model based on payload type:
    * - Image prompts use gemini-2.5-flash (full multimodal capabilities)
-   * - Text/Table prompts use gemini-2.5-flash-lite (optimised for text-only)
-   * @param payload The LlmPayload to be sent.
-   * @returns The configured ModelParams object.
+   * - Text/Table prompts use gemini-2.5-flash-lite (optimised for text-only).
+   * @param {LlmPayload} payload The LlmPayload to be sent.
+   * @returns {GeminiModelParameters} The configured ModelParams object.
    */
   private buildModelParams(payload: LlmPayload): GeminiModelParameters {
     // Select model based on payload type
@@ -140,8 +146,8 @@ export class GeminiService extends LLMService {
 
   /**
    * Builds the contents for the Gemini API call.
-   * @param payload The LlmPayload to be sent.
-   * @returns An array of strings or Parts for the API call.
+   * @param {LlmPayload} payload The LlmPayload to be sent.
+   * @returns {(string | Part)[]} An array of strings or Parts for the API call.
    */
   private buildContents(payload: LlmPayload): (string | Part)[] {
     if (this.isImagePromptPayload(payload)) {
@@ -159,9 +165,11 @@ export class GeminiService extends LLMService {
   }
 
   /**
-   * Helper to map image payloads to Gemini API parts, ensuring the prompt follows the correct structure.
-   * @param images An array of image objects.
-   * @returns An array of Parts for the Gemini API.
+   * Helper to map image payloads to Gemini API parts, ensuring the prompt
+   * follows the correct structure.
+   * @param {Array<{ mimeType: string; data?: string; uri?: string }>} images
+   *   An array of image objects.
+   * @returns {Part[]} An array of Parts for the Gemini API.
    */
   private mapImageParts(
     images: Array<{ mimeType: string; data?: string; uri?: string }>,
@@ -202,11 +210,14 @@ export class GeminiService extends LLMService {
   }
 
   /**
-   * Logs the payload being sent to Gemini, with different logging strategies based on payload type.
-   * For StringPromptPayload: logs the full contents
-   * For ImagePromptPayload: logs only the length of contents to avoid logging large image data
-   * @param payload The original payload being sent
-   * @param contents The processed contents array
+   * Logs the payload being sent to Gemini, with different logging strategies
+   * based on payload type.
+   *
+   * For StringPromptPayload: logs the full contents.
+   * For ImagePromptPayload: logs only the length of contents to avoid logging
+   * large image data.
+   * @param {LlmPayload} payload The original payload being sent.
+   * @param {(string | Part)[]} contents The processed contents array.
    */
   private logPayload(payload: LlmPayload, contents: (string | Part)[]): void {
     if (this.isStringPromptPayload(payload)) {

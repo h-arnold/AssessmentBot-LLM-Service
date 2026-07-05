@@ -23,17 +23,19 @@ export class PromptFactory {
   private readonly logger = new Logger(PromptFactory.name);
 
   /**
-   * Creates an appropriate prompt instance based on the provided assessment data.
+   * Creates an appropriate prompt instance based on the provided assessment
+   * data.
    *
    * This method orchestrates the creation of task-specific prompts by:
    * 1. Extracting input data from the DTO
    * 2. Determining the correct prompt template files
    * 3. Loading system prompts from markdown files
-   * 4. Instantiating the appropriate prompt subclass
-   *
-   * @param dto - Data transfer object containing task type and assessment data
-   * @returns A promise resolving to a task-specific prompt instance
-   * @throws Error if the task type is unsupported
+   * 4. Instantiating the appropriate prompt subclass.
+   * @param {CreateAssessorDto} dto - Data transfer object containing task type
+   *   and assessment data.
+   * @returns {Promise<Prompt>} A promise resolving to a task-specific prompt
+   *   instance.
+   * @throws {Error} If the task type is unsupported.
    */
   public async create(dto: CreateAssessorDto): Promise<Prompt> {
     this.logger.log(`Creating prompt for task type: ${dto.taskType}.`);
@@ -72,10 +74,10 @@ export class PromptFactory {
    * Different task types require different prompt templates for optimal
    * LLM performance. This method maps task types to their corresponding
    * system and user prompt template files.
-   *
-   * @param taskType - The type of assessment task
-   * @returns Object containing the names of system and user prompt template files
-   * @throws Error if the task type is not supported
+   * @param {TaskType} taskType - The type of assessment task.
+   * @returns {{ systemPromptFile?: string; userTemplateFile?: string }} Object
+   *   containing the names of system and user prompt template files.
+   * @throws {Error} If the task type is not supported.
    */
   private getPromptFiles(taskType: TaskType): {
     systemPromptFile?: string;
@@ -108,9 +110,10 @@ export class PromptFactory {
    * System prompts provide the LLM with context and instructions for
    * how to approach the assessment task. This method safely loads
    * the content from markdown files in the templates directory.
-   *
-   * @param systemPromptFile - Name of the system prompt markdown file
-   * @returns Promise resolving to the prompt content, or undefined if no file specified
+   * @param {string} [systemPromptFile] - Name of the system prompt markdown
+   *   file.
+   * @returns {Promise<string | undefined>} Promise resolving to the prompt
+   *   content, or undefined if no file specified.
    */
   private async loadSystemPrompt(
     systemPromptFile?: string,
@@ -139,13 +142,13 @@ export class PromptFactory {
    * This method creates the specific prompt implementation (TextPrompt,
    * TablePrompt, or ImagePrompt) with the appropriate configuration
    * for the given task type and input data.
-   *
-   * @param dto - The assessment data transfer object
-   * @param inputs - Validated prompt input data
-   * @param userTemplateFile - Name of the user template file (if applicable)
-   * @param systemPrompt - System prompt content (if applicable)
-   * @returns Configured prompt instance ready for message generation
-   * @throws Error if the task type is not supported
+   * @param {CreateAssessorDto} dto - The assessment data transfer object.
+   * @param {unknown} inputs - Validated prompt input data.
+   * @param {string} [userTemplateFile] - Name of the user template file (if
+   *   applicable).
+   * @param {string} [systemPrompt] - System prompt content (if applicable).
+   * @returns {Prompt} Configured prompt instance ready for message generation.
+   * @throws {Error} If the task type is not supported.
    */
   private instantiatePrompt(
     dto: CreateAssessorDto,

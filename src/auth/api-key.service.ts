@@ -23,9 +23,10 @@ export class ApiKeyService {
 
   /**
    * Constructs the ApiKeyService and loads valid API keys from configuration.
-   *
-   * @param configService - Service providing access to application configuration
-   * @param logger - Optional logger instance for recording authentication events
+   * @param {ConfigService} configService - Service providing access to
+   *   application configuration.
+   * @param {Logger} logger - Optional logger instance for recording
+   *   authentication events.
    */
   constructor(
     private readonly configService: ConfigService,
@@ -48,11 +49,11 @@ export class ApiKeyService {
    *
    * This method performs comprehensive validation including:
    * - Format validation (minimum length, character set)
-   * - Authorisation check against configured valid keys
-   *
-   * @param apiKey - The API key to validate (can be of any type initially)
-   * @returns A User object if the key is valid
-   * @throws {UnauthorizedException} If the API key is invalid or malformed
+   * - Authorisation check against configured valid keys.
+   * @param {unknown} apiKey - The API key to validate (can be of any type
+   *   initially).
+   * @returns {User | null} A User object if the key is valid.
+   * @throws {UnauthorizedException} If the API key is invalid or malformed.
    */
   validate(apiKey: unknown): User | null {
     this.logger.debug(`Attempting to validate an API key.`);

@@ -22,8 +22,8 @@ export class ImagePrompt extends Prompt {
    * Image prompts handle content differently from text prompts and
    * typically don't require separate user message parts since the
    * images are included directly in the payload.
-   *
-   * @returns Promise resolving to an empty array of Parts
+   * @returns {Promise<import('@google/generative-ai').Part[]>} Promise
+   *   resolving to an empty array of Parts.
    */
   protected async buildUserMessageParts(): Promise<
     import('@google/generative-ai').Part[]
@@ -35,11 +35,14 @@ export class ImagePrompt extends Prompt {
 
   /**
    * Initialises the ImagePrompt instance with image-specific configuration.
-   *
-   * @param inputs - Validated prompt input data containing image information
-   * @param logger - Logger instance for recording image prompt operations
-   * @param images - Optional array of image objects with file paths and MIME types
-   * @param systemPrompt - Optional system prompt string providing context for image assessment
+   * @param {PromptInput} inputs - Validated prompt input data containing image
+   *   information.
+   * @param {Logger} logger - Logger instance for recording image prompt
+   *   operations.
+   * @param {{ path: string; mimeType: string }[]} [images] - Optional array of
+   *   image objects with file paths and MIME types.
+   * @param {string} [systemPrompt] - Optional system prompt string providing
+   *   context for image assessment.
    */
   constructor(
     inputs: PromptInput,
@@ -57,9 +60,9 @@ export class ImagePrompt extends Prompt {
    * Creates a payload suitable for multimodal LLMs that can process both
    * text and images. The method handles two scenarios:
    * 1. File-based images: reads image files from disk
-   * 2. Data URI images: extracts image data from base64 encoded strings
-   *
-   * @returns Promise resolving to an LlmPayload containing system prompt and image data
+   * 2. Data URI images: extracts image data from base64 encoded strings.
+   * @returns {Promise<LlmPayload>} Promise resolving to an LlmPayload
+   *   containing system prompt and image data.
    */
   public async buildMessage(): Promise<LlmPayload> {
     // For image prompts, the user message is a combination of the rendered system prompt
@@ -94,8 +97,8 @@ export class ImagePrompt extends Prompt {
    * Reads image files from disk and converts them to base64 format
    * suitable for LLM processing. This method is used when images
    * are provided as file references rather than embedded data.
-   *
-   * @returns Promise resolving to array of image data and MIME type objects
+   * @returns {Promise<{ data: string; mimeType: string }[]>} Promise resolving
+   *   to array of image data and MIME type objects.
    */
   private async buildImagesFromFiles(): Promise<
     { data: string; mimeType: string }[]
@@ -116,9 +119,9 @@ export class ImagePrompt extends Prompt {
    * Extracts base64-encoded image data from data URI strings in the
    * input fields. This method assumes the validation pipeline has
    * already confirmed all image fields contain valid data URIs.
-   *
-   * @returns Array of image data and MIME type objects
-   * @throws Error if any data URI is malformed
+   * @returns {{ data: string; mimeType: string }[]} Array of image data and
+   *   MIME type objects.
+   * @throws {Error} If any data URI is malformed.
    */
   private buildImagesFromDataUris(): { data: string; mimeType: string }[] {
     // Assumes validation pipeline guarantees all three tasks are valid data URIs
@@ -145,18 +148,18 @@ export class ImagePrompt extends Prompt {
 
   /**
    * Reads an image file from the specified path and returns its content as a base64-encoded string.
-   *
-   * @param imagePath - The relative path to the image file within the allowed directory.
-   *                    Path traversal is blocked to ensure security.
-   * @param mimeType - The MIME type of the image file. Must be one of the allowed MIME types
-   *                   specified in the `ALLOWED_IMAGE_MIME_TYPES` environment variable.
-   *                   Defaults to 'image/png' if not provided.
-   * @returns A promise that resolves to the base64-encoded content of the image file.
-   *
+   * @param {string} imagePath - The relative path to the image file within the
+   *   allowed directory. Path traversal is blocked to ensure security.
+   * @param {string} [mimeType] - The MIME type of the image file. Must be one
+   *   of the allowed MIME types specified in the `ALLOWED_IMAGE_MIME_TYPES`
+   *   environment variable. Defaults to 'image/png' if not provided.
+   * @returns {Promise<string>} A promise that resolves to the base64-encoded
+   *   content of the image file.
    * @throws {Error} If the `imagePath` contains path traversal (`..`).
-   * @throws {Error} If the `mimeType` is not allowed based on the environment configuration.
-   * @throws {Error} If the resolved file path is outside the authorized directory.
-   *
+   * @throws {Error} If the `mimeType` is not allowed based on the environment
+   *   configuration.
+   * @throws {Error} If the resolved file path is outside the authorised
+   *   directory.
    * @remarks
    * - The method ensures security by validating the file path and MIME type before reading the file.
    * - The base directory for image files is restricted to `docs/ImplementationPlan/Stage6/Prompts`.

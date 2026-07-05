@@ -7,6 +7,15 @@ export interface CommandResult {
   stderr: string;
 }
 
+/**
+ * Run a command with arguments and return its output.
+ * @param {string} command - The command to run.
+ * @param {string[]} arguments_ - The command arguments.
+ * @param {{ cwd?: string }} [options] - Optional options.
+ * @param {string} [options.cwd] - The working directory for the command.
+ * @returns {Promise<CommandResult>} A promise that resolves with the command
+ *   result.
+ */
 export function runCommand(
   command: string,
   arguments_: string[],
@@ -33,6 +42,11 @@ export function runCommand(
   });
 }
 
+/**
+ * Wait until an HTTP endpoint returns a success status (< 500).
+ * @param {string} url - The URL to poll.
+ * @param {number} timeoutMs - The maximum time to wait in milliseconds.
+ */
 export async function waitForHttp(
   url: string,
   timeoutMs: number,

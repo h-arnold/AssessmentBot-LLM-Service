@@ -10,19 +10,18 @@ import { ConfigModule } from '../config/config.module';
  * This module encapsulates all status-related features including health checks,
  * connectivity tests, error testing, and authentication validation. It provides
  * essential monitoring and diagnostic capabilities for the application.
- *
  * @module StatusModule
  *
- * @imports
+ * **imports:**
  * - `ConfigModule`: Required for configuration access
  *
- * @controllers
+ * **controllers:**
  * - `StatusController`: Handles status and health check HTTP endpoints
  *
- * @providers
+ * **providers:**
  * - `StatusService`: Business logic for status and health operations
  *
- * @exports
+ * **exports:**
  * - `StatusService`: Makes the service available to other modules
  */
 @Module({

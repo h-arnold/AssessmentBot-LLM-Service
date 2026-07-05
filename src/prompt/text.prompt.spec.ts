@@ -15,6 +15,11 @@ jest.mock('node:fs/promises', () => ({
 
 const mockedReadFile = jest.mocked(readFile);
 
+/**
+ * Normalise a file path argument to a string.
+ * @param {PathLike | FileHandle} filePath - The file path to normalise.
+ * @returns {string} The normalised file path as a string.
+ */
 function normaliseFilePath(filePath: PathLike | FileHandle): string {
   if (typeof filePath === 'string') return filePath;
   if (Buffer.isBuffer(filePath)) return filePath.toString('utf8');
@@ -23,6 +28,11 @@ function normaliseFilePath(filePath: PathLike | FileHandle): string {
   throw new Error('File handle paths are not supported in this test');
 }
 
+/**
+ * Get the template content for a given file path.
+ * @param {PathLike | FileHandle} filePath - The file path to look up.
+ * @returns {string} The template content string.
+ */
 function getTemplateContent(filePath: PathLike | FileHandle): string {
   const filePathString = normaliseFilePath(filePath);
   if (filePathString.includes('text.system.prompt.md')) return systemTemplate;

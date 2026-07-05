@@ -6,8 +6,9 @@ import path from 'node:path';
  *
  * Returns `process.cwd()` which is the standard way to resolve paths relative
  * to the project root in both Jest and production environments.
- *
- * @param fallbackDirectory - Fallback directory, defaults to process.cwd()
+ * @param {string} [fallbackDirectory] - Fallback directory, defaults to
+ *   process.cwd().
+ * @returns {string} The resolved directory path.
  */
 export function getCurrentDirname(fallbackDirectory?: string): string {
   return fallbackDirectory ?? process.cwd();
@@ -18,12 +19,14 @@ export function getCurrentDirname(fallbackDirectory?: string): string {
  *
  * This method ensures security by validating the filename and path to prevent
  * path traversal attacks and unauthorized file access.
- *
- * @param name - The name of the markdown file to read. Must end with `.md` and
- *               must not contain path traversal sequences (`..`).
- * @param basePath - The base directory to read from. Defaults to 'src/prompt/templates'.
- * @returns A promise that resolves to the content of the markdown file as a string.
- * @throws {Error} If the filename is invalid or the resolved path is unauthorized.
+ * @param {string} name - The name of the markdown file to read. Must end with
+ *   `.md` and must not contain path traversal sequences (`..`).
+ * @param {string} [basePath] - The base directory to read from. Defaults to
+ *   'src/prompt/templates'.
+ * @returns {Promise<string>} A promise that resolves to the content of the
+ *   markdown file as a string.
+ * @throws {Error} If the filename is invalid or the resolved path is
+ *   unauthorized.
  */
 export async function readMarkdown(
   name: string,

@@ -214,12 +214,7 @@ export default tseslint.config(
 
       // JSDoc rules to enforce documentation standards
       ...jsdoc.configs['recommended'].rules,
-      'jsdoc/require-description-complete-sentence': [
-        'warn',
-        {
-          treatSingleLinePhrasesAsIncomplete: true,
-        },
-      ],
+      'jsdoc/require-description-complete-sentence': 'warn',
       'jsdoc/require-returns': 'error',
       'jsdoc/require-returns-description': 'error',
       'jsdoc/require-param-description': 'error',

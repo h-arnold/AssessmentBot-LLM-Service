@@ -14,6 +14,12 @@ import { StatusModule } from './status/status.module';
 import { AssessorModule } from './v1/assessor/assessor.module';
 
 // Type guard to check if req has an id property of type string or number
+/**
+ * Type guard to check whether an incoming message has an id property.
+ * @param {IncomingMessage} request - The incoming HTTP request message.
+ * @returns {request is IncomingMessage & { id: string | number }} True if the
+ *   request has an id of type string or number.
+ */
 function hasRequestId(
   request: IncomingMessage,
 ): request is IncomingMessage & { id: string | number } {
@@ -25,11 +31,14 @@ function hasRequestId(
 }
 
 /**
+ * The root module of the application, responsible for orchestrating and wiring
+ * together all other modules.
+ * @param {IncomingMessage} request - The incoming HTTP request message.
+ * @param {ServerResponse<IncomingMessage>} _response - The outgoing server
+ *   response (unused).
+ * @returns {{ reqId: string | number | undefined }} The custom logging properties
+ *   containing the request id, if present.
  * @module AppModule
- *
- * @description
- * The root module of the application, responsible for orchestrating and wiring together all other modules.
- *
  * @remarks
  * **Module Initialization Order:**
  * The order of module imports is significant. `ConfigModule` is imported first to ensure that environment
@@ -49,7 +58,6 @@ function hasRequestId(
  *
  * This setup provides a baseline level of protection against abuse, which can then be fine-tuned for specific
  * resource-intensive or authenticated endpoints.
- *
  * @see config/throttler.config.ts - For the source of the default throttler configuration.
  * @see v1/assessor/assessor.controller.ts - For an example of how to override the global throttler settings.
  */

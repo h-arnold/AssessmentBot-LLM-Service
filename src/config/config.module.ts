@@ -5,12 +5,10 @@ import { ConfigService } from './config.service';
 
 /**
  * @module ConfigModule
- *
  * @description
  * This module is responsible for providing the application's configuration services.
  * It imports the underlying `NestConfigModule` to handle the loading of `.env` files but only exports
  * our custom, validation-aware `ConfigService`.
- *
  * @remarks
  * **Architectural Reasoning:**
  * This module acts as a boundary, ensuring that the rest of the application interacts only with our

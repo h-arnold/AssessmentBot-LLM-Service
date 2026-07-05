@@ -13,8 +13,8 @@ import { StatusService, HealthCheckResponse } from './status.service';
 export class StatusController {
   /**
    * Constructs the StatusController.
-   *
-   * @param statusService - Service providing status and health check functionality
+   * @param {StatusService} statusService - Service providing status and health
+   *   check functionality.
    */
   constructor(private readonly statusService: StatusService) {}
 
@@ -23,8 +23,7 @@ export class StatusController {
    *
    * This endpoint provides a basic connectivity test and confirms the
    * application is responding to requests.
-   *
-   * @returns A simple "Hello World!" message
+   * @returns {string} A simple "Hello World!" message.
    */
   @Get()
   getHello(): string {
@@ -37,8 +36,8 @@ export class StatusController {
    * This endpoint returns detailed information about the application's health,
    * including version, timestamp, and system information. Useful for monitoring
    * and diagnostic purposes.
-   *
-   * @returns Detailed health check response including system information
+   * @returns {HealthCheckResponse} Detailed health check response including
+   *   system information.
    */
   @Get('health')
   getHealth(): HealthCheckResponse {
@@ -50,8 +49,7 @@ export class StatusController {
    *
    * This endpoint is used to test the application's error handling mechanisms
    * and exception filters. It intentionally throws a 400 Bad Request error.
-   *
-   * @throws {HttpException} Always throws a 400 Bad Request error with test message
+   * @throws {HttpException} Always throws a 400 Bad Request error with test message.
    */
   @Get('test-error')
   testError(): void {

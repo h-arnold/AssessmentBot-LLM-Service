@@ -8,21 +8,21 @@ import * as packageJson from '../../package.json';
  * Interface representing system information for health checks.
  */
 interface SystemInfo {
-  /** Operating system platform */
+  /** Operating system platform. */
   platform: string;
-  /** System architecture */
+  /** System architecture. */
   arch: string;
-  /** Operating system release version */
+  /** Operating system release version. */
   release: string;
-  /** System uptime in seconds */
+  /** System uptime in seconds. */
   uptime: number;
-  /** System hostname */
+  /** System hostname. */
   hostname: string;
-  /** Total system memory in bytes */
+  /** Total system memory in bytes. */
   totalMemory: number;
-  /** Free system memory in bytes */
+  /** Free system memory in bytes. */
   freeMemory: number;
-  /** Number of CPU cores */
+  /** Number of CPU cores. */
   cpus: number;
 }
 
@@ -30,13 +30,13 @@ interface SystemInfo {
  * Interface representing the complete health check response.
  */
 export interface HealthCheckResponse {
-  /** Overall application status */
+  /** Overall application status. */
   status: string;
-  /** Application version from package.json */
+  /** Application version from package.json. */
   version: string;
-  /** ISO timestamp of when the health check was performed */
+  /** ISO timestamp of when the health check was performed. */
   timestamp: string;
-  /** Detailed system information */
+  /** Detailed system information. */
   systemInfo: SystemInfo;
 }
 
@@ -54,8 +54,7 @@ export class StatusService {
    *
    * This method provides a basic connectivity test response that confirms
    * the application is running and responding to requests.
-   *
-   * @returns A simple "Hello World!" greeting message
+   * @returns {string} A simple "Hello World!" greeting message.
    */
   getHello(): string {
     return 'Hello World!';
@@ -67,8 +66,8 @@ export class StatusService {
    * This method collects detailed information about the application and system
    * state, including version information, current timestamp, and system metrics
    * such as memory usage, CPU count, and uptime.
-   *
-   * @returns Complete health check response with application and system information
+   * @returns {HealthCheckResponse} Complete health check response with
+   *   application and system information.
    */
   getHealth(): HealthCheckResponse {
     const now = new Date();

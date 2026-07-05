@@ -5,13 +5,11 @@ import { jsonrepair } from 'jsonrepair';
  * Utility class for parsing and repairing JSON strings.
  * This class attempts to repair malformed JSON strings using the `jsonrepair` library
  * and then parses them into JavaScript objects.
- *
  * @example
  * ```typescript
  * const jsonParser = new JsonParserUtility(new Logger('JsonParserUtility'));
  * const parsedObject = jsonParser.parse('```json\n{"key": "value"}\n```');
  * ```
- *
  * @throws {BadRequestException} Thrown when the provided JSON string is irreparable or malformed.
  */
 @Injectable()
@@ -39,10 +37,10 @@ export class JsonParserUtility {
    * Optionally trims content outside the first and last curly brackets.
    * If the parsed result is not an object or array (e.g., a string or number),
    * it is considered a failure, as the primary use case is for structured data.
-   *
-   * @param jsonString The raw string that may contain JSON.
-   * @param trim If true, trims content before the first '{' and after the last '}'. Defaults to true.
-   * @returns The parsed JavaScript object or array.
+   * @param {string} jsonString The raw string that may contain JSON.
+   * @param {boolean} trim If true, trims content before the first '{' and after
+   *   the last '}'. Defaults to true.
+   * @returns {unknown} The parsed JavaScript object or array.
    */
   parse(jsonString: string, trim = true): unknown {
     let processedString = jsonString;

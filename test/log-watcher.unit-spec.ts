@@ -10,10 +10,20 @@ const logger = new Logger('LogWatcherUnit');
 
 jest.setTimeout(5000);
 
+/**
+ * Predicate that matches log entries with msg 'unit-ready'.
+ * @param {LogObject} log - The log object to check.
+ * @returns {boolean} True if the log message is 'unit-ready'.
+ */
 function isUnitReady(log: LogObject): boolean {
   return log.msg === 'unit-ready';
 }
 
+/**
+ * Predicate that matches log entries with msg 'after-malformed'.
+ * @param {LogObject} log - The log object to check.
+ * @returns {boolean} True if the log message is 'after-malformed'.
+ */
 function isAfterMalformed(log: LogObject): boolean {
   return log.msg === 'after-malformed';
 }

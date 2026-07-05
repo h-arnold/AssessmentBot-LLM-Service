@@ -15,24 +15,35 @@ interface JsonErrorResponseBody {
   path: string;
 }
 
+/**
+ * Create a mock response object that only has a json method.
+ * @returns {{ json: () => void }} A mock response object.
+ */
 function createStatusOnlyResponse(): { json: () => void } {
   return { json: (): void => {} };
 }
 
+/**
+ * Assert that the mock JSON response matches the expected error body.
+ * @param {jest.Mock} mockJson - The mock JSON function.
+ * @param {Omit<JsonErrorResponseBody, 'timestamp'>} expectedBody - The expected
+ *   error response body (without timestamp).
+ */
 function expectJsonErrorResponse(
   mockJson: jest.Mock,
   expectedBody: Omit<JsonErrorResponseBody, 'timestamp'>,
 ): void {
   const firstCall = mockJson.mock.calls[0] as
-    | [JsonErrorResponseBody]
-    | undefined;
+    [JsonErrorResponseBody] | undefined;
 
   expect(firstCall).toBeDefined();
 
   const [responseBody] = firstCall as [JsonErrorResponseBody];
 
   expect(
-    Object.keys(responseBody).toSorted((left, right) => left.localeCompare(right)),
+    Object.keys(responseBody).toSorted((left, right) =>
+      left.localeCompare(right),
+    ),
   ).toEqual(['message', 'path', 'statusCode', 'timestamp']);
 
   expect(responseBody.statusCode).toBe(expectedBody.statusCode);
@@ -196,14 +207,15 @@ describe('HttpExceptionFilter', () => {
      *
      * This mock provides implementations for `getResponse`, `getRequest`, and `getNext` methods,
      * allowing tests to simulate the behavior of the HTTP context within exception filters or interceptors.
-     *
      * @returns An object with mocked `getResponse`, `getRequest`, and `getNext` methods.
      */
-    const mockHttpArgumentsHost: jest.Mock = jest.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-      getNext: jest.fn(() => {}),
-    }));
+    const mockHttpArgumentsHost: jest.Mock = jest
+      .fn()
+      .mockImplementation(() => ({
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+        getNext: jest.fn(() => {}),
+      }));
     /**
      * A mock implementation of the NestJS `ArgumentsHost` interface for use in unit tests.
      *
@@ -274,7 +286,6 @@ describe('HttpExceptionFilter', () => {
      * - `method`: The HTTP method used (`POST`).
      * - `ip`: The IP address of the requester (`127.0.0.1`).
      * - `headers`: An object containing request headers (with `'user-agent': 'jest'`).
-     *
      * @returns An object representing a mock HTTP request.
      */
     const mockGetRequest: jest.Mock = jest.fn().mockImplementation(() => ({
@@ -341,13 +352,12 @@ describe('HttpExceptionFilter', () => {
      *
      * This mock object provides stubbed methods to simulate the behavior of NestJS's `ArgumentsHost`,
      * allowing for controlled testing of exception filters and other components that depend on the host context.
-     *
-     * @property switchToHttp - Mocked method to simulate switching to HTTP context.
-     * @property getArgByIndex - Jest mock function to retrieve an argument by index.
-     * @property getArgs - Jest mock function to retrieve all arguments.
-     * @property getType - Jest mock function to retrieve the type of the context.
-     * @property switchToRpc - Mocked method to simulate switching to RPC context.
-     * @property switchToWs - Mocked method to simulate switching to WebSocket context.
+     * @property {() => mockHttpArgumentsHost} switchToHttp - Mocked method to simulate switching to HTTP context.
+     * @property {jest.Mock} getArgByIndex - Jest mock function to retrieve an argument by index.
+     * @property {jest.Mock} getArgs - Jest mock function to retrieve all arguments.
+     * @property {jest.Mock} getType - Jest mock function to retrieve the type of the context.
+     * @property {jest.Mock} switchToRpc - Mocked method to simulate switching to RPC context.
+     * @property {jest.Mock} switchToWs - Mocked method to simulate switching to WebSocket context.
      */
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,

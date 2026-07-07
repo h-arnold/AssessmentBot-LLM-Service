@@ -239,6 +239,14 @@ This section is configuration-only. Verification is via build and runtime checks
 
 **Objective:** Replace Jest with Vitest. Create the Vitest configuration and setup files. Remove all Jest configuration files and dependencies.
 
+**Status:** Completed (2026-07-07).
+
+**Implementation Deviations (authorised — required to keep the non-negotiable Regression Gate satisfiable):**
+
+1. **Jest npm packages are NOT removed in Section 2.** Only Vitest is installed and the test runner is switched at the script/config level. `jest`, `@types/jest`, `eslint-plugin-jest`, and `@jest/globals` remain installed and are removed in **Section 5** (after spec files are migrated to Vitest in Sections 3–4). Rationale: removing `eslint-plugin-jest` / `@types/jest` / `@jest/globals` now would break the type-aware ESLint pass over the still-Jest-based `*.spec.ts` and `test/**` files (baseline lint = 7 errors; removal would introduce many new type-resolution errors = a regression against the baseline). The Jest _config files_ are still deleted in Section 2 as planned. Acceptance criterion 2 is therefore partially deferred to Section 5.
+
+2. **E2E LLM mocking uses an ESM `--import` preload shim, NOT `vi.mock`.** `vi.mock()` in a Vitest setup file only affects the in-process Vitest worker module graph. E2E tests spawn the built app (`dist/src/testing-main.js`) as a _child process_ (see `test/utils/app-lifecycle.ts`), so `vi.mock` cannot intercept the app's LLM calls. The old `--require test/utils/llm-http-shim.cjs` (CommonJS) is replaced by `--import test/utils/llm-mock.mjs` (ESM), which patches `GoogleGenerativeAI.prototype.getGenerativeModel` in the spawned child before app code runs. `vitest.e2e.setup.ts` therefore only sets `process.env.E2E_MOCK_LLM='true'`; the `vi.mock(...)` block from the original plan is dropped as ineffective for child processes.
+
 **Constraints:**
 
 - Tests will not pass until Section 3 (test file migration) is complete.
@@ -434,14 +442,28 @@ This section is configuration-only. Verification is via build and runtime checks
 
 **Section Checks:**
 
-- [ ] No Jest config files remain.
-- [ ] No Jest dependencies in `package.json`.
-- [ ] `vitest.workspace.ts` (or config files) exist.
-- [ ] `vitest.setup.ts` exists with environment setup.
-- [ ] `vitest.e2e.setup.ts` exists with LLM mock.
-- [ ] `test/utils/llm-http-shim.cjs` is deleted.
-- [ ] `test/utils/app-lifecycle.ts` no longer references `--require`.
-- [ ] `npm run test` invokes Vitest (tests will fail — that's expected until Section 3).
+- [x] No Jest config files remain (all 9 deleted: `jest.config.js`, `jest-e2e.*.config.cjs`, `jest-prod.config.cjs`, `jest.setup.ts`, `test/jest.e2e.*.setup.ts`).
+- [ ] No Jest dependencies in `package.json` — **deferred to Section 5** (see Implementation Deviations #1). `jest`, `@types/jest`, `ts-jest`, `jest-junit`, `eslint-plugin-jest`, `@jest/globals` remain installed until spec files are migrated.
+- [x] `vitest.config.ts` exists using Vitest v4 `test.projects` (the `vitest.workspace.ts`/`defineWorkspace` API was removed in Vitest v4 — see Additional implementation deviations below).
+- [x] `vitest.setup.ts` exists with `import 'reflect-metadata'` first + env setup.
+- [x] `vitest.e2e.setup.ts` exists and sets `process.env.E2E_MOCK_LLM='true'` (the `vi.mock()` block from the original plan was dropped — ineffective for the spawned child process).
+- [x] `test/utils/llm-http-shim.cjs` is deleted and replaced by `test/utils/llm-mock.mjs` (ESM `--import` preload shim).
+- [x] `test/utils/app-lifecycle.ts` no longer references `--require`; uses `--import=<file://.../llm-mock.mjs>` via `pathToFileURL`.
+- [x] `npm run test` invokes Vitest on the `unit` project (tests are red — expected until Sections 3–4).
+
+**Additional implementation deviations (recorded during execution):**
+
+- **`eslint.config.js`: added `'**/*.mjs'` to the top-level `ignores` array** (alongside `'**/*.cjs'`). The ESM preload shim `llm-mock.mjs` is not application source, and under `"type": "module"` a bare `.mjs` file hits the global `@typescript-eslint/explicit-function-return-type: 'error'` rule, which would produce 3 new errors. Mirroring the existing `**/*.cjs` ignore for preload shims keeps lint at the exact baseline (7 errors + 1 warning). This is a benign config-only change; the Jest plugin itself is still untouched (removed in Section 5).
+- **`fileParallelism: false` on the `e2e`, `e2e-live`, and `prod` Vitest projects.** The old Jest E2E run used `--runInBand` (serial). Vitest's `forks` pool runs E2E files in parallel, causing multiple app instances to collide on the hardcoded port 3001 (`EADDRINUSE`). Disabling file parallelism restores serial execution and eliminates the collision. The `unit` project is left parallel for speed.
+
+**Section 2 — Completion Notes (2026-07-07):**
+
+- Installed `vitest@4.1.10`, `@vitest/coverage-v8`, `eslint-plugin-vitest`. Did **not** uninstall Jest packages (deferred to Section 5).
+- Created `vitest.config.ts` (`defineConfig({ test: { projects: [...] } })` — v4 API), `vitest.setup.ts`, `vitest.e2e.setup.ts`, `test/utils/llm-mock.mjs`.
+- Deleted all 9 Jest config files and `test/utils/llm-http-shim.cjs`.
+- `package.json` test scripts switched to Vitest; `test`/`test:watch`/`test:cov`/`test:debug` target `--project unit` so plain `npm test` does not build/run e2e or prod.
+- Verified: `npm run build` clean; `npm run lint` = 7 errors + 1 warning (baseline preserved); `npm run test` invokes Vitest (unit specs red — `jest.*` APIs). `npm run test:e2e:mocked`: app boots via `--import` shim, **no `EADDRINUSE`**, 42 tests pass + 1 file fails (`start-app.e2e-spec.ts` uses `jest.setTimeout()` at module scope — fixed in Section 4).
+- Known follow-up: orphaned app processes from an interrupted prior run can hold port 3001 and cause `EADDRINUSE` on the next run; `stopApp()` cleanup is a pre-existing concern, not introduced here.
 
 ---
 

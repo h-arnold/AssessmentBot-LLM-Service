@@ -1,4 +1,6 @@
+import 'reflect-metadata';
 import * as dotenv from 'dotenv';
+
 dotenv.config({ path: '.test.env' });
 
 process.env.GEMINI_API_KEY = 'test-key';

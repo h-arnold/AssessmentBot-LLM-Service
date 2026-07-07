@@ -14,7 +14,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', '**/*.cjs'],
+    ignores: ['dist', 'node_modules', '**/*.cjs', '**/*.mjs'],
   },
   {
     plugins: {

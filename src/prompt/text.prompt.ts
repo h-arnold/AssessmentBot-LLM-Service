@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 
-import { Prompt } from './prompt.base';
+import { Prompt } from './prompt.base.js';
 
 /**
  * Prompt implementation for assessing text-based tasks.

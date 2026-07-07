@@ -7,8 +7,8 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
-import { User } from './user.interface';
-import { ConfigService } from '../config/config.service';
+import { User } from './user.interface.js';
+import { ConfigService } from '../config/config.service.js';
 
 /**
  * Service responsible for validating API keys used for authentication.

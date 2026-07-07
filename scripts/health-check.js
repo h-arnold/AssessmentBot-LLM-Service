@@ -1,8 +1,8 @@
-/* This is the health-check script used by the Docker Image
-* It's not linted and doesn't have tests as a result.
-/*
+/* This is the health-check script used by the Docker Image.
+ * It's not linted and doesn't have tests as a result.
+ */
 /* eslint-disable no-console */
-const http = require('node:http');
+import http from 'node:http';
 
 const options = {
   hostname: 'localhost',

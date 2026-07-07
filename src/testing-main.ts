@@ -5,6 +5,7 @@
  * bootstrapping stays free of test-only branches.
  */
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import * as dotenv from 'dotenv';
 
@@ -13,7 +14,7 @@ import * as dotenv from 'dotenv';
  */
 export async function startTest(): Promise<void> {
   dotenv.config({ path: '.test.env' });
-  const { bootstrap } = await import('./bootstrap');
+  const { bootstrap } = await import('./bootstrap.js');
   await bootstrap({ bufferLogs: false, host: '127.0.0.1' });
 }
 
@@ -38,5 +39,8 @@ if (isRunningDirectly()) {
  * @returns {boolean} True if the module is the main entry point.
  */
 function isRunningDirectly(): boolean {
-  return typeof require !== 'undefined' && require.main === module;
+  return (
+    process.argv[1] != null &&
+    import.meta.url === pathToFileURL(process.argv[1]).href
+  );
 }

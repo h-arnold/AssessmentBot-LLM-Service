@@ -2,7 +2,7 @@ import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
 import { detectBufferMime } from 'mime-detect';
 import validator from 'validator';
 
-import { ConfigService } from '../../config/config.service';
+import { ConfigService } from '../../config/config.service.js';
 
 /**
  * A pipe for validating image uploads, ensuring they meet size and format requirements.

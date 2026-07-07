@@ -1,6 +1,7 @@
 import { Controller, Get, HttpException, Req } from '@nestjs/common';
 
-import { StatusService, HealthCheckResponse } from './status.service';
+import { StatusService } from './status.service.js';
+import type { HealthCheckResponse } from './status.service.js';
 
 /**
  * Controller responsible for providing application status and health endpoints.

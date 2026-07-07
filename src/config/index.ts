@@ -11,6 +11,6 @@
  * - `Config`: The TypeScript type representing the fully validated application configuration.
  */
 
-export { ConfigModule } from './config.module';
-export { ConfigService } from './config.service';
-export type { Config } from './environment.schema';
+export { ConfigModule } from './config.module.js';
+export { ConfigService } from './config.service.js';
+export type { Config } from './environment.schema.js';

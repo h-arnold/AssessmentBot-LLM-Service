@@ -187,6 +187,7 @@ This section is configuration-only. Verification is via build and runtime checks
    - Current: `import * as packageJson from '../../package.json'`
    - Target: `import * as packageJson from '../../package.json' with { type: 'json' }`
    - Use the `with` syntax (not the deprecated `assert`). Applies to the production source file here; `src/status/status.service.spec.ts` is fixed in Section 3.
+   - **ESM JSON gotcha (validated 2026-07-07 — corrects the original plan wording):** Under Node ESM, a JSON module imported via `import * as packageJson` exposes the parsed object **only** as the `default` export. `packageJson.version` resolves to `undefined` at runtime, which would make `GET /health` return an `undefined` version (a latent bug in the original step-9 wording). The correct usage is `packageJson.default.version`. The implementation uses `packageJson.default.version` — keep this form. The `/health` endpoint was verified to return `"version":"0.1.12"` with this form.
 
 10. **Fix `src/v1/assessor/assessor.controller.ts` — convert `src/...` path-alias imports to relative.**
     - 5 imports use `from 'src/...'` (path alias). Convert to relative imports with `.js` extensions (e.g., `from '../../auth/api-key.guard.js'`). Verify relative depth against `src/v1/assessor/` location.
@@ -206,13 +207,31 @@ This section is configuration-only. Verification is via build and runtime checks
 
 **Section Checks:**
 
-- [ ] `npm run build` succeeds.
-- [ ] `dist/` output uses ESM syntax (verify `dist/src/main.js` starts with `import`, not `"use strict"`).
-- [ ] `node dist/src/main.js` starts the server.
-- [ ] No `require()` or `module.exports` in any source file.
-- [ ] `tsconfig.test.json` is deleted.
-- [ ] Zero `TS2835` / `TS1272` / `TS1543` errors from `npx tsc --project tsconfig.build.json`.
-- [ ] `assessor.controller.ts` no longer imports via `src/...` path aliases.
+- [x] `npm run build` succeeds.
+- [x] `dist/` output uses ESM syntax (verify `dist/src/main.js` starts with `import`, not `"use strict"`).
+- [x] `node dist/src/main.js` starts the server.
+- [x] No `require()` or `module.exports` in any source file.
+- [x] `tsconfig.test.json` is deleted.
+- [x] Zero `TS2835` / `TS1272` / `TS1543` errors from `npx tsc --project tsconfig.build.json`.
+- [x] `assessor.controller.ts` no longer imports via `src/...` path aliases.
+
+**Accepted Technical Debt (deferred — see follow-up below):**
+
+- **7 `unicorn/prefer-await` lint errors in `src/common/http-exception.filter.spec.ts`.** Adding `"type": "module"` to `package.json` (required by S7) causes the `unicorn` `prefer-await` rule to misfire on the NestJS `ExceptionFilter.catch()` _method_ calls (e.g. `filter.catch(resourceExhaustedError, mockArgumentsHost)`), which are not promise `.catch()` chains. The baseline lint was clean (exit 0); these errors are a regression introduced by this section. **Resolution deferred to Section 3** (spec-file migration), where the file is migrated to Vitest and the false positives are addressed properly. Authorised as accepted technical debt per user instruction on 2026-07-07; the Regression Gate for this section is recorded as passed-with-documented-debt. Do **not** add lint-suppression comments for the `unicorn/prefer-await` rule (C5) to clear these — fix the code in Section 3 instead.
+
+**Section 1 — Completion Notes (2026-07-07):**
+
+- `tsconfig.json`: `"module": "NodeNext"`, `"moduleResolution": "NodeNext"`, `"types": ["node"]`. `ignoreDeprecations: "6.0"` retained (still required for `baseUrl`/`paths`).
+- `package.json`: `"type": "module"` added. Jest deps not yet removed (Section 2).
+- `tsconfig.test.json` deleted.
+- 27 non-spec source files: `.js` extensions added to all relative imports (69 imports). Inline `import { X, type Y }` modifiers preserved.
+- `status.controller.ts`: TS1272 value/type import split (`.js` on both).
+- `status.service.ts`: TS1543 JSON import attribute + `packageJson.default.version` usage (corrected ESM JSON gotcha — see step 9).
+- `assessor.controller.ts`: 5 `src/...` path-alias imports converted to relative `../../...js` imports.
+- `main.ts` / `testing-main.ts`: ESM `isRunningDirectly()` via `import.meta.url` + `pathToFileURL`; `JEST_WORKER_ID` check removed; dynamic `import('./bootstrap.js')`.
+- `scripts/health-check.js`: CJS→ESM (`import http from 'node:http'`); comment restructured per plan; the `no-console` suppression directive is retained per plan and produces one "unused directive" _warning_, not an error.
+- Verified: `npx tsc --project tsconfig.build.json` clean; `npm run build` clean; `dist/src/main.js` is pure ESM; `node dist/src/main.js` starts and `GET /health` returns `"version":"0.1.12"`.
+- **Deferred lint debt:** 7 `unicorn/prefer-await` errors in `http-exception.filter.spec.ts` (documented above).
 
 ---
 
@@ -505,6 +524,7 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 - [ ] Zero `jest.*` calls in `src/**/*.spec.ts`.
 - [ ] `npm run test` passes all unit/integration tests.
 - [ ] Coverage report shows no significant drop.
+- [ ] The 7 `unicorn/prefer-await` lint errors in `src/common/http-exception.filter.spec.ts` (deferred from Section 1 as accepted technical debt) are resolved, and `npm run lint` is fully clean.
 
 ---
 

@@ -5,6 +5,7 @@
  * test-specific configuration out of the runtime entrypoint.
  */
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import * as dotenv from 'dotenv';
 
@@ -13,7 +14,7 @@ import * as dotenv from 'dotenv';
  */
 export async function start(): Promise<void> {
   dotenv.config({ path: '.env' });
-  const { bootstrap } = await import('./bootstrap');
+  const { bootstrap } = await import('./bootstrap.js');
   await bootstrap();
 }
 
@@ -35,13 +36,11 @@ if (isRunningDirectly()) {
 
 /**
  * Check whether the current module is the main entry point.
- * @returns {boolean} True if the module is the main entry point and not running
- *   under Jest.
+ * @returns {boolean} True if the module is the main entry point.
  */
 function isRunningDirectly(): boolean {
   return (
-    typeof require !== 'undefined' &&
-    require.main === module &&
-    !process.env.JEST_WORKER_ID
+    process.argv[1] != null &&
+    import.meta.url === pathToFileURL(process.argv[1]).href
   );
 }

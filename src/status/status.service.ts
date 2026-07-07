@@ -2,7 +2,7 @@ import * as os from 'node:os';
 
 import { Injectable } from '@nestjs/common';
 
-import * as packageJson from '../../package.json';
+import * as packageJson from '../../package.json' with { type: 'json' };
 
 /**
  * Interface representing system information for health checks.
@@ -73,7 +73,7 @@ export class StatusService {
     const now = new Date();
     return {
       status: 'ok',
-      version: packageJson.version,
+      version: packageJson.default.version,
       timestamp: now.toISOString(),
       systemInfo: {
         platform: os.platform(),

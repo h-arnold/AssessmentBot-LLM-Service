@@ -2,8 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { json, type Express } from 'express';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
 
-import { AppModule } from './app.module';
-import { ConfigService } from './config/config.service';
+import { AppModule } from './app.module.js';
+import { ConfigService } from './config/config.service.js';
 
 export interface BootstrapOptions {
   bufferLogs?: boolean;

@@ -3,10 +3,10 @@ import type { PathLike, PathOrFileDescriptor } from 'node:fs';
 
 import * as dotenv from 'dotenv';
 
-jest.mock('node:fs', () => ({
-  existsSync: jest.fn<(path: PathLike) => boolean>(),
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn<(path: PathLike) => boolean>(),
   readFileSync:
-    jest.fn<
+    vi.fn<
       (
         path: PathOrFileDescriptor,
         options?:
@@ -17,8 +17,8 @@ jest.mock('node:fs', () => ({
     >(),
 }));
 
-const mockExistsSync = jest.mocked(fs.existsSync);
-const mockReadFileSync = jest.mocked(fs.readFileSync);
+const mockExistsSync = vi.mocked(fs.existsSync);
+const mockReadFileSync = vi.mocked(fs.readFileSync);
 
 const normalisePath = (filePath: PathOrFileDescriptor): string => {
   if (typeof filePath === 'string') {
@@ -37,7 +37,12 @@ const normalisePath = (filePath: PathOrFileDescriptor): string => {
 };
 
 describe('.env.example file', () => {
-  const expectedRequiredVariables = ['NODE_ENV', 'PORT', 'APP_NAME', 'APP_VERSION'];
+  const expectedRequiredVariables = [
+    'NODE_ENV',
+    'PORT',
+    'APP_NAME',
+    'APP_VERSION',
+  ];
 
   beforeEach(() => {
     mockExistsSync.mockReset();
@@ -61,7 +66,7 @@ API_KEY=your_api_key_here
   });
 
   afterAll(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
   });
 
   it('should contain all required variables', () => {

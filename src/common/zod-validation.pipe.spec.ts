@@ -1,7 +1,7 @@
 import { BadRequestException, Logger, ArgumentMetadata } from '@nestjs/common';
 import * as z from 'zod';
 
-import { ZodValidationPipe } from './zod-validation.pipe';
+import { ZodValidationPipe } from './zod-validation.pipe.js';
 
 describe('ZodValidationPipe', () => {
   const schema = z.object({
@@ -65,7 +65,7 @@ describe('ZodValidationPipe', () => {
   });
 
   it('should log validation failures', () => {
-    const loggerSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const loggerSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation();
     const invalidData = { name: 123 };
     expect(() => pipe.transform(invalidData, {} as ArgumentMetadata)).toThrow(
       BadRequestException,

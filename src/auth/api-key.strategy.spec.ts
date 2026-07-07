@@ -2,12 +2,12 @@ import { UnauthorizedException, Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Request } from 'express';
 
-import { ApiKeyService } from './api-key.service';
-import { ApiKeyStrategy } from './api-key.strategy';
-import { User } from './user.interface';
+import { ApiKeyService } from './api-key.service.js';
+import { ApiKeyStrategy } from './api-key.strategy.js';
+import { User } from './user.interface.js';
 
 const mockApiKeyService = {
-  validate: jest.fn(),
+  validate: vi.fn(),
 };
 
 /**
@@ -29,11 +29,11 @@ describe('ApiKeyStrategy', () => {
 
     strategy = module.get<ApiKeyStrategy>(ApiKeyStrategy);
     // Suppress logger warnings for tests that expect exceptions.
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -50,7 +50,9 @@ describe('ApiKeyStrategy', () => {
     it('should return the user object when authentication is successful', async () => {
       const user: User = { apiKey: 'test-key' };
       const token = 'valid-api-key';
-      const request = { headers: { authorization: 'Bearer ' + token } } as Request;
+      const request = {
+        headers: { authorization: 'Bearer ' + token },
+      } as Request;
 
       mockApiKeyService.validate.mockResolvedValue(user);
 
@@ -65,7 +67,9 @@ describe('ApiKeyStrategy', () => {
      */
     it('should throw an UnauthorizedException if authentication fails', async () => {
       const token = 'invalid-api-key';
-      const request = { headers: { authorization: 'Bearer ' + token } } as Request;
+      const request = {
+        headers: { authorization: 'Bearer ' + token },
+      } as Request;
 
       mockApiKeyService.validate.mockResolvedValue(null);
 
@@ -80,7 +84,9 @@ describe('ApiKeyStrategy', () => {
      */
     it('should throw an UnauthorizedException and log a warning for a malformed Bearer scheme', async () => {
       const token = 'any-key';
-      const request = { headers: { authorization: 'bearer ' + token } } as Request;
+      const request = {
+        headers: { authorization: 'bearer ' + token },
+      } as Request;
 
       await expect(strategy.validate(request, token)).rejects.toThrow(
         new UnauthorizedException('Malformed Bearer scheme.'),
@@ -97,7 +103,9 @@ describe('ApiKeyStrategy', () => {
     it('should not throw for a valid Bearer scheme', async () => {
       const user: User = { apiKey: 'test-key' };
       const token = 'valid-api-key';
-      const request = { headers: { authorization: 'Bearer ' + token } } as Request;
+      const request = {
+        headers: { authorization: 'Bearer ' + token },
+      } as Request;
 
       mockApiKeyService.validate.mockResolvedValue(user);
 

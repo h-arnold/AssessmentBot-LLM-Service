@@ -1,19 +1,19 @@
-import { AssessorController } from './assessor.controller';
-import { TaskType, type CreateAssessorDto } from './dto/create-assessor.dto';
-import { ImageValidationPipe } from '../../common/pipes/image-validation.pipe';
-import { ConfigService } from '../../config/config.service';
+import { AssessorController } from './assessor.controller.js';
+import { TaskType, type CreateAssessorDto } from './dto/create-assessor.dto.js';
+import { ImageValidationPipe } from '../../common/pipes/image-validation.pipe.js';
+import { ConfigService } from '../../config/config.service.js';
 
 describe('AssessorController', () => {
   const mockAssessorService = {
-    createAssessment: jest.fn(),
+    createAssessment: vi.fn(),
   };
 
   const mockConfigService = {
-    get: jest.fn(),
+    get: vi.fn(),
   } as unknown as ConfigService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('validates image payloads when task type is IMAGE', async () => {
@@ -21,7 +21,7 @@ describe('AssessorController', () => {
       mockAssessorService as never,
       mockConfigService,
     );
-    const transformSpy = jest
+    const transformSpy = vi
       .spyOn(ImageValidationPipe.prototype, 'transform')
       .mockResolvedValue('ok');
 
@@ -50,7 +50,7 @@ describe('AssessorController', () => {
       mockAssessorService as never,
       mockConfigService,
     );
-    const transformSpy = jest.spyOn(ImageValidationPipe.prototype, 'transform');
+    const transformSpy = vi.spyOn(ImageValidationPipe.prototype, 'transform');
 
     const payload: CreateAssessorDto = {
       taskType: TaskType.TEXT,

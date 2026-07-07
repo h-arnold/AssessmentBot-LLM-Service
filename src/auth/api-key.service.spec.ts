@@ -1,8 +1,8 @@
 import { Logger, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ApiKeyService } from './api-key.service';
-import { ConfigService, Config } from '../config/config.service';
+import { ApiKeyService } from './api-key.service.js';
+import { ConfigService, Config } from '../config/config.service.js';
 
 describe('ApiKeyService', () => {
   let service: ApiKeyService;
@@ -16,7 +16,7 @@ describe('ApiKeyService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((key: keyof Config) => {
+            get: vi.fn((key: keyof Config) => {
               if (key === 'API_KEYS') {
                 return ['valid-key-1', 'valid-key-2'];
               }
@@ -27,11 +27,11 @@ describe('ApiKeyService', () => {
         {
           provide: Logger,
           useValue: {
-            log: jest.fn(),
-            error: jest.fn(),
-            warn: jest.fn(),
-            debug: jest.fn(),
-            verbose: jest.fn(),
+            log: vi.fn(),
+            error: vi.fn(),
+            warn: vi.fn(),
+            debug: vi.fn(),
+            verbose: vi.fn(),
           },
         },
       ],

@@ -2,11 +2,11 @@ import { Logger } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ApiKeyGuard } from './api-key.guard';
-import { ApiKeyService } from './api-key.service';
-import { ApiKeyStrategy } from './api-key.strategy';
-import { AuthModule } from './auth.module';
-import { ConfigService, Config } from '../config/config.service';
+import { ApiKeyGuard } from './api-key.guard.js';
+import { ApiKeyService } from './api-key.service.js';
+import { ApiKeyStrategy } from './api-key.strategy.js';
+import { AuthModule } from './auth.module.js';
+import { ConfigService, Config } from '../config/config.service.js';
 
 describe('AuthModule', () => {
   let module: TestingModule;
@@ -34,7 +34,7 @@ describe('AuthModule', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((key: keyof Config) => {
+            get: vi.fn((key: keyof Config) => {
               if (key === 'API_KEYS') {
                 return ['test-key'];
               }
@@ -45,11 +45,11 @@ describe('AuthModule', () => {
         {
           provide: Logger,
           useValue: {
-            log: jest.fn(),
-            error: jest.fn(),
-            warn: jest.fn(),
-            debug: jest.fn(),
-            verbose: jest.fn(),
+            log: vi.fn(),
+            error: vi.fn(),
+            warn: vi.fn(),
+            debug: vi.fn(),
+            verbose: vi.fn(),
           },
         },
       ],

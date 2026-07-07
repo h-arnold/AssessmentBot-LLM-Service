@@ -1,14 +1,15 @@
 import { IncomingMessage, ServerResponse } from 'node:http';
 
 import { Params } from 'nestjs-pino';
+import { Mock } from 'vitest';
 
-import { ConfigService } from './config/config.service';
+import { ConfigService } from './config/config.service.js';
 
 type LoggerModuleAsyncOptions = {
   useFactory: (configService: ConfigService) => Params;
 };
 
-const forRootAsync = jest.fn() as jest.Mock & {
+const forRootAsync = vi.fn() as Mock & {
   lastOptions?: LoggerModuleAsyncOptions;
 };
 
@@ -16,7 +17,7 @@ forRootAsync.mockImplementation((options: LoggerModuleAsyncOptions) => {
   forRootAsync.lastOptions = options;
 });
 
-jest.mock('nestjs-pino', () => ({
+vi.mock('nestjs-pino', () => ({
   LoggerModule: { forRootAsync },
 }));
 
@@ -30,8 +31,8 @@ const getLoggerModuleOptions = (): LoggerModuleAsyncOptions => {
 
 const buildConfigService = (
   overrides: Partial<Record<string, string>>,
-): { get: jest.Mock } => ({
-  get: jest.fn((key: string) => {
+): { get: Mock } => ({
+  get: vi.fn((key: string) => {
     const defaults = new Map<string, string>([
       ['LOG_LEVEL', 'debug'],
       ['NODE_ENV', 'development'],
@@ -45,10 +46,10 @@ const buildConfigService = (
 });
 
 const loadModule = async (): Promise<{ AppModule: unknown }> => {
-  jest.resetModules();
+  vi.resetModules();
   forRootAsync.mockClear();
   forRootAsync.lastOptions = undefined;
-  return import('./app.module');
+  return import('./app.module.js');
 };
 
 describe('AppModule logging configuration', () => {
@@ -56,8 +57,8 @@ describe('AppModule logging configuration', () => {
 
   afterEach(() => {
     process.env = { ...originalEnvironment };
-    jest.resetModules();
-    jest.clearAllMocks();
+    vi.resetModules();
+    vi.clearAllMocks();
   });
 
   it('uses the file transport when LOG_FILE is set', async () => {

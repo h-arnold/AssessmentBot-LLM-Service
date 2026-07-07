@@ -1,26 +1,26 @@
-import { jest, describe, it, expect, afterEach } from '@jest/globals';
+import { Mock } from 'vitest';
 
-const nestFactoryCreate: jest.Mock = jest.fn();
-const jsonMiddleware: jest.Mock = jest.fn();
-const json: jest.Mock = jest.fn(() => jsonMiddleware);
+const nestFactoryCreate: Mock = vi.fn();
+const jsonMiddleware: Mock = vi.fn();
+const json: Mock = vi.fn(() => jsonMiddleware);
 
 class Logger {}
 class LoggerErrorInterceptor {}
 class AppModule {}
 class ConfigService {}
 
-jest.mock('@nestjs/core', () => ({
+vi.mock('@nestjs/core', () => ({
   NestFactory: { create: nestFactoryCreate },
 }));
-jest.mock('express', () => ({ json }));
-jest.mock('nestjs-pino', () => ({
+vi.mock('express', () => ({ json }));
+vi.mock('nestjs-pino', () => ({
   Logger,
   LoggerErrorInterceptor,
 }));
-jest.mock('./app.module', () => ({
+vi.mock('./app.module', () => ({
   AppModule,
 }));
-jest.mock('./config/config.service', () => ({
+vi.mock('./config/config.service', () => ({
   ConfigService,
 }));
 
@@ -29,28 +29,28 @@ describe('bootstrap', () => {
 
   afterEach(() => {
     process.env = { ...originalEnvironment };
-    jest.resetModules();
-    jest.clearAllMocks();
+    vi.resetModules();
+    vi.clearAllMocks();
   });
 
   type LoadBootstrapResult = {
     app: {
-      useLogger: jest.Mock;
-      useGlobalInterceptors: jest.Mock;
-      getHttpAdapter: jest.Mock;
-      get: jest.Mock;
-      use: jest.Mock;
-      listen: jest.Mock;
+      useLogger: Mock;
+      useGlobalInterceptors: Mock;
+      getHttpAdapter: Mock;
+      get: Mock;
+      use: Mock;
+      listen: Mock;
     };
     configService: {
-      getGlobalPayloadLimit: jest.Mock;
-      get: jest.Mock;
+      getGlobalPayloadLimit: Mock;
+      get: Mock;
     };
     expressInstance: {
-      set: jest.Mock;
+      set: Mock;
     };
     loggerInstance: {
-      log: jest.Mock;
+      log: Mock;
     };
   };
 
@@ -59,15 +59,15 @@ describe('bootstrap', () => {
   }): Promise<LoadBootstrapResult> => {
     process.env = { ...originalEnvironment };
 
-    const loggerInstance = { log: jest.fn() };
-    const expressInstance = { set: jest.fn() };
+    const loggerInstance = { log: vi.fn() };
+    const expressInstance = { set: vi.fn() };
     const configService = {
-      getGlobalPayloadLimit: jest.fn(() => '1mb'),
-      get: jest.fn((key: string) => (key === 'PORT' ? '3030' : undefined)),
+      getGlobalPayloadLimit: vi.fn(() => '1mb'),
+      get: vi.fn((key: string) => (key === 'PORT' ? '3030' : undefined)),
     };
 
     const httpAdapter = {
-      getInstance: (): { set: jest.Mock } => expressInstance,
+      getInstance: (): { set: Mock } => expressInstance,
     };
 
     const tokenLookup = new Map<unknown, unknown>([
@@ -76,17 +76,17 @@ describe('bootstrap', () => {
     ]);
 
     const app = {
-      useLogger: jest.fn(),
-      useGlobalInterceptors: jest.fn(),
-      getHttpAdapter: jest.fn(() => httpAdapter),
-      get: jest.fn((token: unknown) => tokenLookup.get(token)),
-      use: jest.fn(),
-      listen: jest.fn().mockResolvedValue(undefined),
+      useLogger: vi.fn(),
+      useGlobalInterceptors: vi.fn(),
+      getHttpAdapter: vi.fn(() => httpAdapter),
+      get: vi.fn((token: unknown) => tokenLookup.get(token)),
+      use: vi.fn(),
+      listen: vi.fn().mockResolvedValue(undefined),
     };
 
     nestFactoryCreate.mockResolvedValue(app);
 
-    const { bootstrap } = await import('./bootstrap');
+    const { bootstrap } = await import('./bootstrap.js');
     await bootstrap(options);
 
     return {

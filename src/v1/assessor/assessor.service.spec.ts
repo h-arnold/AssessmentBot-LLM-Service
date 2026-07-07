@@ -1,17 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
 
-import { AssessorService } from './assessor.service';
-import { ConfigModule, ConfigService } from '../../config';
-import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto';
-import { JsonParserUtility } from '../../common/json-parser.utility';
-import { GeminiService } from '../../llm/gemini.service';
-import { LlmModule } from '../../llm/llm.module';
-import { LLMService } from '../../llm/llm.service.interface';
-import { LlmResponse } from '../../llm/types';
-import { Prompt } from '../../prompt/prompt.base';
-import { PromptFactory } from '../../prompt/prompt.factory';
-import { PromptModule } from '../../prompt/prompt.module';
+import { AssessorService } from './assessor.service.js';
+import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto.js';
+import { JsonParserUtility } from '../../common/json-parser.utility.js';
+import { ConfigModule, ConfigService } from '../../config/index.js';
+import { GeminiService } from '../../llm/gemini.service.js';
+import { LlmModule } from '../../llm/llm.module.js';
+import { LLMService } from '../../llm/llm.service.interface.js';
+import { LlmResponse } from '../../llm/types.js';
+import { Prompt } from '../../prompt/prompt.base.js';
+import { PromptFactory } from '../../prompt/prompt.factory.js';
+import { PromptModule } from '../../prompt/prompt.module.js';
 
 const createMockLlmResponse = (score: number): LlmResponse => ({
   completeness: {
@@ -57,9 +57,9 @@ describe('AssessorService', () => {
   let service: AssessorService;
   let llmService: LLMService;
   let promptFactory: PromptFactory;
-  let mockLlmService: { send: jest.Mock<Promise<LlmResponse>, [unknown]> };
+  let mockLlmService: { send: Mock<Promise<LlmResponse>, [unknown]> };
   let mockPromptFactory: {
-    create: jest.Mock<Promise<Prompt>, [CreateAssessorDto]>;
+    create: Mock<Promise<Prompt>, [CreateAssessorDto]>;
   };
 
   beforeAll(() => {
@@ -74,13 +74,13 @@ describe('AssessorService', () => {
     process.env.LOG_LEVEL = 'debug';
   });
   beforeEach(async () => {
-    mockLlmService = { send: jest.fn<Promise<LlmResponse>, [unknown]>() };
+    mockLlmService = { send: vi.fn<Promise<LlmResponse>, [unknown]>() };
     mockPromptFactory = {
-      create: jest.fn<Promise<Prompt>, [CreateAssessorDto]>(),
+      create: vi.fn<Promise<Prompt>, [CreateAssessorDto]>(),
     };
-    const mockJsonParserUtility = { parse: jest.fn() };
+    const mockJsonParserUtility = { parse: vi.fn() };
     const mockConfigService = {
-      get: jest.fn((key: string) => getMockEnvironmentValue(key)),
+      get: vi.fn((key: string) => getMockEnvironmentValue(key)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -108,7 +108,7 @@ describe('AssessorService', () => {
       .overrideProvider(PromptFactory)
       .useValue(mockPromptFactory)
       .overrideProvider(GeminiService)
-      .useValue({ send: jest.fn() })
+      .useValue({ send: vi.fn() })
       .overrideProvider(JsonParserUtility)
       .useValue(mockJsonParserUtility)
       .compile();
@@ -132,7 +132,7 @@ describe('AssessorService', () => {
       };
 
       const mockPrompt = {
-        buildMessage: jest.fn().mockResolvedValue({
+        buildMessage: vi.fn().mockResolvedValue({
           system: 'System prompt',
           user: 'prompt message',
         }),
@@ -185,7 +185,7 @@ describe('AssessorService', () => {
       };
 
       const mockPrompt = {
-        buildMessage: jest.fn().mockResolvedValue(mockMultimodalPayload),
+        buildMessage: vi.fn().mockResolvedValue(mockMultimodalPayload),
       };
       mockPromptFactory.create.mockResolvedValue(mockPrompt as Prompt);
       mockLlmService.send.mockResolvedValue(createMockLlmResponse(4));
@@ -206,7 +206,7 @@ describe('AssessorService', () => {
       };
 
       const mockPrompt = {
-        buildMessage: jest.fn().mockResolvedValue({
+        buildMessage: vi.fn().mockResolvedValue({
           system: 'System prompt',
           user: 'prompt message',
         }),

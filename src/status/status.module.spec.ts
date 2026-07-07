@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { StatusModule } from './status.module';
-import { StatusService } from './status.service';
+import { StatusModule } from './status.module.js';
+import { StatusService } from './status.service.js';
 
 describe('StatusModule', () => {
   it('provides the status service', async () => {

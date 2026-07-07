@@ -2,7 +2,7 @@ import { ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ApiKeyGuard } from './api-key.guard';
+import { ApiKeyGuard } from './api-key.guard.js';
 
 describe('ApiKeyGuard', () => {
   let guard: ApiKeyGuard;

@@ -2,9 +2,9 @@ import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { z } from 'zod';
 
-import { HttpExceptionFilter } from './http-exception.filter';
-import { JsonParserUtility } from './json-parser.utility';
-import { ZodValidationPipe } from './zod-validation.pipe';
+import { HttpExceptionFilter } from './http-exception.filter.js';
+import { JsonParserUtility } from './json-parser.utility.js';
+import { ZodValidationPipe } from './zod-validation.pipe.js';
 
 describe('CommonModule', () => {
   let module: TestingModule;

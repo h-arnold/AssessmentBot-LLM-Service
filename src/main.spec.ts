@@ -1,23 +1,26 @@
-describe('main entrypoint', () => {
-  let dotenvConfig: jest.Mock;
-  let bootstrap: jest.Mock;
+import { Mock } from 'vitest';
 
+const { dotenvConfig, bootstrap } = vi.hoisted(() => ({
+  dotenvConfig: vi.fn() as Mock,
+  bootstrap: vi.fn() as Mock,
+}));
+
+vi.mock('dotenv', () => ({ config: dotenvConfig }));
+vi.mock('./bootstrap.js', () => ({ bootstrap }));
+
+describe('main entrypoint', () => {
   beforeEach(() => {
-    jest.resetModules();
-    jest.clearAllMocks();
-    dotenvConfig = jest.fn();
-    bootstrap = jest.fn();
-    jest.doMock('dotenv', () => ({ config: dotenvConfig }));
-    jest.doMock('./bootstrap', () => ({ bootstrap }));
+    vi.resetModules();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
-    jest.resetModules();
-    jest.clearAllMocks();
+    vi.resetModules();
+    vi.clearAllMocks();
   });
 
   it('loads .env and delegates to bootstrap', async () => {
-    const { start } = await import('./main');
+    const { start } = await import('./main.js');
 
     await start();
 

@@ -2,11 +2,11 @@ import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
 
-import { LlmModule } from './llm.module';
-import { LLMService } from './llm.service.interface';
-import { JsonParserUtility } from '../common/json-parser.utility';
-import { ConfigModule } from '../config/config.module';
-import { ConfigService } from '../config/config.service';
+import { LlmModule } from './llm.module.js';
+import { LLMService } from './llm.service.interface.js';
+import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { ConfigModule } from '../config/config.module.js';
+import { ConfigService } from '../config/config.service.js';
 
 const defaults = {
   GEMINI_API_KEY: 'test-key',
@@ -21,7 +21,7 @@ const defaults = {
 };
 
 const mockConfigService = {
-  get: jest.fn((key: string) => {
+  get: vi.fn((key: string) => {
     return defaults[key as keyof typeof defaults];
   }),
 };
@@ -31,13 +31,13 @@ const mockConfigService = {
  *
  * This mock object contains a `parse` method that simulates the behavior of
  * parsing a JSON string into a JavaScript object. The `parse` method is
- * implemented using Jest's `fn` to allow tracking calls and providing custom
+ * implemented using Vitest's `vi.fn` to allow tracking calls and providing custom
  * behavior during tests.
- * @property {jest.Mock} parse - A Jest mock function that takes a JSON string
+ * @property {Mock} parse - A Vitest mock function that takes a JSON string
  * as input and returns the parsed JavaScript object.
  */
 const mockJsonParserUtility = {
-  parse: jest.fn((jsonString: string) => {
+  parse: vi.fn((jsonString: string) => {
     return JSON.parse(jsonString) as unknown;
   }),
 };

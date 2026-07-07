@@ -1,11 +1,12 @@
 import * as fs from 'node:fs/promises';
 
 import { Logger } from '@nestjs/common';
+import { Mock } from 'vitest';
 
-import { ImagePrompt } from './image.prompt';
-import { ImagePromptPayload } from '../llm/llm.service.interface';
+import { ImagePrompt } from './image.prompt.js';
+import { ImagePromptPayload } from '../llm/llm.service.interface.js';
 
-jest.mock('fs/promises');
+vi.mock('fs/promises');
 
 describe('ImagePrompt', () => {
   let logger: Logger;
@@ -26,7 +27,7 @@ describe('ImagePrompt', () => {
       { path: 'studentTask.png', mimeType: 'image/png' },
     ];
 
-    (fs.readFile as jest.Mock).mockImplementation(
+    (fs.readFile as Mock).mockImplementation(
       (filePath: string, options: { encoding: string }) => {
         if (
           filePath.includes('src/prompt/templates/image.system.prompt.md') &&
@@ -45,7 +46,7 @@ describe('ImagePrompt', () => {
     const prompt = new ImagePrompt(inputs, logger, images, systemPrompt);
     const message = (await prompt.buildMessage()) as ImagePromptPayload;
 
-    const calls = (fs.readFile as jest.Mock).mock.calls;
+    const calls = (fs.readFile as Mock).mock.calls;
     expect(calls).toEqual(
       expect.arrayContaining([
         [expect.stringContaining('referenceTask.png'), { encoding: 'base64' }],
@@ -114,7 +115,7 @@ describe('ImagePrompt', () => {
     const images = [{ path: 'ref.png', mimeType: 'image/jpeg' }];
     const prompt = new ImagePrompt(inputs, logger, images);
     // Mock fs.readFile to resolve
-    (fs.readFile as jest.Mock).mockResolvedValueOnce('base64data');
+    (fs.readFile as Mock).mockResolvedValueOnce('base64data');
     await expect(prompt.readImageFile('ref.png', 'image/jpeg')).resolves.toBe(
       'base64data',
     );

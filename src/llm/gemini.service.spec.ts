@@ -2,38 +2,41 @@ import {
   GoogleGenerativeAI,
   GoogleGenerativeAIFetchError,
 } from '@google/generative-ai';
+import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
-import { GeminiService } from './gemini.service';
+import { GeminiService } from './gemini.service.js';
 import {
   ImagePromptPayload,
   StringPromptPayload,
-} from './llm.service.interface';
-import { ResourceExhaustedError } from './resource-exhausted.error';
-import { LlmResponse } from './types';
-import { JsonParserUtility } from '../common/json-parser.utility';
-import { ConfigService } from '../config/config.service';
+} from './llm.service.interface.js';
+import { ResourceExhaustedError } from './resource-exhausted.error.js';
+import { LlmResponse } from './types.js';
+import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { ConfigService } from '../config/config.service.js';
 
 // Only mock the GoogleGenerativeAI class, not the error classes
-jest.mock('@google/generative-ai', () => {
-  const actual = jest.requireActual<typeof import('@google/generative-ai')>(
+vi.mock('@google/generative-ai', async () => {
+  const actual = await vi.importActual<typeof import('@google/generative-ai')>(
     '@google/generative-ai',
   );
   return {
     ...actual,
-    GoogleGenerativeAI: jest.fn(),
+    GoogleGenerativeAI: vi.fn(),
   };
 });
 
-const mockGenerateContent = jest.fn();
-const mockGetGenerativeModel = jest.fn(() => ({
+const mockGenerateContent = vi.fn();
+const mockGetGenerativeModel = vi.fn(() => ({
   generateContent: mockGenerateContent,
 }));
 
-const mockGoogleGenerativeAI = GoogleGenerativeAI as jest.Mock;
-mockGoogleGenerativeAI.mockImplementation(() => ({
-  getGenerativeModel: mockGetGenerativeModel,
-}));
+const mockGoogleGenerativeAI = GoogleGenerativeAI as Mock;
+mockGoogleGenerativeAI.mockImplementation(function () {
+  return {
+    getGenerativeModel: mockGetGenerativeModel,
+  };
+});
 
 // Test fixtures and utilities
 const createValidResponse = (
@@ -67,14 +70,14 @@ const expectValidResponse = (result: LlmResponse, score: number): void => {
 describe('GeminiService', () => {
   let service: GeminiService;
   let configService: ConfigService;
-  let mockParse: jest.Mock;
+  let mockParse: Mock;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Mock ConfigService
     configService = {
-      get: jest.fn((key: string): string | null => {
+      get: vi.fn((key: string): string | null => {
         if (key === 'GEMINI_API_KEY') return 'test-api-key';
         if (key === 'LLM_BACKOFF_BASE_MS') return '100';
         if (key === 'LLM_MAX_RETRIES') return '2';
@@ -83,7 +86,7 @@ describe('GeminiService', () => {
     } as unknown as ConfigService;
 
     // Mock JsonParserUtil
-    mockParse = jest.fn((json: string): unknown => {
+    mockParse = vi.fn((json: string): unknown => {
       return JSON.parse(json) as unknown;
     });
 

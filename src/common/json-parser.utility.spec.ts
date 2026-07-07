@@ -1,20 +1,21 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { MockInstance } from 'vitest';
 
-import { JsonParserUtility } from './json-parser.utility';
+import { JsonParserUtility } from './json-parser.utility.js';
 
 describe('JsonParserUtil', () => {
   let utility: JsonParserUtility;
   let logger: Logger;
-  let logSpy: jest.SpyInstance;
-  let debugSpy: jest.SpyInstance;
-  let errorSpy: jest.SpyInstance;
+  let logSpy: MockInstance;
+  let debugSpy: MockInstance;
+  let errorSpy: MockInstance;
 
   beforeEach(async () => {
     logger = new Logger('JsonParserUtil');
-    logSpy = jest.spyOn(logger, 'log').mockImplementation(() => {});
-    debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => {});
-    errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
+    logSpy = vi.spyOn(logger, 'log').mockImplementation(() => {});
+    debugSpy = vi.spyOn(logger, 'debug').mockImplementation(() => {});
+    errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -27,7 +28,7 @@ describe('JsonParserUtil', () => {
     }).compile();
 
     utility = module.get<JsonParserUtility>(JsonParserUtility);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should be defined', () => {

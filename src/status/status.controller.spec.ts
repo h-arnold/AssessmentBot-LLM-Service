@@ -1,8 +1,8 @@
 import { HttpException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { StatusController } from './status.controller';
-import { StatusService, HealthCheckResponse } from './status.service';
+import { StatusController } from './status.controller.js';
+import { StatusService, HealthCheckResponse } from './status.service.js';
 
 describe('StatusController', () => {
   let controller: StatusController;
@@ -10,8 +10,8 @@ describe('StatusController', () => {
 
   beforeEach(async () => {
     const mockStatusService = {
-      getHello: jest.fn().mockReturnValue('Hello World!'),
-      getHealth: jest.fn().mockReturnValue({ status: 'ok', uptime: 123 }),
+      getHello: vi.fn().mockReturnValue('Hello World!'),
+      getHealth: vi.fn().mockReturnValue({ status: 'ok', uptime: 123 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

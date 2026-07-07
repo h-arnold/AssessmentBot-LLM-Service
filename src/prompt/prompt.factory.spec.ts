@@ -1,14 +1,14 @@
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ImagePrompt } from './image.prompt';
-import { PromptFactory } from './prompt.factory';
-import { TablePrompt } from './table.prompt';
-import { TextPrompt } from './text.prompt';
+import { ImagePrompt } from './image.prompt.js';
+import { PromptFactory } from './prompt.factory.js';
+import { TablePrompt } from './table.prompt.js';
+import { TextPrompt } from './text.prompt.js';
 import {
   CreateAssessorDto,
   TaskType,
-} from '../v1/assessor/dto/create-assessor.dto';
+} from '../v1/assessor/dto/create-assessor.dto.js';
 
 describe('PromptFactory', () => {
   let factory: PromptFactory;

@@ -1,4 +1,4 @@
-import { ResourceExhaustedError } from './resource-exhausted.error';
+import { ResourceExhaustedError } from './resource-exhausted.error.js';
 
 /**
  * Simple integration tests for ResourceExhaustedError that can be used

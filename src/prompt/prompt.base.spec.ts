@@ -1,9 +1,9 @@
 import { Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
-import { Prompt, PromptInput, PromptInputSchema } from './prompt.base';
-import { readMarkdown } from '../common/file-utilities';
-import { LlmPayload } from '../llm/llm.service.interface';
+import { Prompt, PromptInput, PromptInputSchema } from './prompt.base.js';
+import { readMarkdown } from '../common/file-utilities.js';
+import { LlmPayload } from '../llm/llm.service.interface.js';
 
 // Mock implementation of the abstract class for testing
 class TestPrompt extends Prompt {

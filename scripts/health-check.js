@@ -1,7 +1,6 @@
 /* This is the health-check script used by the Docker Image.
  * It's not linted and doesn't have tests as a result.
  */
-/* eslint-disable no-console */
 import http from 'node:http';
 
 const options = {

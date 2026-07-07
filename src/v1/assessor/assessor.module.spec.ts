@@ -2,10 +2,10 @@ import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
 
-import { AssessorController } from './assessor.controller';
-import { AssessorModule } from './assessor.module';
-import { AssessorService } from './assessor.service';
-import { ConfigModule, ConfigService } from '../../config';
+import { AssessorController } from './assessor.controller.js';
+import { AssessorModule } from './assessor.module.js';
+import { AssessorService } from './assessor.service.js';
+import { ConfigModule, ConfigService } from '../../config/index.js';
 
 const getMockConfigValue = (key: string): unknown => {
   switch (key) {
@@ -29,7 +29,7 @@ const getMockConfigValue = (key: string): unknown => {
 };
 
 const mockConfigService = {
-  get: jest.fn((key: string) => getMockConfigValue(key)),
+  get: vi.fn((key: string) => getMockConfigValue(key)),
 };
 
 describe('AssessorModule', () => {

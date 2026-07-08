@@ -246,7 +246,6 @@ describe('GeminiService', () => {
   };
 
   describe('retry logic', () => {
-    // eslint-disable-next-line jest/expect-expect
     it('should retry on 429 errors and eventually succeed', async () => {
       await testRetryBehaviorSuccess(
         [new GoogleGenerativeAIFetchError('Rate limited', 429)],
@@ -254,7 +253,6 @@ describe('GeminiService', () => {
       );
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should retry multiple times with exponential backoff', async () => {
       await testRetryBehaviorSuccess(
         [
@@ -265,17 +263,14 @@ describe('GeminiService', () => {
       );
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should retry on rate limit error messages', async () => {
       await testRetryBehaviorSuccess([new Error('Rate limit exceeded')], 2);
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should retry on "too many requests" error messages', async () => {
       await testRetryBehaviorSuccess([new Error('Too many requests')], 2);
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw error after max retries exceeded', async () => {
       const rateLimitError = new GoogleGenerativeAIFetchError(
         'Rate limited',
@@ -309,24 +304,20 @@ describe('GeminiService', () => {
   };
 
   describe('resource exhausted error handling', () => {
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "RESOURCE_EXHAUSTED" error', async () => {
       await testResourceExhaustedError('RESOURCE_EXHAUSTED: Quota exceeded');
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "resource exhausted" error', async () => {
       await testResourceExhaustedError(
         'Request failed: resource exhausted - quota limits exceeded',
       );
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "quota exceeded" error', async () => {
       await testResourceExhaustedError('API quota exceeded for this project');
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "quota exhausted" error', async () => {
       await testResourceExhaustedError('Your quota has been exhausted');
     });

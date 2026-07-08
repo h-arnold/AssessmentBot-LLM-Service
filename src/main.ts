@@ -22,16 +22,12 @@ export async function start(): Promise<void> {
 // tests to import `start` without automatically starting the server, while still
 // allowing `node dist/src/main.js` to start the app.
 if (isRunningDirectly()) {
-  void (async (): Promise<void> => {
-    try {
-      await start();
-    } catch (error: unknown) {
-      process.stderr.write(
-        `Failed to bootstrap application: ${String(error)}\n`,
-      );
-      process.exitCode = 1;
-    }
-  })();
+  try {
+    await start();
+  } catch (error: unknown) {
+    process.stderr.write(`Failed to bootstrap application: ${String(error)}\n`);
+    process.exitCode = 1;
+  }
 }
 
 /**

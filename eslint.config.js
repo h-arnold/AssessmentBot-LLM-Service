@@ -1,7 +1,6 @@
 import stylistic from '@stylistic/eslint-plugin';
 import prettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import-x';
-import jest from 'eslint-plugin-jest';
 import jsdoc from 'eslint-plugin-jsdoc';
 import n from 'eslint-plugin-n';
 import noSecrets from 'eslint-plugin-no-secrets';
@@ -14,13 +13,12 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', 'coverage', '**/*.cjs', '**/*.mjs'],
+    ignores: ['dist', 'node_modules', 'coverage', '**/*.mjs'],
   },
   {
     plugins: {
       '@typescript-eslint': tseslint.plugin,
       '@stylistic': stylistic,
-      jest,
       jsdoc,
       'no-secrets': noSecrets,
       n,
@@ -43,7 +41,7 @@ export default tseslint.config(
       },
       globals: {
         ...globals.node,
-        ...globals.jest,
+        ...globals.vitest,
       },
     },
     plugins: {
@@ -123,10 +121,7 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    rules: {
-      ...jest.configs.recommended.rules, // Apply Jest recommended rules
-      // You might want to add more specific rules for test files here
-    },
+    rules: {},
   },
   // Override @typescript-eslint/no-unsafe-* rules for spec files.
   // NestJS's @Injectable() decorator prevents the type checker from fully
@@ -254,32 +249,7 @@ export default tseslint.config(
       'no-restricted-imports': 'off',
     },
   },
-  // Jest runs inside a CommonJS environment (tsconfig.module = CommonJS) that lacks
-  // both top-level await support and the Uint8Array.fromBase64() method (missing from
-  // Node.js v24 runtime despite being in the ESNext type definitions). These overrides
-  // will be removed when the project migrates from Jest to ViTest (which supports ESM
-  // natively), eliminating both constraints in a single change.
-  //
-  // unicorn/prefer-module: The isRunningDirectly() function uses a try/catch to
-  // detect ESM vs CommonJS. In the CommonJS fallback branch it must call
-  // typeof require !== 'undefined' && require.main === module — the only reliable
-  // way to check whether the current file is the entry point in CJS. The unicorn
-  // rule banning require/module references is correct for normal source code but
-  // cannot be applied to this deliberate dual-environment detection logic.
-  {
-    files: ['src/main.ts'],
-    rules: {
-      'unicorn/prefer-top-level-await': 'off',
-      'unicorn/prefer-module': 'off',
-    },
-  },
-  {
-    files: ['src/testing-main.ts'],
-    rules: {
-      'unicorn/prefer-top-level-await': 'off',
-      'unicorn/prefer-module': 'off',
-    },
-  },
+
   {
     files: [
       'src/common/pipes/image-validation.pipe.ts',
@@ -295,12 +265,6 @@ export default tseslint.config(
     rules: {
       'no-console': 'off',
       'no-restricted-properties': 'off',
-    },
-  },
-  {
-    files: ['**/*.cjs'],
-    rules: {
-      'import-x/no-commonjs': 'off',
     },
   },
   {

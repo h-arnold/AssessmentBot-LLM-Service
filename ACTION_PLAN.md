@@ -662,6 +662,8 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 
 ## Section 5: ESLint Configuration
 
+**Status:** Completed (2026-07-08).
+
 **Objective:** Update ESLint to remove Jest-specific workarounds and add Vitest support.
 
 **Constraints:**
@@ -704,10 +706,20 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 
 **Section Checks:**
 
-- [ ] `npm run lint` passes.
-- [ ] No `eslint-plugin-jest` in `eslint.config.js`.
-- [ ] No `**/*.cjs` exceptions.
-- [ ] No `unicorn/prefer-module` overrides for entry-point files.
+- [x] `npm run lint` passes (0 errors, 0 warnings).
+- [x] No `eslint-plugin-jest` in `eslint.config.js` (removed import, plugin entry, `jest.configs.recommended.rules`, and `globals.jest`).
+- [x] No `**/*.cjs` exceptions (removed from top-level `ignores` and the `**/*.cjs` override block).
+- [x] No `unicorn/prefer-module` overrides for entry-point files (`main.ts`/`testing-main.ts` overrides removed; entry points now use top-level `await start()` and no longer reference `require`/`module`).
+
+**Completion Notes (2026-07-08):**
+
+- Vitest globals recognised via `globals.vitest` (added to `languageOptions.globals`), NOT via `eslint-plugin-vitest`. That package is installed but **incompatible with ESLint 10.x** and was uninstalled; the `globals` package already exposes the full Vitest global set (`vi`, `expect`, `test`, `it`, `describe`, `beforeEach`, etc.).
+- `eslint-plugin-jest`, `jest`, `@types/jest`, `@jest/globals`, `jest-junit`, `ts-jest` removed from `package.json` / `package-lock.json`.
+- `src/main.ts` and `src/testing-main.ts` converted to top-level `await start()` (guarded by `isRunningDirectly()`), so the removed `unicorn/prefer-top-level-await` / `prefer-module` overrides are no longer needed. ESM entry-point detection preserved.
+- `gemini.service.spec.ts`: the 9 `jest/expect-expect` suppression comments were removed (the rule no longer exists; `unicorn/prefer-expect` is not present in `eslint-plugin-unicorn` v69, so no replacement suppression is required).
+- **Deviation (deferred):** The `unicorn/prefer-uint8array-base64: 'off'` override for `image-validation.pipe.ts` / `.spec.ts` was RETAINED. Removing it surfaces 7 `unicorn/prefer-uint8array-base64` errors across 4 files that use `Buffer.from(…, 'base64')`; migrating those to `Uint8Array.fromBase64()` is a code change (Buffer is a Uint8Array subclass whose `.toString()`/behaviour differs) outside the ESLint-configuration scope of this section and risks type/runtime regressions. Deferred to a separate follow-up. This does not affect the formal acceptance criteria (1–5), which are all met.
+- **Verification:** `npm run lint` → 0 errors / 0 warnings; `npm run test` → 214 pass; `npm run build` → clean.
+- **Code review:** automated `code-reviewer` sub-agent returned empty (unavailable); independent manual verification (lint/test/build) performed instead.
 
 ---
 

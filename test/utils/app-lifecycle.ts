@@ -7,7 +7,7 @@ import { Logger } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { getCurrentDirname } from 'src/common/file-utilities';
 
-import { waitForLog } from './log-watcher';
+import { waitForLog } from './log-watcher.js';
 
 const appLifecycleLogger = new Logger('AppLifecycle');
 

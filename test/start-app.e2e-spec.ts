@@ -3,9 +3,7 @@ import path from 'node:path';
 
 import { getCurrentDirname } from 'src/common/file-utilities';
 
-import { startApp } from './utils/app-lifecycle';
-
-jest.setTimeout(30000);
+import { startApp } from './utils/app-lifecycle.js';
 
 describe('startApp integration', () => {
   const entryPath = path.resolve(

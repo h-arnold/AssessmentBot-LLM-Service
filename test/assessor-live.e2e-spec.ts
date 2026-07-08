@@ -4,7 +4,12 @@ import path from 'node:path';
 import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
-import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
+import {
+  startApp,
+  stopApp,
+  AppInstance,
+  delay,
+} from './utils/app-lifecycle.js';
 
 // Helper function to load a file and convert it to a data URI
 const loadFileAsDataURI = async (filePath: string): Promise<string> => {

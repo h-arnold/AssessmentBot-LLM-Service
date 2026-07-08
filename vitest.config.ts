@@ -15,7 +15,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           root: '.',
-          include: ['src/**/*.spec.ts'],
+          include: ['src/**/*.spec.ts', 'test/**/*.unit-spec.ts'],
           setupFiles: ['./vitest.setup.ts'],
           globals: true,
           alias: sourceAlias,
@@ -52,7 +52,7 @@ export default defineConfig({
         test: {
           name: 'prod',
           root: '.',
-          include: ['test/prod-tests/**/*.prod-spec.ts'],
+          include: ['test/prod-tests/**/*.production-spec.ts'],
           setupFiles: ['./vitest.setup.ts'],
           globals: true,
           testTimeout: 600000,

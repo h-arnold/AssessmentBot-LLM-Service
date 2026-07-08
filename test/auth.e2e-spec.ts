@@ -4,8 +4,8 @@ import path from 'node:path';
 import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
-import { startApp, stopApp, delay } from './utils/app-lifecycle';
-import { waitForLog } from './utils/log-watcher';
+import { startApp, stopApp, delay } from './utils/app-lifecycle.js';
+import { waitForLog } from './utils/log-watcher.js';
 
 describe('Authentication E2E Tests', () => {
   let appProcess: ChildProcessWithoutNullStreams;

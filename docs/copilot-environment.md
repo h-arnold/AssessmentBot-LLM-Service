@@ -13,7 +13,7 @@ The GitHub Copilot Coding Agent environment has been configured to match the rep
 1. **`.test.env`** - Test environment variables file
    - Contains only the `GEMINI_API_KEY` environment variable for testing
    - Other environment variables are set up by the E2E test utils
-   - Used by Jest tests to provide the Gemini API key while other variables are handled dynamically
+   - Used by Vitest tests to provide the Gemini API key while other variables are handled dynamically
 
 2. **`.husky/pre-commit`** - Git pre-commit hook
    - Runs `lint-staged` on staged files before commit
@@ -42,7 +42,7 @@ The GitHub Copilot Coding Agent environment has been configured to match the rep
 
 - **ESLint**: Comprehensive linting rules including British English compliance
 - **Prettier**: Code formatting to maintain consistent style
-- **Jest**: Unit and integration testing with proper TypeScript support
+- **Vitest**: Unit and integration testing with proper TypeScript support
 - **Husky**: Git hooks for pre-commit validation
 - **lint-staged**: Runs quality checks only on staged files
 

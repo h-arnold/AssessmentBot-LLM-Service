@@ -21,8 +21,8 @@ The mocked run builds the application and executes all `*.e2e-spec.ts` tests in 
 
 ### Mocked vs Live Configuration
 
-- **Mocked config**: `jest-e2e.mocked.config.cjs` sets `E2E_MOCK_LLM=true` via `test/jest.e2e.mocked.setup.ts` and ignores `*-live.e2e-spec.ts`.
-- **Live config**: `jest-e2e.live.config.cjs` sets `E2E_MOCK_LLM=false` via `test/jest.e2e.live.setup.ts` and runs `assessor-live.e2e-spec.ts`.
+- **Mocked config**: The `e2e` Vitest workspace project sets `process.env.E2E_MOCK_LLM=true` via `vitest.e2e.setup.ts` and excludes `*-live.e2e-spec.ts` from its test include patterns.
+- **Live config**: The `e2e-live` Vitest workspace project runs only `assessor-live.e2e-spec.ts`.
 
 ## Test Environment
 
@@ -54,12 +54,12 @@ The test setup uses a specific strategy for managing environment variables to en
 
     These settings are automatically applied when tests run and help ensure consistent test execution without rate limit errors.
 
-### HTTP Shim Behaviour (Mocked E2E)
+### LLM Mocking (Mocked E2E)
 
-When `E2E_MOCK_LLM=true`, the test runner enables an HTTP shim to avoid live Gemini calls:
+When `E2E_MOCK_LLM=true`, the test runner applies an ESM preload shim to avoid live Gemini calls:
 
-- `startApp` injects `--require "test/utils/llm-http-shim.cjs"` via `NODE_OPTIONS`.
-- The shim monkey-patches `@google/generative-ai` by overriding `GoogleGenerativeAI.prototype.getGenerativeModel`.
+- `startApp` injects `--import=<file://.../llm-mock.mjs>` via `NODE_OPTIONS`.
+- The shim (`test/utils/llm-mock.mjs`) monkey-patches `@google/generative-ai` by overriding `GoogleGenerativeAI.prototype.getGenerativeModel`.
 - `generateContent` returns a deterministic JSON payload with fixed scores (all `3`) and short reasoning text.
 
 This keeps the full HTTP request/response flow intact while making LLM responses stable and offline. Use the live suite when you need to validate real Gemini behaviour or quotas.

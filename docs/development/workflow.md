@@ -304,7 +304,7 @@ To uphold the guiding principles and ensure a high-quality, secure, and maintain
 
 A consistent code style is enforced automatically to allow developers to focus on business logic.
 
-- **ESLint**: Used to identify and report on problematic patterns in the TypeScript code. The configuration includes plugins for security (`eslint-plugin-security`), Jest best practices, and import ordering to support the **Security** and **Modularity** principles.
+- **ESLint**: Used to identify and report on problematic patterns in the TypeScript code. The configuration includes plugins for security (`eslint-plugin-security`), Vitest best practices, and import ordering to support the **Security** and **Modularity** principles.
 - **Prettier**: An opinionated code formatter integrated with ESLint to ensure a uniform code style across the entire project.
 - **Husky & lint-staged**: Git hooks are used to automatically run the linter on staged files before they can be committed, catching issues early.
 
@@ -313,11 +313,11 @@ A consistent code style is enforced automatically to allow developers to focus o
 QA is a multi-layered approach that builds confidence in the application's stability and security.
 
 1. **Testing Pyramid**: The TDD principle is expanded with a structured testing approach:
-   - **Unit Tests (Jest)**: The foundation. Individual classes and functions are tested in isolation, with external dependencies mocked.
+   - **Unit Tests (Vitest)**: The foundation. Individual classes and functions are tested in isolation, with external dependencies mocked.
    - **Integration Tests (NestJS `TestingModule`)**: The middle layer. Tests the interaction _between_ internal modules (e.g., Controller -> Service) to ensure they are wired correctly, without making external network calls.
-   - **E2E Tests (Jest & Supertest)**: The top of the pyramid. The entire application is spun up to test the full request-response cycle via real HTTP requests, validating everything from authentication to the final response shape.
+   - **E2E Tests (Vitest & Supertest)**: The top of the pyramid. The entire application is spun up to test the full request-response cycle via real HTTP requests, validating everything from authentication to the final response shape.
 
-2. **Code Coverage Enforcement**: Jest's `--coverage` flag will be used within a CI/CD pipeline to enforce a minimum test coverage threshold. This ensures the TDD principle is consistently applied.
+2. **Code Coverage Enforcement**: Vitest's `--coverage` flag is used within a CI/CD pipeline to enforce a minimum test coverage threshold. This ensures the TDD principle is consistently applied.
 
 3. **Automated Security Scanning**:
    - **Dependency Scanning**: Tools like `npm audit` and GitHub's Dependabot will be used to automatically scan for vulnerabilities in third-party packages and facilitate updates.

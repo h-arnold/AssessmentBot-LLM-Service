@@ -781,6 +781,8 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 
 ## Section 7: Documentation Updates
 
+**Status:** Completed (2026-07-08) — project documentation migrated; `AGENTS.md`/`.opencode/agents/*.md` deferred (see note).
+
 **Objective:** Update all documentation files that reference Jest.
 
 **Constraints:**
@@ -814,9 +816,16 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 
 **Section Checks:**
 
-- [ ] All 22 files updated.
-- [ ] `grep -r "jest" docs/ AGENTS.md README.md` returns no results (excluding SPEC.md and ACTION_PLAN.md).
-- [ ] Code examples use Vitest API.
+- [x] All project documentation files that referenced Jest were updated (`docs/**` and `README.md`; 13 files contained references). SPEC.md/ACTION_PLAN.md intentionally retain planning-history references and are excluded per the check definition.
+- [~] `grep -r "jest" docs/ AGENTS.md README.md` returns no results **for `docs/` and `README.md`** (verified 0 matches, case-insensitive). `AGENTS.md` and `.opencode/agents/*.md` were **intentionally NOT updated/committed** in this migration (they are owned by other agents and the user requested they remain separate) — see deviation note. Those two file groups still contain Jest references and are deferred to their owners.
+- [x] Code examples use Vitest API (`vi.fn()`, `vi.mock()`, `Mock` from `vitest`, `vitest.config.ts`, `vitest run --project ...`, `llm-mock.mjs` + `--import` shim).
+
+**Completion Notes (2026-07-08):**
+
+- Updated 13 files: `README.md`, `docs/architecture/overview.md`, `docs/copilot-environment.md`, `docs/deployment/cicd.md`, `docs/development/code-style.md`, `docs/development/debugging.md`, `docs/development/git-workflow.md`, `docs/development/workflow.md`, `docs/modules/utilities.md`, `docs/testing/README.md`, `docs/testing/E2E_GUIDE.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/PROD_TESTS_GUIDE.md`. Changes: prose Jest→Vitest, `jest.fn()`→`vi.fn()`, `jest.Mocked<>`→`Mocked<>`, config refs `jest*.{js,cjs}`→`vitest.config.ts`/workspace projects, commands `npx jest`→`npx vitest run --project ...`, `llm-http-shim.cjs`+`--require`→`llm-mock.mjs`+`--import`, coverage Jest/Istanbul→Vitest/`@vitest/coverage-v8`, JUnit path `jest-junit.xml`→`vitest-junit.xml`. British English preserved.
+- **Deviation (deferred):** `AGENTS.md` and `.opencode/agents/*.md` were NOT edited or committed, per the user's instruction that those uncommitted model/agent changes are owned by other agents and must stay separate from this migration. Consequently the Section Check grep still finds Jest references in those two file groups. This does not affect the migrated code or its behaviour; it is a documentation-consistency item for the owning agent/user to complete.
+- **Verification:** `grep -rni "jest" docs/ README.md` → 0 matches. (Note: `code-reviewer` sub-agent was unavailable again; documentation accuracy verified by the docs agent's own grep plus the orchestrator's independent grep.)
+- **Code review:** automated `code-reviewer` sub-agent unavailable (returned empty); independent manual verification performed instead.
 
 ---
 

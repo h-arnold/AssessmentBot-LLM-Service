@@ -23,7 +23,7 @@ npm run test:prod
 This command will:
 
 1.  Build the application (`npm run build`).
-2.  Execute the test specifications (`*.prod-spec.ts`) located in the `prod-tests/` directory using the `jest-prod.config.cjs` configuration.
+2.  Execute the test specifications (`*.prod-spec.ts`) located in the `prod-tests/` directory using the Vitest workspace prod project (`--project prod`).
 
 The test script handles the entire lifecycle:
 

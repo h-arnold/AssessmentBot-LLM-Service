@@ -87,6 +87,7 @@ By following this pattern, the application remains decoupled from the specific l
 Use the `scripts/codex-delegate.ts` CLI to delegate focused work to sub-agents.
 Prefer short, well-scoped tasks and provide clear acceptance criteria.
 Default sub-agent timeout is 10 minutes unless a task explicitly needs more or less time.
+Agent configuration files are defined in `.opencode/agents/`.
 Refer to `docs/` for detailed guidance on code style, testing, environment configuration, and prompt templates:
 
 - Code style: `docs/development/code-style.md`

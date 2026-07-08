@@ -1,7 +1,7 @@
 ---
 description: Creates, maintains, and debugs Jest unit/integration tests and E2E tests
 mode: all
-model: opencode-go/deepseek-v4-flash
+model: opencode/deepseek-v4-flash-free
 steps: 100
 ---
 

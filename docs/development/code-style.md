@@ -321,15 +321,15 @@ try {
 // ✅ Correct - Comprehensive unit test
 describe('AssessorService', () => {
   let service: AssessorService;
-  let llmService: jest.Mocked<LLMService>;
-  let promptFactory: jest.Mocked<PromptFactory>;
+  let llmService: Mocked<LLMService>;
+  let promptFactory: Mocked<PromptFactory>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AssessorService,
-        { provide: LLMService, useValue: { send: jest.fn() } },
-        { provide: PromptFactory, useValue: { create: jest.fn() } },
+        { provide: LLMService, useValue: { send: vi.fn() } },
+        { provide: PromptFactory, useValue: { create: vi.fn() } },
       ],
     }).compile();
 
@@ -348,7 +348,7 @@ describe('AssessorService', () => {
         studentResponse: 'c',
       };
       const mockPrompt = {
-        buildMessage: jest.fn().mockResolvedValue('prompt'),
+        buildMessage: vi.fn().mockResolvedValue('prompt'),
       };
       promptFactory.create.mockResolvedValue(mockPrompt as any);
       llmService.send.mockResolvedValue({

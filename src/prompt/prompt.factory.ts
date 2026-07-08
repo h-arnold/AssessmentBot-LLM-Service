@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { ImagePrompt } from './image.prompt';
-import { Prompt } from './prompt.base';
-import { TablePrompt } from './table.prompt';
-import { TextPrompt } from './text.prompt';
-import { readMarkdown } from '../common/file-utilities';
+import { ImagePrompt } from './image.prompt.js';
+import { Prompt } from './prompt.base.js';
+import { TablePrompt } from './table.prompt.js';
+import { TextPrompt } from './text.prompt.js';
+import { readMarkdown } from '../common/file-utilities.js';
 import {
   CreateAssessorDto,
   TaskType,
-} from '../v1/assessor/dto/create-assessor.dto';
+} from '../v1/assessor/dto/create-assessor.dto.js';
 
 /**
  * Factory service for creating task-specific prompt instances.

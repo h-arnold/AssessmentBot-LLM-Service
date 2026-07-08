@@ -1,5 +1,5 @@
-import { LlmResponseSchema } from './types';
-import type { GeminiModelParameters } from './types';
+import { LlmResponseSchema } from './types.js';
+import type { GeminiModelParameters } from './types.js';
 
 describe('LlmResponseSchema', () => {
   it('should validate a correct payload', () => {
@@ -124,7 +124,7 @@ describe('GeminiModelParameters type', () => {
       systemInstruction: 123,
     };
 
-    // Add a runtime assertion so ESLint's jest/expect-expect rule is satisfied
+    // Add a runtime assertion so ESLint's vitest/expect-expect rule is satisfied
     expect(bad1).toBeDefined();
     expect(bad2).toBeDefined();
   });

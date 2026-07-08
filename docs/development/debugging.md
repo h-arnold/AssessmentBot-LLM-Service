@@ -39,11 +39,11 @@ Add to your `.vscode/launch.json`:
       "outFiles": ["${workspaceFolder}/dist/**/*.js"]
     },
     {
-      "name": "Debug Jest Tests",
+      "name": "Debug Vitest Tests",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/.bin/jest",
-      "args": ["--runInBand", "--no-cache", "--testTimeout=60000"],
+      "program": "${workspaceFolder}/node_modules/.bin/vitest",
+      "args": ["run", "--reporter=verbose", "--testTimeout=60000"],
       "env": {
         "NODE_ENV": "test"
       },
@@ -239,7 +239,7 @@ npm test -- --verbose
 npm run test:e2e:mocked -- --verbose
 
 # Run specific mocked E2E test
-npx jest --config jest-e2e.mocked.config.cjs test/specific.e2e-spec.ts
+npx vitest run --project e2e test/specific.e2e-spec.ts
 
 # Run live E2E test (real Gemini API calls)
 npm run test:e2e:live -- --verbose

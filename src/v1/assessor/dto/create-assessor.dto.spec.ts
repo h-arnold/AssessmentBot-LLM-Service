@@ -4,7 +4,7 @@ import {
   assessorDtoSchema,
   CreateAssessorDto,
   TaskType,
-} from './create-assessor.dto';
+} from './create-assessor.dto.js';
 
 describe('CreateAssessorDto', () => {
   describe('Validation', () => {

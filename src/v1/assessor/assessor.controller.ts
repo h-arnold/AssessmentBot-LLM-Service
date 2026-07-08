@@ -1,17 +1,17 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiKeyGuard } from 'src/auth/api-key.guard';
-import { ImageValidationPipe } from 'src/common/pipes/image-validation.pipe';
-import { ZodValidationPipe } from 'src/common/zod-validation.pipe';
-import { ConfigService } from 'src/config/config.service';
-import { authenticatedThrottler } from 'src/config/throttler.config';
 
-import { AssessorService } from './assessor.service';
+import { AssessorService } from './assessor.service.js';
 import {
   type CreateAssessorDto,
   assessorDtoSchema,
-} from './dto/create-assessor.dto';
-import { LlmResponse } from '../../llm/types';
+} from './dto/create-assessor.dto.js';
+import { ApiKeyGuard } from '../../auth/api-key.guard.js';
+import { ImageValidationPipe } from '../../common/pipes/image-validation.pipe.js';
+import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
+import { ConfigService } from '../../config/config.service.js';
+import { authenticatedThrottler } from '../../config/throttler.config.js';
+import { LlmResponse } from '../../llm/types.js';
 
 /**
  * @class AssessorController

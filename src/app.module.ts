@@ -5,13 +5,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule, Params } from 'nestjs-pino';
 
-import { AuthModule } from './auth/auth.module';
-import { LogRedactor } from './common/utils/log-redactor.utility';
-import { ConfigModule } from './config/config.module';
-import { ConfigService } from './config/config.service';
-import { throttlerConfig } from './config/throttler.config';
-import { StatusModule } from './status/status.module';
-import { AssessorModule } from './v1/assessor/assessor.module';
+import { AuthModule } from './auth/auth.module.js';
+import { LogRedactor } from './common/utils/log-redactor.utility.js';
+import { ConfigModule } from './config/config.module.js';
+import { ConfigService } from './config/config.service.js';
+import { throttlerConfig } from './config/throttler.config.js';
+import { StatusModule } from './status/status.module.js';
+import { AssessorModule } from './v1/assessor/assessor.module.js';
 
 // Type guard to check if req has an id property of type string or number
 /**

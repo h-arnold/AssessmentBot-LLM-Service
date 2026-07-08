@@ -34,8 +34,13 @@ import { Logger } from '@nestjs/common';
 import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
-import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
-import { getLogObjects, waitForLog } from './utils/log-watcher';
+import {
+  startApp,
+  stopApp,
+  AppInstance,
+  delay,
+} from './utils/app-lifecycle.js';
+import { getLogObjects, waitForLog } from './utils/log-watcher.js';
 
 describe('Logging (True E2E)', () => {
   let app: AppInstance;

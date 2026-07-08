@@ -109,7 +109,7 @@ ci(docker): optimise container build
 
 # Dependency updates
 deps: update @nestjs/core to v11.1.5
-deps(dev): update jest to v30.0.4
+deps(dev): update vitest to v4.2.0
 
 # Code style/formatting
 style: fix linting issues

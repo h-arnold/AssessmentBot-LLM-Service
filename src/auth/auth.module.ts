@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 
-import { ApiKeyGuard } from './api-key.guard';
-import { ApiKeyService } from './api-key.service';
-import { ApiKeyStrategy } from './api-key.strategy';
-import { ConfigModule } from '../config/config.module';
+import { ApiKeyGuard } from './api-key.guard.js';
+import { ApiKeyService } from './api-key.service.js';
+import { ApiKeyStrategy } from './api-key.strategy.js';
+import { ConfigModule } from '../config/config.module.js';
 
 /**
  * The `AuthModule` is responsible for managing authentication-related functionality

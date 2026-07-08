@@ -4,9 +4,10 @@ import {
   Logger,
   ArgumentsHost,
 } from '@nestjs/common';
+import { Mock, MockInstance } from 'vitest';
 
-import { HttpExceptionFilter } from './http-exception.filter';
-import { ResourceExhaustedError } from '../llm/resource-exhausted.error';
+import { HttpExceptionFilter } from './http-exception.filter.js';
+import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
 
 interface JsonErrorResponseBody {
   statusCode: number;
@@ -25,12 +26,12 @@ function createStatusOnlyResponse(): { json: () => void } {
 
 /**
  * Assert that the mock JSON response matches the expected error body.
- * @param {jest.Mock} mockJson - The mock JSON function.
+ * @param {Mock} mockJson - The mock JSON function.
  * @param {Omit<JsonErrorResponseBody, 'timestamp'>} expectedBody - The expected
  *   error response body (without timestamp).
  */
 function expectJsonErrorResponse(
-  mockJson: jest.Mock,
+  mockJson: Mock,
   expectedBody: Omit<JsonErrorResponseBody, 'timestamp'>,
 ): void {
   const firstCall = mockJson.mock.calls[0] as
@@ -59,7 +60,7 @@ describe('HttpExceptionFilter', () => {
   beforeEach(() => {
     logger = new Logger();
     filter = new HttpExceptionFilter(logger);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -70,38 +71,36 @@ describe('HttpExceptionFilter', () => {
     const resourceExhaustedError = new ResourceExhaustedError(
       'Quota has been exceeded.',
     );
-    const mockJson: jest.Mock = jest.fn();
-    const mockStatus: jest.Mock = jest
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
       .fn()
       .mockImplementation(() => ({ json: mockJson }));
-    const mockGetResponse: jest.Mock = jest
+    const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: jest.Mock = jest.fn().mockImplementation(() => ({
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
       url: '/test-resource-exhausted',
       method: 'POST',
       ip: '127.0.0.1',
       headers: { 'user-agent': 'jest' },
     }));
-    const mockHttpArgumentsHost: jest.Mock = jest
-      .fn()
-      .mockImplementation(() => ({
-        getResponse: mockGetResponse,
-        getRequest: mockGetRequest,
-      }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
-      getArgByIndex: jest.fn(),
-      getArgs: jest.fn(),
-      getType: jest.fn(),
-      switchToRpc: jest.fn(),
-      switchToWs: jest.fn(),
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
     };
-    const loggerSpy: jest.SpyInstance = jest
+    const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'error')
       .mockImplementation();
 
-    filter.catch(resourceExhaustedError, mockArgumentsHost);
+    filter['catch'](resourceExhaustedError, mockArgumentsHost);
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
     expectJsonErrorResponse(mockJson, {
@@ -128,39 +127,37 @@ describe('HttpExceptionFilter', () => {
       type: 'entity.too.large',
       message: 'request entity too large',
     };
-    const mockJson: jest.Mock = jest.fn();
-    const mockStatus: jest.Mock = jest
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
       .fn()
       .mockImplementation(() => ({ json: mockJson }));
-    const mockGetResponse: jest.Mock = jest
+    const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: jest.Mock = jest.fn().mockImplementation(() => ({
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
       url: '/test-large',
       method: 'POST',
       ip: '127.0.0.1',
       headers: { 'user-agent': 'jest' },
     }));
-    const mockHttpArgumentsHost: jest.Mock = jest
-      .fn()
-      .mockImplementation(() => ({
-        getResponse: mockGetResponse,
-        getRequest: mockGetRequest,
-        getNext: jest.fn(),
-      }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+      getNext: vi.fn(),
+    }));
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
-      getArgByIndex: jest.fn(),
-      getArgs: jest.fn(),
-      getType: jest.fn(),
-      switchToRpc: jest.fn(),
-      switchToWs: jest.fn(),
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
     };
-    const loggerSpy: jest.SpyInstance = jest
+    const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation();
 
-    filter.catch(payloadTooLargeError, mockArgumentsHost);
+    filter['catch'](payloadTooLargeError, mockArgumentsHost);
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.PAYLOAD_TOO_LARGE);
     expectJsonErrorResponse(mockJson, {
@@ -187,16 +184,16 @@ describe('HttpExceptionFilter', () => {
       HttpStatus.BAD_REQUEST,
     );
     // Mock the response object's json and status methods
-    const mockJson: jest.Mock = jest.fn();
-    const mockStatus: jest.Mock = jest.fn().mockImplementation(() => ({
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi.fn().mockImplementation(() => ({
       json: mockJson,
     }));
     // Mock the getResponse method to return the mocked status
-    const mockGetResponse: jest.Mock = jest.fn().mockImplementation(() => ({
+    const mockGetResponse: Mock = vi.fn().mockImplementation(() => ({
       status: mockStatus,
     }));
     // Mock the getRequest method to return a fake request object
-    const mockGetRequest: jest.Mock = jest.fn().mockImplementation(() => ({
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
       url: '/test',
       method: 'POST',
       ip: '127.0.0.1',
@@ -209,13 +206,11 @@ describe('HttpExceptionFilter', () => {
      * allowing tests to simulate the behavior of the HTTP context within exception filters or interceptors.
      * @returns An object with mocked `getResponse`, `getRequest`, and `getNext` methods.
      */
-    const mockHttpArgumentsHost: jest.Mock = jest
-      .fn()
-      .mockImplementation(() => ({
-        getResponse: mockGetResponse,
-        getRequest: mockGetRequest,
-        getNext: jest.fn(() => {}),
-      }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+      getNext: vi.fn(() => {}),
+    }));
     /**
      * A mock implementation of the NestJS `ArgumentsHost` interface for use in unit tests.
      *
@@ -245,18 +240,18 @@ describe('HttpExceptionFilter', () => {
       >(): TContext {
         return 'http' as TContext;
       },
-      switchToRpc: jest.fn(() => ({
-        getData: jest.fn(),
-        getContext: jest.fn(),
+      switchToRpc: vi.fn(() => ({
+        getData: vi.fn(),
+        getContext: vi.fn(),
       })),
-      switchToWs: jest.fn(() => ({
-        getData: jest.fn(),
-        getClient: jest.fn(),
-        getPattern: jest.fn(),
+      switchToWs: vi.fn(() => ({
+        getData: vi.fn(),
+        getClient: vi.fn(),
+        getPattern: vi.fn(),
       })),
     };
     // Call the filter's catch method with the mocked exception and arguments host
-    filter.catch(exception, mockArgumentsHost);
+    filter['catch'](exception, mockArgumentsHost);
     // Assert that the response was set with the correct status and message
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
     expectJsonErrorResponse(mockJson, {
@@ -271,11 +266,11 @@ describe('HttpExceptionFilter', () => {
       'Internal database error',
       HttpStatus.INTERNAL_SERVER_ERROR,
     );
-    const mockJson: jest.Mock = jest.fn();
-    const mockStatus: jest.Mock = jest
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
       .fn()
       .mockImplementation(() => ({ json: mockJson }));
-    const mockGetResponse: jest.Mock = jest
+    const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
     /**
@@ -288,32 +283,30 @@ describe('HttpExceptionFilter', () => {
      * - `headers`: An object containing request headers (with `'user-agent': 'jest'`).
      * @returns An object representing a mock HTTP request.
      */
-    const mockGetRequest: jest.Mock = jest.fn().mockImplementation(() => ({
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
       url: '/test',
       method: 'POST',
       ip: '127.0.0.1',
       headers: { 'user-agent': 'jest' },
     }));
-    const mockHttpArgumentsHost: jest.Mock = jest
-      .fn()
-      .mockImplementation(() => ({
-        getResponse: mockGetResponse,
-        getRequest: mockGetRequest,
-        getNext: jest.fn(),
-      }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+      getNext: vi.fn(),
+    }));
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
-      getArgByIndex: jest.fn(),
-      getArgs: jest.fn(),
-      getType: jest.fn(),
-      switchToRpc: jest.fn(),
-      switchToWs: jest.fn(),
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
     };
 
     const originalNodeEnvironment = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
 
-    filter.catch(exception, mockArgumentsHost);
+    filter['catch'](exception, mockArgumentsHost);
 
     process.env.NODE_ENV = originalNodeEnvironment;
 
@@ -327,51 +320,49 @@ describe('HttpExceptionFilter', () => {
 
   it('should include request context in logs', () => {
     const exception = new HttpException('Not Found', HttpStatus.NOT_FOUND);
-    const mockJson: jest.Mock = jest.fn();
-    const mockStatus: jest.Mock = jest
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
       .fn()
       .mockImplementation(() => ({ json: mockJson }));
-    const mockGetResponse: jest.Mock = jest
+    const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: jest.Mock = jest.fn().mockImplementation(() => ({
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
       url: '/not-found',
       method: 'GET',
       ip: '127.0.0.1',
       headers: { 'user-agent': 'jest' },
     }));
-    const mockHttpArgumentsHost: jest.Mock = jest
-      .fn()
-      .mockImplementation(() => ({
-        getResponse: mockGetResponse,
-        getRequest: mockGetRequest,
-        getNext: jest.fn(),
-      }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+      getNext: vi.fn(),
+    }));
     /**
      * Mock implementation of the `ArgumentsHost` interface used for testing purposes.
      *
      * This mock object provides stubbed methods to simulate the behavior of NestJS's `ArgumentsHost`,
      * allowing for controlled testing of exception filters and other components that depend on the host context.
      * @property {() => mockHttpArgumentsHost} switchToHttp - Mocked method to simulate switching to HTTP context.
-     * @property {jest.Mock} getArgByIndex - Jest mock function to retrieve an argument by index.
-     * @property {jest.Mock} getArgs - Jest mock function to retrieve all arguments.
-     * @property {jest.Mock} getType - Jest mock function to retrieve the type of the context.
-     * @property {jest.Mock} switchToRpc - Mocked method to simulate switching to RPC context.
-     * @property {jest.Mock} switchToWs - Mocked method to simulate switching to WebSocket context.
+     * @property {Mock} getArgByIndex - Vitest mock function to retrieve an argument by index.
+     * @property {Mock} getArgs - Vitest mock function to retrieve all arguments.
+     * @property {Mock} getType - Vitest mock function to retrieve the type of the context.
+     * @property {Mock} switchToRpc - Mocked method to simulate switching to RPC context.
+     * @property {Mock} switchToWs - Mocked method to simulate switching to WebSocket context.
      */
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
-      getArgByIndex: jest.fn(),
-      getArgs: jest.fn(),
-      getType: jest.fn(),
-      switchToRpc: jest.fn(),
-      switchToWs: jest.fn(),
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
     };
-    const loggerSpy: jest.SpyInstance = jest
+    const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation();
 
-    filter.catch(exception, mockArgumentsHost);
+    filter['catch'](exception, mockArgumentsHost);
 
     expect(loggerSpy).toHaveBeenCalledWith(
       {
@@ -388,7 +379,7 @@ describe('HttpExceptionFilter', () => {
   it('should log not found errors with warn level', () => {
     // This test checks that 404 errors are logged with warn level
     const exception = new HttpException('Not Found', HttpStatus.NOT_FOUND);
-    const loggerSpy: jest.SpyInstance = jest
+    const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation();
     const mockArgumentsHost: ArgumentsHost = {
@@ -411,14 +402,14 @@ describe('HttpExceptionFilter', () => {
           return undefined as T;
         },
       }),
-      getArgByIndex: jest.fn(),
-      getArgs: jest.fn(),
-      getType: jest.fn(),
-      switchToRpc: jest.fn(),
-      switchToWs: jest.fn(),
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
     };
     // Call the filter's catch method and check that the logger was called with the expected arguments
-    filter.catch(exception, mockArgumentsHost);
+    filter['catch'](exception, mockArgumentsHost);
     expect(loggerSpy).toHaveBeenCalledWith(
       {
         method: 'GET',
@@ -437,7 +428,7 @@ describe('HttpExceptionFilter', () => {
       'Internal server error',
       HttpStatus.INTERNAL_SERVER_ERROR,
     );
-    const loggerSpy: jest.SpyInstance = jest
+    const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'error')
       .mockImplementation();
     const mockArgumentsHost: ArgumentsHost = {
@@ -460,14 +451,14 @@ describe('HttpExceptionFilter', () => {
           return undefined as T;
         },
       }),
-      getArgByIndex: jest.fn(),
-      getArgs: jest.fn(),
-      getType: jest.fn(),
-      switchToRpc: jest.fn(),
-      switchToWs: jest.fn(),
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
     };
     // Call the filter's catch method and check that the logger was called with the expected arguments
-    filter.catch(exception, mockArgumentsHost);
+    filter['catch'](exception, mockArgumentsHost);
     expect(loggerSpy).toHaveBeenCalledWith(
       {
         method: 'GET',

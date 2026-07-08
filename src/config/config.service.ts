@@ -5,7 +5,7 @@ import { Injectable } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { z } from 'zod';
 
-import { configSchema, type Config } from './environment.schema';
+import { configSchema, type Config } from './environment.schema.js';
 
 /**
  * @class ConfigService

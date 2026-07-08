@@ -8,7 +8,7 @@ import {
 import { BaseExceptionFilter } from '@nestjs/core';
 import { Request, Response } from 'express';
 
-import { ResourceExhaustedError } from '../llm/resource-exhausted.error';
+import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
 
 /**
  * Interface for Zod validation error details.

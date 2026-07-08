@@ -8,11 +8,11 @@ The file utilities module provides secure and cross-platform file operations, pa
 
 ### getCurrentDirname()
 
-A utility function that resolves the current directory path in both Node.js ESM runtime and Jest test environments.
+A utility function that resolves the current directory path in both Node.js ESM runtime and Vitest test environments.
 
 #### Features
 
-- **Cross-Environment Compatibility**: Works in both ESM runtime and Jest test environments
+- **Cross-Environment Compatibility**: Works in both ESM runtime and Vitest test environments
 - **Graceful Fallback**: Falls back to `process.cwd()` when `import.meta.url` is unavailable
 - **Custom Fallback Support**: Allows specification of custom fallback directory
 
@@ -38,7 +38,7 @@ const currentDir = getCurrentDirname('/custom/test/path');
 
 #### Implementation Details
 
-The function uses dynamic evaluation to avoid TypeScript compilation issues in Jest:
+The function uses dynamic evaluation to avoid TypeScript compilation issues in test environments:
 
 1. Attempts to use `import.meta.url` in ESM environments
 2. Falls back to `process.cwd()` or custom fallback in test environments

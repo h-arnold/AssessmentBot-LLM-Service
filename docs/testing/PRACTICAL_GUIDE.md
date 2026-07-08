@@ -27,7 +27,7 @@ describe('ApiKeyService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockReturnValue(['valid-key-1', 'valid-key-2']),
+            get: vi.fn().mockReturnValue(['valid-key-1', 'valid-key-2']),
           },
         },
       ],
@@ -193,12 +193,12 @@ Mocking is crucial for isolating components during tests.
 
 ### Mocking Services
 
-Use `jest.fn()` to create mock functions for service methods. This allows you to control their behaviour and assert how they are called.
+Use `vi.fn()` to create mock functions for service methods. This allows you to control their behaviour and assert how they are called.
 
 ```typescript
 // Mocking the LlmService for the AssessorService tests
 const mockLlmService = {
-  send: jest.fn().mockResolvedValue(
+  send: vi.fn().mockResolvedValue(
     JSON.stringify({
       completeness: 85,
       accuracy: 90,
@@ -221,7 +221,7 @@ Mock `ConfigService` to provide consistent configuration values for tests, isola
 ```typescript
 // Mocking ConfigService
 const mockConfigService = {
-  get: jest.fn((key: string) => {
+  get: vi.fn((key: string) => {
     const config = {
       API_KEYS: 'test-key-1,test-key-2',
       LOG_LEVEL: 'silent',

@@ -3,17 +3,17 @@ import { readFile, type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Logger } from '@nestjs/common';
-import * as mustache from 'mustache';
+import mustache from 'mustache';
 
-import { PromptInputSchema, type PromptInput } from './prompt.base';
-import { TextPrompt } from './text.prompt';
-import { isSystemUserMessage } from '../common/utils/type-guards';
+import { PromptInputSchema, type PromptInput } from './prompt.base.js';
+import { TextPrompt } from './text.prompt.js';
+import { isSystemUserMessage } from '../common/utils/type-guards.js';
 
-jest.mock('node:fs/promises', () => ({
-  readFile: jest.fn(),
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn(),
 }));
 
-const mockedReadFile = jest.mocked(readFile);
+const mockedReadFile = vi.mocked(readFile);
 
 /**
  * Normalise a file path argument to a string.

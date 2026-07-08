@@ -3,12 +3,12 @@ import type { PathLike, PathOrFileDescriptor } from 'node:fs';
 
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ConfigService } from './config.service';
+import { ConfigService } from './config.service.js';
 
-jest.mock('node:fs', () => ({
-  existsSync: jest.fn<(path: PathLike) => boolean>(),
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn<(path: PathLike) => boolean>(),
   readFileSync:
-    jest.fn<
+    vi.fn<
       (
         path: PathOrFileDescriptor,
         options?:
@@ -17,12 +17,12 @@ jest.mock('node:fs', () => ({
           | null,
       ) => string
     >(),
-  unlinkSync: jest.fn<(path: PathLike) => void>(),
+  unlinkSync: vi.fn<(path: PathLike) => void>(),
 }));
 
-const mockExistsSync = jest.mocked(fs.existsSync);
-const mockReadFileSync = jest.mocked(fs.readFileSync);
-const mockUnlinkSync = jest.mocked(fs.unlinkSync);
+const mockExistsSync = vi.mocked(fs.existsSync);
+const mockReadFileSync = vi.mocked(fs.readFileSync);
+const mockUnlinkSync = vi.mocked(fs.unlinkSync);
 
 const normalisePath = (filePath: PathOrFileDescriptor): string => {
   if (typeof filePath === 'string') {
@@ -85,7 +85,7 @@ describe('ConfigService', () => {
     // Restore original process.env after all tests
     process.env = originalEnvironment;
     // Restore all mocks
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('should be defined', async () => {
@@ -351,7 +351,9 @@ SOME_OTHER_VAR=value
       const lines = fileContent
         .split('\n')
         .filter((line: string) => line.trim() !== '' && !line.startsWith('#'));
-      const variablesInFile = lines.map((line: string) => line.split('=', 1)[0]);
+      const variablesInFile = lines.map(
+        (line: string) => line.split('=', 1)[0],
+      );
 
       for (const variable of expectedRequiredVariables) {
         expect(variablesInFile).toContain(variable);

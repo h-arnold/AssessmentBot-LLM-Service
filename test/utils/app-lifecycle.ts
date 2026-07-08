@@ -1,12 +1,13 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process';
 import * as fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { Logger } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { getCurrentDirname } from 'src/common/file-utilities';
 
-import { waitForLog } from './log-watcher';
+import { waitForLog } from './log-watcher.js';
 
 const appLifecycleLogger = new Logger('AppLifecycle');
 
@@ -116,10 +117,11 @@ export async function startApp(
       getCurrentDirname(),
       'test',
       'utils',
-      'llm-http-shim.cjs',
+      'llm-mock.mjs',
     );
+    const shimUrl = pathToFileURL(shimPath).href;
     const existingNodeOptions = testEnvironment.NODE_OPTIONS ?? '';
-    const shimOption = `--require "${shimPath}"`;
+    const shimOption = `--import=${shimUrl}`;
     testEnvironment.NODE_OPTIONS = existingNodeOptions
       ? `${existingNodeOptions} ${shimOption}`
       : shimOption;

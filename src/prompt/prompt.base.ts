@@ -2,8 +2,8 @@ import { Logger } from '@nestjs/common';
 import Mustache from 'mustache';
 import { z } from 'zod';
 
-import { readMarkdown } from '../common/file-utilities';
-import { LlmPayload } from '../llm/llm.service.interface';
+import { readMarkdown } from '../common/file-utilities.js';
+import { LlmPayload } from '../llm/llm.service.interface.js';
 
 /**
  * Zod schema for validating basic inputs required for any prompt.

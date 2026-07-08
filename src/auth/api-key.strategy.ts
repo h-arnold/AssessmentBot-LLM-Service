@@ -3,8 +3,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { Strategy } from 'passport-http-bearer';
 
-import { ApiKeyService } from './api-key.service';
-import { User } from './user.interface';
+import { ApiKeyService } from './api-key.service.js';
+import { User } from './user.interface.js';
 
 /**
  * Implements the passport-http-bearer strategy for API key authentication.

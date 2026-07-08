@@ -1,8 +1,8 @@
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PromptFactory } from './prompt.factory';
-import { PromptModule } from './prompt.module';
+import { PromptFactory } from './prompt.factory.js';
+import { PromptModule } from './prompt.module.js';
 
 describe('PromptModule', () => {
   it('should compile the module', async () => {

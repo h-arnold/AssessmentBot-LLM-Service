@@ -4,11 +4,9 @@ import path from 'node:path';
 import { Logger } from '@nestjs/common';
 import { getCurrentDirname } from 'src/common/file-utilities';
 
-import { waitForLog, LogObject } from './utils/log-watcher';
+import { waitForLog, LogObject } from './utils/log-watcher.js';
 
 const logger = new Logger('LogWatcherUnit');
-
-jest.setTimeout(5000);
 
 /**
  * Predicate that matches log entries with msg 'unit-ready'.

@@ -1,4 +1,4 @@
-import { ResourceExhaustedError } from './resource-exhausted.error';
+import { ResourceExhaustedError } from './resource-exhausted.error.js';
 
 describe('ResourceExhaustedError', () => {
   it('should create an instance', () => {

@@ -3,7 +3,12 @@ import path from 'node:path';
 import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
-import { startApp, stopApp, AppInstance, delay } from './utils/app-lifecycle';
+import {
+  startApp,
+  stopApp,
+  AppInstance,
+  delay,
+} from './utils/app-lifecycle.js';
 
 describe('Throttler (e2e)', () => {
   let app: AppInstance;

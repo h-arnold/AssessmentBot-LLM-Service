@@ -3,9 +3,9 @@ import { randomInt } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
-import { ResourceExhaustedError } from './resource-exhausted.error';
-import { LlmResponse } from './types';
-import { ConfigService } from '../config/config.service';
+import { ResourceExhaustedError } from './resource-exhausted.error.js';
+import { LlmResponse } from './types.js';
+import { ConfigService } from '../config/config.service.js';
 
 /**
  * Represents the payload for a simple text-based prompt.

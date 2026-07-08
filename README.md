@@ -108,7 +108,7 @@ Common flags:
 - **Containerisation**: [Docker](https://www.docker.com/)
 - **Authentication**: [Passport.js](http://www.passportjs.org/) (`passport-http-bearer`)
 - **Validation**: [Zod](https://zod.dev/)
-- **Testing**: [Jest](https://jestjs.io/) & [Supertest](https://github.com/ladjs/supertest)
+- **Testing**: [Vitest](https://vitest.dev/) & [Supertest](https://github.com/ladjs/supertest)
 - **LLM**: [Google Gemini](https://ai.google.dev/)
 
 ## 🔌 API Overview

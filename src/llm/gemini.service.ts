@@ -7,10 +7,14 @@ import {
   LLMService,
   LlmPayload,
   StringPromptPayload,
-} from './llm.service.interface';
-import { LlmResponse, LlmResponseSchema, GeminiModelParameters } from './types';
-import { JsonParserUtility } from '../common/json-parser.utility';
-import { ConfigService } from '../config/config.service';
+} from './llm.service.interface.js';
+import {
+  LlmResponse,
+  LlmResponseSchema,
+  GeminiModelParameters,
+} from './types.js';
+import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { ConfigService } from '../config/config.service.js';
 
 /**
  * A service for interacting with the Google Gemini LLM.

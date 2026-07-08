@@ -4,11 +4,9 @@ import path from 'node:path';
 
 import { Logger } from '@nestjs/common';
 
-import { runCommand, waitForHttp } from './utils/docker-utilities';
+import { runCommand, waitForHttp } from './utils/docker-utilities.js';
 
 const logger = new Logger('DockerImageProdSpec');
-
-jest.setTimeout(10 * 60 * 1000); // 10 minutes for build + run
 
 const IMAGE_TAG = 'assessmentbot-backend:prod-test';
 const CONTAINER_NAME = 'assessmentbot-backend-prod-test';

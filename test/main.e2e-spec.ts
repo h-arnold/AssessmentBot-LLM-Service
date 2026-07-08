@@ -3,7 +3,7 @@ import path from 'node:path';
 import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
-import { startApp, stopApp, AppInstance } from './utils/app-lifecycle';
+import { startApp, stopApp, AppInstance } from './utils/app-lifecycle.js';
 
 describe('Main App (E2E)', () => {
   let app: AppInstance;

@@ -1,6 +1,6 @@
 import { ThrottlerModuleOptions } from '@nestjs/throttler';
 
-import { configSchema } from './environment.schema';
+import { configSchema } from './environment.schema.js';
 
 /**
  * @file Configures the application's rate-limiting (throttling) settings.

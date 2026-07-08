@@ -5,6 +5,7 @@
  * bootstrapping stays free of test-only branches.
  */
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import * as dotenv from 'dotenv';
 
@@ -13,7 +14,7 @@ import * as dotenv from 'dotenv';
  */
 export async function startTest(): Promise<void> {
   dotenv.config({ path: '.test.env' });
-  const { bootstrap } = await import('./bootstrap');
+  const { bootstrap } = await import('./bootstrap.js');
   await bootstrap({ bufferLogs: false, host: '127.0.0.1' });
 }
 
@@ -21,16 +22,14 @@ export async function startTest(): Promise<void> {
 // tests to import `startTest` without automatically starting the server, while
 // allowing `node dist/src/testing-main.js` to start the app for E2E runs.
 if (isRunningDirectly()) {
-  void (async (): Promise<void> => {
-    try {
-      await startTest();
-    } catch (error: unknown) {
-      process.stderr.write(
-        `Failed to bootstrap test application: ${String(error)}\n`,
-      );
-      process.exit(1);
-    }
-  })();
+  try {
+    await startTest();
+  } catch (error: unknown) {
+    process.stderr.write(
+      `Failed to bootstrap test application: ${String(error)}\n`,
+    );
+    process.exit(1);
+  }
 }
 
 /**
@@ -38,5 +37,8 @@ if (isRunningDirectly()) {
  * @returns {boolean} True if the module is the main entry point.
  */
 function isRunningDirectly(): boolean {
-  return typeof require !== 'undefined' && require.main === module;
+  return (
+    process.argv[1] != null &&
+    import.meta.url === pathToFileURL(process.argv[1]).href
+  );
 }

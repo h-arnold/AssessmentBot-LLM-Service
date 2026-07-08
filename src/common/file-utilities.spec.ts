@@ -1,4 +1,4 @@
-import { getCurrentDirname } from './file-utilities';
+import { getCurrentDirname } from './file-utilities.js';
 
 describe('getCurrentDirname', () => {
   it('should return process.cwd() by default', () => {

@@ -2,38 +2,41 @@ import {
   GoogleGenerativeAI,
   GoogleGenerativeAIFetchError,
 } from '@google/generative-ai';
+import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
-import { GeminiService } from './gemini.service';
+import { GeminiService } from './gemini.service.js';
 import {
   ImagePromptPayload,
   StringPromptPayload,
-} from './llm.service.interface';
-import { ResourceExhaustedError } from './resource-exhausted.error';
-import { LlmResponse } from './types';
-import { JsonParserUtility } from '../common/json-parser.utility';
-import { ConfigService } from '../config/config.service';
+} from './llm.service.interface.js';
+import { ResourceExhaustedError } from './resource-exhausted.error.js';
+import { LlmResponse } from './types.js';
+import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { ConfigService } from '../config/config.service.js';
 
 // Only mock the GoogleGenerativeAI class, not the error classes
-jest.mock('@google/generative-ai', () => {
-  const actual = jest.requireActual<typeof import('@google/generative-ai')>(
+vi.mock('@google/generative-ai', async () => {
+  const actual = await vi.importActual<typeof import('@google/generative-ai')>(
     '@google/generative-ai',
   );
   return {
     ...actual,
-    GoogleGenerativeAI: jest.fn(),
+    GoogleGenerativeAI: vi.fn(),
   };
 });
 
-const mockGenerateContent = jest.fn();
-const mockGetGenerativeModel = jest.fn(() => ({
+const mockGenerateContent = vi.fn();
+const mockGetGenerativeModel = vi.fn(() => ({
   generateContent: mockGenerateContent,
 }));
 
-const mockGoogleGenerativeAI = GoogleGenerativeAI as jest.Mock;
-mockGoogleGenerativeAI.mockImplementation(() => ({
-  getGenerativeModel: mockGetGenerativeModel,
-}));
+const mockGoogleGenerativeAI = GoogleGenerativeAI as Mock;
+mockGoogleGenerativeAI.mockImplementation(function () {
+  return {
+    getGenerativeModel: mockGetGenerativeModel,
+  };
+});
 
 // Test fixtures and utilities
 const createValidResponse = (
@@ -67,14 +70,14 @@ const expectValidResponse = (result: LlmResponse, score: number): void => {
 describe('GeminiService', () => {
   let service: GeminiService;
   let configService: ConfigService;
-  let mockParse: jest.Mock;
+  let mockParse: Mock;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Mock ConfigService
     configService = {
-      get: jest.fn((key: string): string | null => {
+      get: vi.fn((key: string): string | null => {
         if (key === 'GEMINI_API_KEY') return 'test-api-key';
         if (key === 'LLM_BACKOFF_BASE_MS') return '100';
         if (key === 'LLM_MAX_RETRIES') return '2';
@@ -83,7 +86,7 @@ describe('GeminiService', () => {
     } as unknown as ConfigService;
 
     // Mock JsonParserUtil
-    mockParse = jest.fn((json: string): unknown => {
+    mockParse = vi.fn((json: string): unknown => {
       return JSON.parse(json) as unknown;
     });
 
@@ -243,7 +246,6 @@ describe('GeminiService', () => {
   };
 
   describe('retry logic', () => {
-    // eslint-disable-next-line jest/expect-expect
     it('should retry on 429 errors and eventually succeed', async () => {
       await testRetryBehaviorSuccess(
         [new GoogleGenerativeAIFetchError('Rate limited', 429)],
@@ -251,7 +253,6 @@ describe('GeminiService', () => {
       );
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should retry multiple times with exponential backoff', async () => {
       await testRetryBehaviorSuccess(
         [
@@ -262,17 +263,14 @@ describe('GeminiService', () => {
       );
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should retry on rate limit error messages', async () => {
       await testRetryBehaviorSuccess([new Error('Rate limit exceeded')], 2);
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should retry on "too many requests" error messages', async () => {
       await testRetryBehaviorSuccess([new Error('Too many requests')], 2);
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw error after max retries exceeded', async () => {
       const rateLimitError = new GoogleGenerativeAIFetchError(
         'Rate limited',
@@ -306,24 +304,20 @@ describe('GeminiService', () => {
   };
 
   describe('resource exhausted error handling', () => {
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "RESOURCE_EXHAUSTED" error', async () => {
       await testResourceExhaustedError('RESOURCE_EXHAUSTED: Quota exceeded');
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "resource exhausted" error', async () => {
       await testResourceExhaustedError(
         'Request failed: resource exhausted - quota limits exceeded',
       );
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "quota exceeded" error', async () => {
       await testResourceExhaustedError('API quota exceeded for this project');
     });
 
-    // eslint-disable-next-line jest/expect-expect
     it('should throw ResourceExhaustedError for "quota exhausted" error', async () => {
       await testResourceExhaustedError('Your quota has been exhausted');
     });

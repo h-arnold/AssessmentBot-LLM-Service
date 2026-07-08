@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
+import { Mock } from 'vitest';
 
-import { ImageValidationPipe } from './image-validation.pipe';
+import { ImageValidationPipe } from './image-validation.pipe.js';
 
 interface PipeLike {
   transform: (value: unknown) => Promise<unknown>;
@@ -8,11 +9,11 @@ interface PipeLike {
 
 describe('ImageValidationPipe', () => {
   let pipe: PipeLike;
-  let configService: { get: jest.Mock };
+  let configService: { get: Mock };
 
   beforeEach(async () => {
     configService = {
-      get: jest.fn((key: string): unknown => {
+      get: vi.fn((key: string): unknown => {
         if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') return 1 as unknown;
         if (key === 'ALLOWED_IMAGE_MIME_TYPES')
           return ['image/png', 'image/jpeg'] as unknown;
@@ -144,14 +145,14 @@ describe('ImageValidationPipe', () => {
 
   describe('Edge Cases', () => {
     it('should handle MAX_IMAGE_UPLOAD_SIZE_MB = 0 (reject all images)', async () => {
-      jest
-        .spyOn(configService, 'get')
-        .mockImplementation((key: string): unknown => {
+      vi.spyOn(configService, 'get').mockImplementation(
+        (key: string): unknown => {
           if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
             return 0;
           }
           return ['image/png', 'image/jpeg'];
-        });
+        },
+      );
       const validPngBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
         'base64',
@@ -162,14 +163,14 @@ describe('ImageValidationPipe', () => {
     });
 
     it('should handle empty ALLOWED_IMAGE_MIME_TYPES (reject all images)', async () => {
-      jest
-        .spyOn(configService, 'get')
-        .mockImplementation((key: string): unknown => {
+      vi.spyOn(configService, 'get').mockImplementation(
+        (key: string): unknown => {
           if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
             return 1;
           }
           return [];
-        });
+        },
+      );
       const validPngBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
         'base64',

@@ -1,30 +1,30 @@
-import * as packageJson from '../../package.json';
+import * as packageJson from '../../package.json' with { type: 'json' };
 
 const osMock = {
-  platform: jest.fn(),
-  arch: jest.fn(),
-  release: jest.fn(),
-  uptime: jest.fn(),
-  hostname: jest.fn(),
-  totalmem: jest.fn(),
-  freemem: jest.fn(),
-  cpus: jest.fn(),
+  platform: vi.fn(),
+  arch: vi.fn(),
+  release: vi.fn(),
+  uptime: vi.fn(),
+  hostname: vi.fn(),
+  totalmem: vi.fn(),
+  freemem: vi.fn(),
+  cpus: vi.fn(),
 };
 
-jest.mock('node:os', () => osMock);
+vi.mock('node:os', () => osMock);
 
 describe('StatusService', () => {
   const originalEnvironment = process.env;
 
   afterEach(() => {
     process.env = { ...originalEnvironment };
-    jest.resetModules();
-    jest.clearAllMocks();
-    jest.useRealTimers();
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   it('returns the expected greeting', async () => {
-    const { StatusService } = await import('./status.service');
+    const { StatusService } = await import('./status.service.js');
     const service = new StatusService();
 
     expect(service.getHello()).toBe('Hello World!');
@@ -41,16 +41,16 @@ describe('StatusService', () => {
     osMock.cpus.mockReturnValue([{}, {}]);
 
     const fixedDate = new Date('2024-01-01T00:00:00.000Z');
-    jest.useFakeTimers().setSystemTime(fixedDate);
+    vi.useFakeTimers().setSystemTime(fixedDate);
 
-    const { StatusService } = await import('./status.service');
+    const { StatusService } = await import('./status.service.js');
     const service = new StatusService();
 
     const result = service.getHealth();
 
     expect(result).toEqual({
       status: 'ok',
-      version: packageJson.version,
+      version: packageJson.default.version,
       timestamp: fixedDate.toISOString(),
       systemInfo: {
         platform: 'linux',

@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ConfigModule } from './config.module';
-import { ConfigService } from './config.service';
+import { ConfigModule } from './config.module.js';
+import { ConfigService } from './config.service.js';
 
 describe('ConfigModule', () => {
   let module: TestingModule;
@@ -43,7 +43,10 @@ describe('ConfigModule', () => {
     const originalDotEnvironmentPath = path.resolve(process.cwd(), '.env');
     let dotEnvironmentExists = false;
     if (fs.existsSync(originalDotEnvironmentPath)) {
-      fs.renameSync(originalDotEnvironmentPath, originalDotEnvironmentPath + '.bak');
+      fs.renameSync(
+        originalDotEnvironmentPath,
+        originalDotEnvironmentPath + '.bak',
+      );
       dotEnvironmentExists = true;
     }
 
@@ -64,7 +67,10 @@ describe('ConfigModule', () => {
     } finally {
       // Restore .env file if it existed
       if (dotEnvironmentExists) {
-        fs.renameSync(originalDotEnvironmentPath + '.bak', originalDotEnvironmentPath);
+        fs.renameSync(
+          originalDotEnvironmentPath + '.bak',
+          originalDotEnvironmentPath,
+        );
       }
     }
 

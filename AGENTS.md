@@ -22,10 +22,10 @@ Adhere to these principles in all contributions:
 - **Framework**: NestJS.
 - **Authentication**: Passport.js (specifically `passport-http-bearer` for API keys).
 - **Validation**: Zod for all data validation (DTOs, environment variables).
-- **Testing**: Jest for unit, integration, and E2E tests. Use `supertest` for E2E.
+- **Testing**: Vitest for unit, integration, and E2E tests. Use `supertest` for E2E.
 - **LLM Integration**: Use the abstract `LlmService` for interactions and `json-repair` for robust response parsing.
-- **ESM Compliance**: The codebase uses ESM syntax (import/export) for source files, but compiles to CommonJS for compatibility with NestJS and its ecosystem. This approach leverages modern JavaScript features while ensuring stability with current dependencies.
-- **File Path Resolution**: For obtaining current directory paths, use the `getCurrentDirname()` utility from `src/common/file-utils.ts` instead of `import.meta.url`. This utility handles both ESM runtime environments and Jest test environments gracefully.
+- **ESM Compliance**: The codebase uses native ESM (`"type": \"module\"`, `module` / `moduleResolution`: `NodeNext`, `target`: `ES2024`). Relative imports carry explicit `.js` extensions and JSON imports use the `with { type: 'json' }` attribute. This approach leverages modern JavaScript features while ensuring stability with current dependencies.
+- **File Path Resolution**: For obtaining current directory paths, use the `getCurrentDirname()` utility from `src/common/file-utilities.ts` instead of `import.meta.url`. This utility handles both ESM runtime environments and Vitest test environments gracefully.
 
 ## Development Workflow
 

@@ -725,6 +725,8 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 
 ## Section 6: CI/CD and Scripts
 
+**Status:** Completed (2026-07-08).
+
 **Objective:** Update CI workflow and npm scripts for Vitest.
 
 **Constraints:**
@@ -762,10 +764,18 @@ Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTime
 
 **Section Checks:**
 
-- [ ] `ci.yml` updated.
-- [ ] JUnit reports generated at correct path.
-- [ ] `verify:assessor` works.
-- [ ] All npm scripts work.
+- [x] `ci.yml` updated (Node 24 across all jobs; `npm run test:cov` and `npm run test:e2e`; `./junit/vitest-junit.xml` report paths).
+- [x] JUnit reports generated at correct path (`./junit/vitest-junit.xml`; confirmed valid XML for both unit/coverage and e2e runs).
+- [x] `verify:assessor` — see deviation below (script removed; target file was intentionally deleted pre-migration).
+- [x] All npm scripts work (`test`, `test:cov`, `test:e2e:mocked`, `test:e2e:live`, `test:prod`, `lint` all verified).
+
+**Completion Notes (2026-07-08):**
+
+- `.github/workflows/ci.yml`: three `node-version: '22'` → `'24'`; unit job `npm test -- --verbose --coverage` → `npm run test:cov`; both JUnit `report_paths` `./junit/jest-junit.xml` → `./junit/vitest-junit.xml`; e2e job `npm run test:e2e -- --verbose` → `npm run test:e2e`.
+- `vitest.config.ts` already included the JUnit reporter (`reporters: ['default', 'junit']`, `outputFile: './junit/vitest-junit.xml'`) from Section 2, so no change was needed there.
+- **Deviation — `verify:assessor` script removed:** `package.json`'s `verify:assessor` script referenced `scripts/verify-assessor.ts`, which was **intentionally deleted** in commit `ca02f4d` ("chore: remove unused Jest E2E debug script and verify assessor script", authored 2025-08-08, pre-dating this migration). It is genuinely dead code, not a migration regression. Rather than restore deleted code, the dead script reference was removed from `package.json` and the `tsx` devDependency that had been added for it was uninstalled (nothing else uses `tsx`; `dev:delegate` still uses `ts-node`). `npm run lint` remains 0 errors.
+- **Verification:** `npm run lint` → 0 errors/0 warnings; `npm run test:cov` → 214 pass + `coverage/` produced + `./junit/vitest-junit.xml` written; `npm run test:e2e:mocked` → 44 pass + JUnit regenerated; `./junit/vitest-junit.xml` is valid `<testsuites>` XML.
+- **Code review:** automated `code-reviewer` sub-agent unavailable (returned empty); manual verification (lint/test/coverage/junit) performed instead.
 
 ---
 

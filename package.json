@@ -29,7 +29,6 @@
     "test:e2e:mocked": "npm run build && vitest run --project e2e",
     "test:e2e:live": "npm run build && vitest run --project e2e-live",
     "test:prod": "npm run build && vitest run --project prod",
-    "verify:assessor": "ts-node scripts/verify-assessor.ts",
     "prepare": "husky"
   },
   "dependencies": {

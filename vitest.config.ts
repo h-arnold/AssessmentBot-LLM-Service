@@ -10,6 +10,9 @@ export default defineConfig({
   test: {
     reporters: ['default', 'junit'],
     outputFile: './junit/vitest-junit.xml',
+    coverage: {
+      reporter: ['text', 'html', 'lcov', 'clover'],
+    },
     projects: [
       {
         test: {

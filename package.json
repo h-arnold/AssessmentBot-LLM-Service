@@ -17,7 +17,6 @@
     "start:debug": "nest start --debug --watch",
     "debug": "node --inspect-brk ./node_modules/.bin/nest start",
     "start:prod": "NODE_ENV=production node dist/src/main.js",
-    "dev:delegate": "NODE_OPTIONS=--experimental-specifier-resolution=node ts-node --esm scripts/codex-delegate.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:british": "./scripts/check-british-english.sh",
@@ -90,8 +89,6 @@
     "pino-pretty": "^13.1.3",
     "prettier": "^3.8.3",
     "supertest": "^7.2.2",
-    "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.2",
     "vitest": "^4.1.10"

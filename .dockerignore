@@ -7,7 +7,6 @@ node_modules
 # local env files
 .env
 .test.env
-jest-junit.xml
 
 # Log files
 dist/
@@ -47,14 +46,10 @@ docs/**/*.md
 .env.prod
 Caddyfile
 eslint.config.js
-jest-e2e.config.cjs
-jest.config.js
-jest.setup.ts
 # nest-cli.json # Needed for build
 sonar-project.properties
 # tsconfig.build.json # Needed for build
 # tsconfig.json # Needed for build
-tsconfig.test.json
 
 # Allow essential config files for the build
 !tsconfig.json

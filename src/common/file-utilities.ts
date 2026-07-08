@@ -5,7 +5,7 @@ import path from 'node:path';
  * Utility function to get the project root directory path.
  *
  * Returns `process.cwd()` which is the standard way to resolve paths relative
- * to the project root in both Jest and production environments.
+ * to the project root in both Vitest and production environments.
  * @param {string} [fallbackDirectory] - Fallback directory, defaults to
  *   process.cwd().
  * @returns {string} The resolved directory path.

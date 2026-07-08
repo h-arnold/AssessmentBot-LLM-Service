@@ -76,4 +76,4 @@ Tone: concise, high-signal notes; avoid verbose logging in the review output.
 Workflow for review:
 
 - Trace every changed file and code path provided by the orchestrator, scanning for security issues, typing gaps, lint violations, Zod validation coverage, logging misuse, and deviations from expected module/layout patterns.
-- After the first pass, run a second pass focused on test coverage: check for new/updated unit/integration specs near the changed code and E2E tests in `test/`. Use configured coverage tools (`npm run test:cov` via Jest with `collectCoverageFrom` and `coverageDirectory`) as guidance; flag uncovered branches/paths relevant to the change.
+- After the first pass, run a second pass focused on test coverage: check for new/updated unit/integration specs near the changed code and E2E tests in `test/`. Use configured coverage tools (`npm run test:cov` via Vitest with `collectCoverageFrom` and `coverageDirectory`) as guidance; flag uncovered branches/paths relevant to the change.

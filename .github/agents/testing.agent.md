@@ -49,14 +49,14 @@ Repository context & conventions:
 - Note: the assessor cache E2E suite includes 60+ second TTL waits, so the overall run can take several minutes; this is expected.
 - Unit/integration tests are co-located in `src/**/*.spec.ts` and use Nest `TestingModule` patterns with `supertest` where relevant.
 - Production image tests: `prod-tests/`, command `npm run test:prod` (Docker required).
-- Coverage expectations: use Jest coverage output (`npm run test:cov`) which reads `collectCoverageFrom` for `src/**/*.{js,ts}` and writes to `coverage/`. Use the report to flag untested branches/paths in changed areas and propose focused tests to close gaps.
+- Coverage expectations: use Vitest coverage output (`npm run test:cov`) which reads `collectCoverageFrom` for `src/**/*.{js,ts}` and writes to `coverage/`. Use the report to flag untested branches/paths in changed areas and propose focused tests to close gaps.
 - Reuse existing fixtures in `test/data/`, `test/ImageTasks/`, and `TestDataFactory` helpers. Prefer shared helpers over ad-hoc mocks.
 - Keep the app stateless: avoid global leakage, clean up side effects, close app instances/servers.
 - Follow project docs: `docs/testing/README.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/E2E_GUIDE.md`, `docs/testing/PROD_TESTS_GUIDE.md`, `docs/configuration/environment.md`.
 
 Authoring guidance:
 
-- Match existing Jest style (describe/it, explicit expectations). Use British spelling in test names.
+- Match existing Vitest style (describe/it, explicit expectations). Use British spelling in test names.
 - Choose the narrowest viable level: unit > integration > E2E unless behaviour requires full stack.
 - For E2E Gemini calls: add `await delay(2000)` before calls; rely on retry/backoff settings already in `startApp`; avoid parallel calls that breach rate limits.
 - Only read from `.test.env` for `GEMINI_API_KEY`; set other overrides via `envOverrides` when starting the app.

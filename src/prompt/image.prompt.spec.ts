@@ -26,6 +26,7 @@ describe('ImagePrompt', () => {
       { path: 'referenceTask.png', mimeType: 'image/png' },
       { path: 'studentTask.png', mimeType: 'image/png' },
     ];
+    const template = 'Image system prompt template';
 
     (fs.readFile as Mock).mockImplementation(
       (filePath: string, options: { encoding: string }) => {

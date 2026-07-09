@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": ["ES2024"],
+    "lib": ["ES2024", "esnext.typedarrays"],
     "module": "NodeNext",
     "declaration": true,
     "removeComments": true,
@@ -14,7 +14,7 @@
     "rootDir": "./",
     "baseUrl": "./",
     "paths": {
-      "src/*": ["src/*"]
+      "src/*": ["src/*.ts", "src/*"]
     },
     "incremental": true,
     "strict": true,
@@ -25,6 +25,15 @@
     "moduleResolution": "NodeNext",
     "isolatedModules": true,
     "ignoreDeprecations": "6.0",
-    "types": ["node"]
-  }
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "scripts",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "vitest.e2e.setup.ts"
+  ]
 }

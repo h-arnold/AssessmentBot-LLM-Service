@@ -9,7 +9,7 @@ describe('LogRedactor', () => {
         authorization: 'Bearer secret-token',
         'x-request-id': 'request-id',
       },
-    } as IncomingMessage;
+    } as unknown as IncomingMessage;
 
     const redacted = LogRedactor.redactRequest(request);
 
@@ -24,7 +24,7 @@ describe('LogRedactor', () => {
       headers: {
         'x-request-id': 'request-id',
       },
-    } as IncomingMessage;
+    } as unknown as IncomingMessage;
 
     const redacted = LogRedactor.redactRequest(request);
 

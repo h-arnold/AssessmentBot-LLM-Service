@@ -98,7 +98,7 @@ describe('HttpExceptionFilter', () => {
     };
     const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'error')
-      .mockImplementation();
+      .mockImplementation(() => {});
 
     filter['catch'](resourceExhaustedError, mockArgumentsHost);
 
@@ -155,7 +155,7 @@ describe('HttpExceptionFilter', () => {
     };
     const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'warn')
-      .mockImplementation();
+      .mockImplementation(() => {});
 
     filter['catch'](payloadTooLargeError, mockArgumentsHost);
 
@@ -360,7 +360,7 @@ describe('HttpExceptionFilter', () => {
     };
     const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'warn')
-      .mockImplementation();
+      .mockImplementation(() => {});
 
     filter['catch'](exception, mockArgumentsHost);
 
@@ -381,7 +381,7 @@ describe('HttpExceptionFilter', () => {
     const exception = new HttpException('Not Found', HttpStatus.NOT_FOUND);
     const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'warn')
-      .mockImplementation();
+      .mockImplementation(() => {});
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: () => ({
         getRequest: function <T = unknown>(): T {
@@ -430,7 +430,7 @@ describe('HttpExceptionFilter', () => {
     );
     const loggerSpy: MockInstance = vi
       .spyOn(Logger.prototype, 'error')
-      .mockImplementation();
+      .mockImplementation(() => {});
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: () => ({
         getRequest: function <T = unknown>(): T {

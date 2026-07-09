@@ -65,7 +65,9 @@ describe('ZodValidationPipe', () => {
   });
 
   it('should log validation failures', () => {
-    const loggerSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const loggerSpy = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => {});
     const invalidData = { name: 123 };
     expect(() => pipe.transform(invalidData, {} as ArgumentMetadata)).toThrow(
       BadRequestException,

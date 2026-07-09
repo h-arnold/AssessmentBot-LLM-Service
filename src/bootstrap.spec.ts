@@ -1,5 +1,7 @@
 import { Mock } from 'vitest';
 
+import type { BootstrapOptions } from './bootstrap.js';
+
 const nestFactoryCreate: Mock = vi.fn();
 const jsonMiddleware: Mock = vi.fn();
 const json: Mock = vi.fn(() => jsonMiddleware);
@@ -54,9 +56,9 @@ describe('bootstrap', () => {
     };
   };
 
-  const loadBootstrap = async (options?: {
-    bufferLogs?: boolean;
-  }): Promise<LoadBootstrapResult> => {
+  const loadBootstrap = async (
+    options?: BootstrapOptions,
+  ): Promise<LoadBootstrapResult> => {
     process.env = { ...originalEnvironment };
 
     const loggerInstance = { log: vi.fn() };

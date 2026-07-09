@@ -9,9 +9,26 @@ describe('StatusController', () => {
   let service: StatusService;
 
   beforeEach(async () => {
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const mockHealth: HealthCheckResponse = {
+      status: 'ok',
+      version: '0.2.0',
+      timestamp,
+      systemInfo: {
+        platform: 'linux',
+        arch: 'x64',
+        release: '1.0.0',
+        uptime: 123,
+        hostname: 'host',
+        totalMemory: 1,
+        freeMemory: 1,
+        cpus: 1,
+      },
+    };
     const mockStatusService = {
       getHello: vi.fn().mockReturnValue('Hello World!'),
-      getHealth: vi.fn().mockReturnValue({ status: 'ok', uptime: 123 }),
+      getHealth: vi.fn().mockReturnValue(mockHealth),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -37,7 +54,21 @@ describe('StatusController', () => {
 
   describe('getHealth', () => {
     it('should return health check response', () => {
-      const result: HealthCheckResponse = { status: 'ok', uptime: 123 };
+      const result: HealthCheckResponse = {
+        status: 'ok',
+        version: '0.2.0',
+        timestamp: expect.any(String) as unknown as string,
+        systemInfo: {
+          platform: 'linux',
+          arch: 'x64',
+          release: '1.0.0',
+          uptime: 123,
+          hostname: 'host',
+          totalMemory: 1,
+          freeMemory: 1,
+          cpus: 1,
+        },
+      };
       expect(controller.getHealth()).toEqual(result);
       expect(service.getHealth).toHaveBeenCalled();
     });

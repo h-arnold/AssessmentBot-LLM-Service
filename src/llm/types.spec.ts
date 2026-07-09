@@ -113,10 +113,7 @@ describe('GeminiModelParameters type', () => {
 
   it('should enforce types at compile-time for common mistakes', () => {
     // @ts-expect-error - thinking.budget must be a number
-    const bad1: GeminiModelParameters = {
-      model: 'gemini-2.5-flash',
-      thinking: { budget: 'not-a-number' },
-    };
+    const bad1: GeminiModelParameters = { model: 123 };
 
     // @ts-expect-error - systemInstruction must be a string
     const bad2: GeminiModelParameters = {

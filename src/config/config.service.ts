@@ -7,6 +7,8 @@ import { z } from 'zod';
 
 import { configSchema, type Config } from './environment.schema.js';
 
+export type { Config } from './environment.schema.js';
+
 /**
  * @class ConfigService
  * @description

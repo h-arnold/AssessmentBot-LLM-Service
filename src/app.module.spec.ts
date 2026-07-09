@@ -1,6 +1,7 @@
 import { IncomingMessage, ServerResponse } from 'node:http';
 
 import { Params } from 'nestjs-pino';
+import { type Options } from 'pino-http';
 import { Mock } from 'vitest';
 
 import { ConfigService } from './config/config.service.js';
@@ -73,15 +74,16 @@ describe('AppModule logging configuration', () => {
     const result: Params = options.useFactory(
       configService as unknown as ConfigService,
     );
+    const pinoHttp = result.pinoHttp as Options;
 
-    expect(result.pinoHttp.transport).toEqual({
+    expect(pinoHttp.transport).toEqual({
       target: 'pino/file',
       options: { destination: 'test-app-log.log' },
     });
 
     const requestWithId = { id: 'abc-123' } as IncomingMessage;
     const requestWithoutId = {} as IncomingMessage;
-    const customProperties = result.pinoHttp.customProps as (
+    const customProperties = pinoHttp.customProps as (
       request: IncomingMessage,
       response: ServerResponse<IncomingMessage>,
     ) => { reqId: string | number | undefined };
@@ -107,9 +109,10 @@ describe('AppModule logging configuration', () => {
     const result: Params = options.useFactory(
       configService as unknown as ConfigService,
     );
+    const pinoHttp = result.pinoHttp as Options;
 
-    expect(result.pinoHttp.level).toBe('debug');
-    expect(result.pinoHttp.transport).toBeUndefined();
+    expect(pinoHttp.level).toBe('debug');
+    expect(pinoHttp.transport).toBeUndefined();
   });
 
   it('uses pino-pretty transport in development', async () => {
@@ -121,8 +124,9 @@ describe('AppModule logging configuration', () => {
     const result: Params = options.useFactory(
       configService as unknown as ConfigService,
     );
+    const pinoHttp = result.pinoHttp as Options;
 
-    expect(result.pinoHttp.transport).toEqual({
+    expect(pinoHttp.transport).toEqual({
       target: 'pino-pretty',
       options: { singleLine: true },
     });

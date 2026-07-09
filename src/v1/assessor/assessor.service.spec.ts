@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
+import { Mock } from 'vitest';
 
 import { AssessorService } from './assessor.service.js';
 import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto.js';
@@ -57,9 +58,9 @@ describe('AssessorService', () => {
   let service: AssessorService;
   let llmService: LLMService;
   let promptFactory: PromptFactory;
-  let mockLlmService: { send: Mock<Promise<LlmResponse>, [unknown]> };
+  let mockLlmService: { send: Mock<(input: unknown) => Promise<LlmResponse>> };
   let mockPromptFactory: {
-    create: Mock<Promise<Prompt>, [CreateAssessorDto]>;
+    create: Mock<(dto: CreateAssessorDto) => Promise<Prompt>>;
   };
 
   beforeAll(() => {
@@ -74,9 +75,11 @@ describe('AssessorService', () => {
     process.env.LOG_LEVEL = 'debug';
   });
   beforeEach(async () => {
-    mockLlmService = { send: vi.fn<Promise<LlmResponse>, [unknown]>() };
+    mockLlmService = {
+      send: vi.fn<(input: unknown) => Promise<LlmResponse>>(),
+    };
     mockPromptFactory = {
-      create: vi.fn<Promise<Prompt>, [CreateAssessorDto]>(),
+      create: vi.fn<(dto: CreateAssessorDto) => Promise<Prompt>>(),
     };
     const mockJsonParserUtility = { parse: vi.fn() };
     const mockConfigService = {
@@ -137,7 +140,9 @@ describe('AssessorService', () => {
           user: 'prompt message',
         }),
       };
-      mockPromptFactory.create.mockResolvedValue(mockPrompt as Prompt);
+      mockPromptFactory.create.mockResolvedValue(
+        mockPrompt as unknown as Prompt,
+      );
       mockLlmService.send.mockResolvedValue(createMockLlmResponse(5));
 
       const result = await service.createAssessment(dto);
@@ -160,11 +165,11 @@ describe('AssessorService', () => {
         images: [
           {
             mimeType: 'image/png',
-            base64: 'base64-encoded-string-1',
+            path: 'reference-image.png',
           },
           {
             mimeType: 'image/png',
-            base64: 'base64-encoded-string-2',
+            path: 'student-image.png',
           },
         ],
       };
@@ -187,7 +192,9 @@ describe('AssessorService', () => {
       const mockPrompt = {
         buildMessage: vi.fn().mockResolvedValue(mockMultimodalPayload),
       };
-      mockPromptFactory.create.mockResolvedValue(mockPrompt as Prompt);
+      mockPromptFactory.create.mockResolvedValue(
+        mockPrompt as unknown as Prompt,
+      );
       mockLlmService.send.mockResolvedValue(createMockLlmResponse(4));
 
       const result = await service.createAssessment(dto);
@@ -211,7 +218,9 @@ describe('AssessorService', () => {
           user: 'prompt message',
         }),
       };
-      mockPromptFactory.create.mockResolvedValue(mockPrompt as Prompt);
+      mockPromptFactory.create.mockResolvedValue(
+        mockPrompt as unknown as Prompt,
+      );
       mockLlmService.send.mockResolvedValue(createMockLlmResponse(5));
 
       await service.createAssessment(dto);

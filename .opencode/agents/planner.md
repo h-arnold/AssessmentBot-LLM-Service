@@ -28,6 +28,8 @@ Before asking questions or drafting anything, you must:
    - Read AGENTS.md.
 2. **Use `Kif` for simple codebase exploration**: When gathering context, delegate straightforward codebase exploration tasks (such as finding file snippets, searching for patterns, or locating relevant code sections) to the `Kif` subagent. Kif is optimised for menial, low-judgement exploration tasks.
 3. **Read the planning templates**:
+   - docs/ACTION_PLAN_TEMPLATE.md (for the action plan structure)
+   - docs/SPEC_TEMPLATE.md (for the spec structure)
    - docs/development/workflow.md (for understanding the development workflow)
 4. **Read AGENTS.md** for project-specific conventions.
 5. **Read existing planning docs and nearby source context**:

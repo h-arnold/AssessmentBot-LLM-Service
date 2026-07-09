@@ -24,11 +24,15 @@ Before giving feedback, you must:
 
 1. **Read core instructions**:
    - Read AGENTS.md.
-2. **Read the planning artefacts in scope**:
+2. **Read the planning templates**:
+   - docs/ACTION_PLAN_TEMPLATE.md (for the expected action plan structure)
+   - docs/SPEC_TEMPLATE.md (for the expected spec structure)
+3. **Read the planning artefacts in scope**:
    - the document being reviewed
    - any companion planning docs already written for the feature
-3. **Read the code and docs the planning artefact touches**:
-   - inspect enough source files, routes, services, models, and existing docs to ground the review in the real architecture
+4. **Read the code and docs the planning artefact touches**:
+
+- inspect enough source files, routes, services, models, and existing docs to ground the review in the real architecture
 
 Do not review from summaries alone. Do not trust the calling agent's interpretation without reading the artefacts and code yourself.
 

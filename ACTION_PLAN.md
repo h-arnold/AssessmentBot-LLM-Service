@@ -1,940 +1,555 @@
-# ACTION_PLAN: Eliminate CommonJS Module Exports — Full ESM Migration
+# Cleanup & SDK Migration Plan — Assessor → Gemini Path
 
-This plan is organised into small, independently testable sections. Each section follows TDD ordering (Red → Green → Refactor) where applicable. Sections are ordered so that enabling infrastructure lands before dependent work.
+## Read-First Context
 
-**Reference:** `SPEC.md` — decisions D1–D8, constraints C1–C7, state rules S1–S7.
+Before writing or executing this plan:
 
----
+1. Read `AGENTS.md` (project instructions; mandatory).
+2. Read `docs/development/code-style.md` (canonical style and policy; mandatory).
+3. Read the de-sloppification review findings that originated this plan (assessor → gemini path).
+4. Consult the official Google Gen AI SDK (`@google/genai`) reference before implementing Section 5:
+   - `https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentParameters.html`
+   - `https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html`
+   - `https://ai.google.dev/gemini-api/docs/migrate` (JavaScript before/after)
 
-## Section 0: Phase 0 — Validation and De-risking
+This plan implements the cleanup items from the review **and** migrates `GeminiService` from the deprecated `@google/generative-ai` SDK (archived 2025-12-16, end-of-life 2025-08-31) to the maintained, GA `@google/genai` SDK. **No `SPEC.md` is required**: the work is code removal, de-duplication, tidying, and a like-for-like SDK swap with corrected request/response shapes — no change to the user-facing assessment behaviour or contracts.
 
-**Objective:** Validate that the core technology assumptions hold before any bulk migration begins. This section produces no production code changes — only proof-of-concept validations.
+## Scope and assumptions
 
-**Constraints:**
+### Scope
 
-- Do not modify any source files permanently.
-- Use temporary branches or scratch files for validation.
-- Roll back all temporary changes after validation.
+- The request path `assessor.controller.ts` → `assessor.service.ts` → `prompt.factory.ts` → prompt classes → `llm.service.interface.ts` → `gemini.service.ts`, plus supporting files touched along that path.
+- Cleanup items: dead code (`buildUserMessageParts`, `messages`/`uri` branches), duplicated status-code extraction, redundant error logging, direct `process.env` access in `image.prompt.ts`, an unused dependency, a one-caller service wrapper, defensive no-ops, and a mislabelled duplicate spec.
+- **SDK migration**: `GeminiService` moves from `@google/generative-ai` to `@google/genai`, correcting the request/response shapes (including the thinking configuration).
 
-**Acceptance Criteria:**
+### Out of scope
 
-1. A minimal NestJS app with `emitDecoratorMetadata: true` and `"module": "NodeNext"` compiles and starts successfully.
-2. `@nestjs/testing`'s `Test.createTestingModule()` works under Vitest with ESM output.
-3. `nest build` produces valid ESM output when `tsconfig.json` uses `"module": "NodeNext"`.
-4. `node dist/src/main.js` starts the minimal app as ESM.
-5. `reflect-metadata` import ordering works correctly under ESM.
-6. **Vitest's default transformer preserves decorator metadata** (critical — see R8 in SPEC.md).
+- Any change to assessment scoring, the `LlmResponse` schema, the public REST API shape, or the retry/backoff policy.
+- Switching from the Gemini Developer API to Vertex AI (the `apiKey` constructor path is retained).
+- Adopting the newer Interactions API or streaming — only `models.generateContent` is used.
 
-**Validation Steps:**
+### Assumptions
 
-1. **NestJS ESM compilation check:**
-   - Create a temporary copy of `tsconfig.json` with `"module": "NodeNext"` and `"moduleResolution": "NodeNext"`.
-   - Run `npx tsc --noEmit` against a minimal NestJS module (e.g., `AppModule` with a single controller).
-   - Verify no compilation errors related to decorator metadata or module resolution.
-
-2. **NestJS TestingModule under Vitest (CRITICAL):**
-   - Install `vitest` temporarily (`npm install --save-dev vitest`).
-   - Create a temporary `vitest.config.ts` and a minimal spec file that uses `Test.createTestingModule()` with constructor injection (no explicit `@Inject()` decorators).
-   - Run the spec. Verify `TestingModule` compiles AND correctly resolves dependencies via constructor injection.
-   - **If DI fails:** This confirms risk R8. The fix is either:
-     - Configure Vitest to use `tsc` as the transformer (preserves `emitDecoratorMetadata`).
-     - Or add explicit `@Inject()` decorators to all constructor parameters in the codebase (significant code change — requires user approval).
-   - Document the result before proceeding.
-
-3. **`nest build` ESM output:**
-   - With the temporary `tsconfig.json`, run `npm run build`.
-   - Inspect `dist/` output — verify files use `import`/`export` syntax (not `require`/`module.exports`).
-   - Run `node dist/src/main.js` — verify it starts without errors.
-
-4. **`reflect-metadata` ordering:**
-   - Verify that `import 'reflect-metadata'` at the top of `main.ts` (before any NestJS imports) works correctly under ESM.
-   - Verify decorator metadata is emitted and resolved by NestJS's dependency injection.
-
-**Section Checks:**
-
-- [x] All 6 acceptance criteria pass (see results below).
-- [x] Temporary changes are rolled back.
-- [x] Any issues discovered are recorded as blockers before proceeding.
-
-**Validation Results (completed 2026-07-05):**
-
-1. ✅ **NestJS ESM compilation:** A minimal NestJS app with `emitDecoratorMetadata: true` and `"module": "NodeNext"` compiles and starts successfully. Constructor injection works without explicit `@Inject()` decorators.
-2. ✅ **TestingModule under Vitest:** `Test.createTestingModule()` works under Vitest. Constructor injection resolves dependencies correctly. **Risk R8 is mitigated** — Vitest's default transformer preserves decorator metadata.
-3. ✅ **ESM build output:** `tsc` with `"module": "NodeNext"` and `"type": "module"` in `package.json` produces pure ESM output (`import`/`export`, `import.meta.url`). No `require()` or `module.exports` in output.
-4. ✅ **Runtime startup:** `node dist/main.js` starts the minimal NestJS app as ESM. DI container initialises, routes are mapped, server listens.
-5. ✅ **reflect-metadata ordering:** `import 'reflect-metadata'` at the top of the entry point works correctly under ESM. Decorator metadata is emitted by `tsc` and resolved by NestJS DI.
-6. ✅ **Vitest transformer preserves metadata:** `Reflect.getMetadata('design:paramtypes', ...)` returns correct constructor parameter types in Vitest tests. No explicit `@Inject()` needed.
-
-**Issues discovered (to be addressed in Section 1):**
-
-- **TS2835:** All relative imports need `.js` extensions under `NodeNext` module resolution. ~95 imports across source files.
-- **TS1272:** `status.controller.ts` imports `HealthCheckResponse` (a type) alongside `StatusService` (a value). Must split into `import type { HealthCheckResponse }` when `isolatedModules` + `emitDecoratorMetadata` are enabled.
-- **TS1543:** `status.service.ts` imports `package.json` — under `NodeNext` ESM, JSON imports require `with { type: "json" }` import attribute.
-- **`nest build` crash:** `nest build` aborts when compilation errors exist (does not handle errors gracefully). Direct `tsc` invocation works correctly. Not a blocker once import extensions are fixed.
-- **`package.json` `"type": "module"` required:** Without it, `NodeNext` produces CJS output. Both changes must land together.
-
-**No blockers. Proceeding to Section 1 is safe.**
-
-**Blockers if validation fails:**
-
-- If NestJS decorator metadata fails under ESM: investigate `tsconfig.json` `emitDecoratorMetadata` interaction with `NodeNext`. May need `"module": "ESNext"` instead.
-- If `TestingModule` fails under Vitest: **This is the critical risk (R8).** If Vitest's default transformer doesn't preserve decorator metadata, you must either:
-  1. Configure Vitest to use `tsc` as the transformer (preserves `emitDecoratorMetadata`).
-  2. Or add explicit `@Inject()` decorators to all constructor parameters in the codebase (significant code change — requires user approval before proceeding).
-- If `reflect-metadata` import ordering fails: ensure it's imported first in setup files and entry points.
+1. **No new user-facing behaviour.** Image payloads remain images-only; the textual task fields (`reference`/`template`/`studentResponse`) for image tasks continue to be carried as images.
+2. **The leading empty-string text part is required and must be preserved.** Per the Gemini API, a multimodal (image) content turn must include at least one text part. The current code satisfies this with `['', ...imageParts]` (the `?? ''` fallback). An empty string is sufficient and is what production sends today, so the image `buildContents` branch must continue to emit `['', ...imageParts]` — only the dead `messages` extraction around it is removed.
+3. **Target SDK:** `@google/genai` (already a dependency at `^2.10.0`). The new `generateContent` shape is `{ model, contents, config }`, where `contents` accepts a flat array of strings/parts and `config` carries `systemInstruction`, `temperature`, and `thinkingConfig`. Response text is read via the `result.text` getter (not `result.response.text()`).
+4. `ConfigService.get('ALLOWED_IMAGE_MIME_TYPES')` returns `string[]`; `file-type` is unused in `src/` and safe to remove.
+5. The new SDK surfaces errors as `ApiError` (`extends Error`) with a numeric `status` property (constructor `new ApiError({ message, status })`), so the base `LLMService` status extraction and retry logic continue to work unchanged (no base-class change expected).
 
 ---
 
-## Section 1: TypeScript and Package Configuration
+## Global constraints and quality gates
 
-**Objective:** Switch the TypeScript compilation target to ESM and update `package.json` to declare the package as ESM.
+### Engineering constraints
 
-**Constraints:**
+- Keep API/entry points thin and delegate behaviour to services.
+- Fail fast on invalid inputs.
+- Avoid defensive guards that hide wiring issues (e.g. `this && this.constructor`).
+- Keep changes minimal, localised, and consistent with repository conventions.
+- Use British English in comments and documentation.
 
-- Tests will break after this section (Jest cannot run ESM output without significant configuration). This is expected. Section 2 will fix the tests.
-- The production build must still compile successfully.
-- Do not change any source code logic in this section.
+### TDD workflow (mandatory per section)
 
-**Lessons from Section 0 Validation (critical — read before starting):**
+For each section below:
 
-These findings were validated on 2026-07-05 against the actual codebase. Future agents must apply these patterns; ignoring them will produce non-obvious failures.
+1. **Red**: write/adjust failing tests for the section's acceptance criteria.
+2. **Green**: implement the smallest change needed to pass.
+3. **Refactor**: tidy implementation with all tests still green.
+4. Run section-level verification commands.
 
-- **`"type": "module"` and `"module": "NodeNext"` are coupled.** Under `NodeNext`, TypeScript inspects the nearest `package.json`'s `type` field to decide the output module format. Setting only `tsconfig.json` to `"module": "NodeNext"` (without `"type": "module"` in `package.json`) silently produces **CommonJS** output. **Both changes must land in the same commit.** Verify the output is actually ESM by inspecting `dist/src/main.js` for `import`/`export` and the absence of `"use strict"` / `__createBinding` helpers.
+### Validation commands (repository-correct)
 
-- **All relative imports require explicit `.js` extensions.** Under `NodeNext`, `tsc` enforces Node's ESM resolver rule and emits `TS2835` for every relative import without an extension. This is the largest mechanical change in Section 1.
-  - **Scope (validated by grep):** 69 imports across 27 non-spec source files (full file list below). Spec files (83 imports) are migrated in Section 3; `test/` files (14 imports) in Section 4.
-  - **Pattern:** `import { Foo } from './foo'` → `import { Foo } from './foo.js'`. The `.js` extension is correct even though the source file is `.ts` — TypeScript resolves it to the `.ts` file at compile time and emits `.js` in output.
-  - **Files needing `.js` extension on relative imports (source only, non-spec):** `src/app.module.ts`, `src/auth/api-key.service.ts`, `src/auth/api-key.strategy.ts`, `src/auth/auth.module.ts`, `src/bootstrap.ts`, `src/common/common.module.ts`, `src/common/http-exception.filter.ts`, `src/common/pipes/image-validation.pipe.ts`, `src/config/config.module.ts`, `src/config/config.service.ts`, `src/config/index.ts`, `src/config/throttler.config.ts`, `src/llm/gemini.service.ts`, `src/llm/llm.module.ts`, `src/llm/llm.service.interface.ts`, `src/prompt/image.prompt.ts`, `src/prompt/prompt.base.ts`, `src/prompt/prompt.factory.ts`, `src/prompt/prompt.module.ts`, `src/prompt/table.prompt.ts`, `src/prompt/text.prompt.ts`, `src/status/status.controller.ts`, `src/status/status.module.ts`, `src/status/status.service.ts`, `src/v1/assessor/assessor.controller.ts`, `src/v1/assessor/assessor.module.ts`, `src/v1/assessor/assessor.service.ts`.
-
-- **`status.controller.ts` — TS1272 decorated-signature type import.** When `isolatedModules` + `emitDecoratorMetadata` are both enabled, a _type referenced in a decorated signature_ (return type of a `@Get()` method, parameter type of an `@Inject()`-ed param, etc.) cannot share an `import` statement with a _value_. Currently `import { StatusService, HealthCheckResponse } from './status.service'` mixes a value (`StatusService`) with a type (`HealthCheckResponse` used as `@Get('health')` return type). **Fix:** split into `import { StatusService } from './status.service.js'` + `import type { HealthCheckResponse } from './status.service.js'`. Note the `.js` extension on _both_ statements. Scan all other decorated signatures for the same pattern; several files use the modern `import { X, type Y }` inline syntax which is **already safe** — do not "fix" those, only split shared imports where TS1272 fires.
-
-- **`status.service.ts` — TS1543 JSON import attribute.** `import * as packageJson from '../../package.json'` fails under `NodeNext` ESM with `TS1543: Importing a JSON file into an ECMAScript module requires a 'type: "json"' import attribute`. **Fix:** `import * as packageJson from '../../package.json' with { type: 'json' }`. The same change applies to `src/status/status.service.spec.ts` (but the spec is migrated in Section 3). Verify the project's `tsconfig.json` `resolveJsonModule: true` is still set (it is). TypeScript 6.0+ supports the `with` syntax; the older `assert` syntax is deprecated — use `with`.
-
-- **`assessor.controller.ts` — `src/...` path-alias imports.** This file has 5 imports using the `src/...` path alias (e.g., `from 'src/auth/api-key.guard'`). Under `NodeNext`, path aliases in source files are **not resolved by Node at runtime** unless a loader is configured. They will compile (TypeScript resolves them via `tsconfig.json` `paths`), but `node dist/src/main.js` will fail at runtime with `ERR_MODULE_NOT_FOUND`. **Options for the implementer (pick the simplest):**
-  1. **Convert to relative imports** (e.g., `from '../../auth/api-key.guard.js'`). This is the simplest, runtime-safe, no-extra-config approach and is recommended. Verify the relative depth against the dist layout.
-  2. Or keep path aliases and configure `tsconfig-paths` as an ESM loader in production — rejected as out of scope and contradicts the statelessness goal.
-  - **Vitest note:** Section 2's Vitest config will need `resolve.alias` to support `src/...` aliases in spec/test files. But for production source, option 1 (relative imports) is strongly preferred so the runtime has zero path-resolution coupling to the build tool. Only `assessor.controller.ts` uses `src/...` imports in production source — fix it here.
-
-- **`nest build` crashes on compilation errors.** When `tsconfig.json` is set to `NodeNext` but the source still has un-fixed imports, `npm run build` (which runs `nest build`) emits `Aborted (core dumped)` instead of a clean error list. **Do not panic.** This is the NestJS CLI crashing on error output, not a real crash. **Diagnose with `npx tsc --project tsconfig.build.json`** directly — it prints the actual `TS2835`/`TS1272`/`TS1543` errors cleanly. Once fixes are applied, `nest build` will succeed again. This is noted here so future agents don't waste time investigating the apparent crash.
-
-- **`ignoreDeprecations: "6.0"` must be retained.** Section 0 confirmed that `baseUrl` (used by `tsconfig.json` for `paths`) triggers `TS5101` on TypeScript 6.x without `ignoreDeprecations: "6.0"`. It **is** still needed because `baseUrl`/`paths` are still in use. Do **not** remove `ignoreDeprecations` in this section.
-
-- **`vitest` is already installed on this branch.** Section 0 ran `npm install --save-dev vitest` and then rolled back `package-lock.json`. The `node_modules/vitest` directory may still exist on worktrees where Section 0 was run, but **`package.json` does not list vitest as a dependency**. Section 2 is responsible for adding it to `package.json` properly. Do not assume vitest is installed — verify before use.
-
-- **Decorator metadata preservation is confirmed (R8 mitigated).** Vitest's default transformer preserves `emitDecoratorMetadata`. Do **not** add explicit `@Inject()` decorators as a "safety" measure — it is unnecessary churn and the plan explicitly decided against it. Constructor injection works as-is.
-
-**Acceptance Criteria:**
-
-1. `tsconfig.json` uses `"module": "NodeNext"` and `"moduleResolution": "NodeNext"`.
-2. `tsconfig.json` `types` array no longer includes `"jest"`.
-3. `tsconfig.test.json` is deleted.
-4. `package.json` has `"type": "module"`.
-5. `npm run build` succeeds and produces ESM output in `dist/`.
-6. `node dist/src/main.js` starts the application (validates ESM entry-point detection works).
-
-**Red-First Tests (not applicable for infrastructure):**
-This section is configuration-only. Verification is via build and runtime checks.
-
-**Green — Implementation Steps:**
-
-1. **Update `tsconfig.json`:**
-   - Change `"module": "CommonJS"` → `"module": "NodeNext"`.
-   - Change `"moduleResolution": "node"` → `"moduleResolution": "NodeNext"`.
-   - Change `"types": ["node", "jest"]` → `"types": ["node"]`.
-   - **Keep `"ignoreDeprecations": "6.0"`** — Section 0 validated that `baseUrl` (used for `paths`) still requires this flag on TypeScript 6.x; removing it produces `TS5101`. See "Lessons" above.
-   - Note: `tsconfig.build.json` extends `tsconfig.json` and overrides `types` to `["node"]`. After this change, the override becomes redundant (base already has `["node"]`). No change needed to `tsconfig.build.json`, but the redundant override can be cleaned up.
-
-2. **Delete `tsconfig.test.json`:**
-   - This file exists solely for Jest ESM overrides. No longer needed.
-
-3. **Update `package.json`:**
-   - Add `"type": "module"`.
-
-4. **Update `src/main.ts` — ESM entry-point detection:**
-   - Replace `isRunningDirectly()` implementation:
-     ```typescript
-     import { pathToFileURL } from 'node:url';
-
-     function isRunningDirectly(): boolean {
-       return (
-         process.argv[1] != null &&
-         import.meta.url === pathToFileURL(process.argv[1]).href
-       );
-     }
-     ```
-   - Remove the `!process.env.JEST_WORKER_ID` check.
-
-5. **Update `src/testing-main.ts` — ESM entry-point detection:**
-   - Same pattern as `main.ts`.
-
-6. **Convert `scripts/health-check.js` to ESM:**
-   - Replace `const http = require('node:http')` with `import http from 'node:http'`.
-
-7. **Add `.js` extensions to all relative imports in non-spec source files.**
-   - This is the largest mechanical change in Section 1 (~69 imports across 27 files — full file list in "Lessons" above).
-   - Pattern: `from './foo'` → `from './foo.js'`. The `.js` extension is correct even for `.ts` sources.
-   - Keep the existing modern `import { X, type Y } from './foo.js'` inline syntax untouched — it is already safe.
-   - Only touch **non-spec** files here (`src/**/*.ts`, excluding `*.spec.ts`). Spec/test files are migrated in Sections 3 and 4 respectively, so do **not** edit them in this section — leaving their imports unextended is correct because they are broken until Section 3 anyway.
-   - Scope-limited change: this is mechanical and must not alter any logic. Run `eslint --fix` afterwards; the `import-x` plugin will not auto-fix missing extensions, but it will surface any import the regex missed.
-
-8. **Fix `src/status/status.controller.ts` — split the type import (TS1272).**
-   - Current: `import { StatusService, HealthCheckResponse } from './status.service'`
-   - Target: `import { StatusService } from './status.service.js'` + `import type { HealthCheckResponse } from './status.service.js'`
-   - `HealthCheckResponse` is only a return type of a `@Get()`-decorated method, so it must be a type-only import. See "Lessons" above for the full rationale.
-   - Scan other decorated signatures for the same shared value+type import pattern; only the inline `import { X, type Y }` syntax or split type imports are valid — do not touch inline-modifier imports that already compile.
-
-9. **Fix `src/status/status.service.ts` — JSON import attribute (TS1543).**
-   - Current: `import * as packageJson from '../../package.json'`
-   - Target: `import * as packageJson from '../../package.json' with { type: 'json' }`
-   - Use the `with` syntax (not the deprecated `assert`). Applies to the production source file here; `src/status/status.service.spec.ts` is fixed in Section 3.
-   - **ESM JSON gotcha (validated 2026-07-07 — corrects the original plan wording):** Under Node ESM, a JSON module imported via `import * as packageJson` exposes the parsed object **only** as the `default` export. `packageJson.version` resolves to `undefined` at runtime, which would make `GET /health` return an `undefined` version (a latent bug in the original step-9 wording). The correct usage is `packageJson.default.version`. The implementation uses `packageJson.default.version` — keep this form. The `/health` endpoint was verified to return `"version":"0.1.12"` with this form.
-
-10. **Fix `src/v1/assessor/assessor.controller.ts` — convert `src/...` path-alias imports to relative.**
-    - 5 imports use `from 'src/...'` (path alias). Convert to relative imports with `.js` extensions (e.g., `from '../../auth/api-key.guard.js'`). Verify relative depth against `src/v1/assessor/` location.
-    - See "Lessons" above — runtime resolution of `src/...` aliases is not safe under Node ESM without extra loader config, and the plan explicitly avoids that.
-
-11. **Verify build and runtime:**
-    - Run `npx tsc --project tsconfig.build.json` **first** to get a clean error list. Fix any remaining `TS2835`/`TS1272`/`TS1543` errors.
-    - Then run `npm run build` — must succeed. (If `nest build` still aborts, run `npx tsc` again to diagnose — see "Lessons" above about the `nest build` crash on errors.)
-    - Inspect `dist/src/main.js` — confirm it uses `import`/`export` syntax and **not** `"use strict"` or `__createBinding` helpers (those indicate CJS output — see "Lessons" about `type: "module"` coupling).
-    - Run `node dist/src/main.js` — must start the server.
-
-**Refactor:**
-
-- After verification, run `npx tsc --project tsconfig.build.json` once more and confirm zero errors. Any remaining `TS2835` means a relative import was missed — find and fix it.
-- Do **not** remove `ignoreDeprecations: "6.0"` — it is still required because `baseUrl`/`paths` are still in use (see "Lessons" above). The plan's original step 1 provisionally suggested removal; this validation overrides it.
-- `tsconfig.build.json`'s `"types": ["node"]` override becomes redundant (base now also has `["node"]`). Optional cleanup only.
-
-**Section Checks:**
-
-- [x] `npm run build` succeeds.
-- [x] `dist/` output uses ESM syntax (verify `dist/src/main.js` starts with `import`, not `"use strict"`).
-- [x] `node dist/src/main.js` starts the server.
-- [x] No `require()` or `module.exports` in any source file.
-- [x] `tsconfig.test.json` is deleted.
-- [x] Zero `TS2835` / `TS1272` / `TS1543` errors from `npx tsc --project tsconfig.build.json`.
-- [x] `assessor.controller.ts` no longer imports via `src/...` path aliases.
-
-**Accepted Technical Debt (deferred — see follow-up below):**
-
-- **7 `unicorn/prefer-await` lint errors in `src/common/http-exception.filter.spec.ts`.** Adding `"type": "module"` to `package.json` (required by S7) causes the `unicorn` `prefer-await` rule to misfire on the NestJS `ExceptionFilter.catch()` _method_ calls (e.g. `filter.catch(resourceExhaustedError, mockArgumentsHost)`), which are not promise `.catch()` chains. The baseline lint was clean (exit 0); these errors are a regression introduced by this section. **Resolution deferred to Section 3** (spec-file migration), where the file is migrated to Vitest and the false positives are addressed properly. Authorised as accepted technical debt per user instruction on 2026-07-07; the Regression Gate for this section is recorded as passed-with-documented-debt. Do **not** add lint-suppression comments for the `unicorn/prefer-await` rule (C5) to clear these — fix the code in Section 3 instead.
-
-**Section 1 — Completion Notes (2026-07-07):**
-
-- `tsconfig.json`: `"module": "NodeNext"`, `"moduleResolution": "NodeNext"`, `"types": ["node"]`. `ignoreDeprecations: "6.0"` retained (still required for `baseUrl`/`paths`).
-- `package.json`: `"type": "module"` added. Jest deps not yet removed (Section 2).
-- `tsconfig.test.json` deleted.
-- 27 non-spec source files: `.js` extensions added to all relative imports (69 imports). Inline `import { X, type Y }` modifiers preserved.
-- `status.controller.ts`: TS1272 value/type import split (`.js` on both).
-- `status.service.ts`: TS1543 JSON import attribute + `packageJson.default.version` usage (corrected ESM JSON gotcha — see step 9).
-- `assessor.controller.ts`: 5 `src/...` path-alias imports converted to relative `../../...js` imports.
-- `main.ts` / `testing-main.ts`: ESM `isRunningDirectly()` via `import.meta.url` + `pathToFileURL`; `JEST_WORKER_ID` check removed; dynamic `import('./bootstrap.js')`.
-- `scripts/health-check.js`: CJS→ESM (`import http from 'node:http'`); comment restructured per plan; the `no-console` suppression directive is retained per plan and produces one "unused directive" _warning_, not an error.
-- Verified: `npx tsc --project tsconfig.build.json` clean; `npm run build` clean; `dist/src/main.js` is pure ESM; `node dist/src/main.js` starts and `GET /health` returns `"version":"0.1.12"`.
-- **Deferred lint debt:** 7 `unicorn/prefer-await` errors in `http-exception.filter.spec.ts` (documented above).
+- Lint: `npm run lint`
+- Unit tests (single file): `npm test -- <path-to-spec>`
+- Full unit suite: `npm test`
+- Build (needed for e2e): `npm run build`
+- British-English check: `npm run lint:british`
 
 ---
 
-## Section 2: Test Runner Migration — Infrastructure
+## Section 1 — Remove dead `ImagePrompt.buildUserMessageParts`
 
-**Objective:** Replace Jest with Vitest. Create the Vitest configuration and setup files. Remove all Jest configuration files and dependencies.
+### Objective
 
-**Status:** Completed (2026-07-07).
+- Delete the unused, always-empty `buildUserMessageParts` method on `ImagePrompt` and its test stub, which imply capability that never runs.
 
-**Implementation Deviations (authorised — required to keep the non-negotiable Regression Gate satisfiable):**
+### Constraints
 
-1. **Jest npm packages are NOT removed in Section 2.** Only Vitest is installed and the test runner is switched at the script/config level. `jest`, `@types/jest`, `eslint-plugin-jest`, and `@jest/globals` remain installed and are removed in **Section 5** (after spec files are migrated to Vitest in Sections 3–4). Rationale: removing `eslint-plugin-jest` / `@types/jest` / `@jest/globals` now would break the type-aware ESLint pass over the still-Jest-based `*.spec.ts` and `test/**` files (baseline lint = 7 errors; removal would introduce many new type-resolution errors = a regression against the baseline). The Jest _config files_ are still deleted in Section 2 as planned. Acceptance criterion 2 is therefore partially deferred to Section 5.
+- Do not alter `ImagePrompt.buildMessage` behaviour.
+- Keep `image.prompt.spec.ts` green.
 
-2. **E2E LLM mocking uses an ESM `--import` preload shim, NOT `vi.mock`.** `vi.mock()` in a Vitest setup file only affects the in-process Vitest worker module graph. E2E tests spawn the built app (`dist/src/testing-main.js`) as a _child process_ (see `test/utils/app-lifecycle.ts`), so `vi.mock` cannot intercept the app's LLM calls. The old `--require test/utils/llm-http-shim.cjs` (CommonJS) is replaced by `--import test/utils/llm-mock.mjs` (ESM), which patches `GoogleGenerativeAI.prototype.getGenerativeModel` in the spawned child before app code runs. `vitest.e2e.setup.ts` therefore only sets `process.env.E2E_MOCK_LLM='true'`; the `vi.mock(...)` block from the original plan is dropped as ineffective for child processes.
+### Delegation mandatory reads
 
-**Constraints:**
+- `AGENTS.md`, `docs/development/code-style.md`
+- `src/prompt/image.prompt.ts`, `src/prompt/prompt.base.spec.ts`
 
-- Tests will not pass until Section 3 (test file migration) is complete.
-- Install Vitest and remove Jest in a single commit to avoid a broken intermediate state.
+### Acceptance criteria
 
-**Cross-Section Notes from Section 0 Validation (read before starting):**
+- `ImagePrompt` exposes no `buildUserMessageParts` method.
+- `prompt.base.spec.ts` no longer declares a `buildUserMessageParts` stub (this also removes its `import('@google/generative-ai').Part[]` reference).
+- `npm test -- src/prompt/image.prompt.spec.ts src/prompt/prompt.base.spec.ts` passes.
 
-- **`vitest` may already be in `node_modules` from Section 0**, but it is **not** in `package.json` dependencies (Section 0 rolled back `package-lock.json`). Do not assume a clean install — run the `npm install --save-dev vitest` step explicitly so the dependency is recorded.
-- **Vitest config needs `resolve.alias` for `src/...` path aliases.** Validation found 9 `test/` files that import via `from 'src/common/file-utilities'` (path alias). Section 1 converts production source away from `src/...` aliases (only `assessor.controller.ts` used them), but test files are out of scope for Section 1 and still rely on the alias. **Both the unit and e2e Vitest workspace projects must declare `resolve: { alias: { 'src': '<repo root abs path>/src' } }`** (or use `pathToFileURL`-relative resolution). Without this, `test/**/*.e2e-spec.ts` files will fail to import `getCurrentDirname` with `ERR_MODULE_NOT_FOUND` or `Cannot find module 'src/...'`. Regex/grep pattern: `from 'src/`. Verify the alias resolves to the **source** `.ts` files (not `dist/`), because tests import the live TypeScript source.
-- **`reflect-metadata` must be imported FIRST in `vitest.setup.ts`.** Section 0 confirmed import ordering matters — static ESM imports execute in source order, so `import 'reflect-metadata'` must precede any `@nestjs/*` imports for decorator metadata to be captured. The plan's step 5 already specifies this; do not reorder.
-- **`nest build` may crash on its own output if errors exist** (see Section 1 notes). If `npm run test:e2e:mocked` fails because `npm run build` aborted, run `npx tsc --project tsconfig.build.json` to see the real errors.
+### Required test cases (Red first)
 
-**Acceptance Criteria:**
+1. **Red**: In `prompt.base.spec.ts`, remove the `buildUserMessageParts` stub from `TestPrompt`; the suite must still compile and pass.
+2. (No behaviour test required; pure deletion.)
 
-1. `vitest` and `@vitest/coverage-v8` are installed as dev dependencies.
-2. All Jest packages are removed (`jest`, `@types/jest`, `ts-jest`, `jest-junit`, `eslint-plugin-jest`).
-3. All Jest config files are deleted (`jest.config.js`, `jest-e2e.*.config.cjs`, `jest-prod.config.cjs`, `jest.setup.ts`, `test/jest.e2e.*.setup.ts`).
-4. `vitest.workspace.ts` (or separate config files) is created.
-5. `vitest.setup.ts` is created with environment variable setup (migrating `jest.setup.ts` logic).
-6. `npm run test` invokes Vitest (even if tests fail due to un-migrated API calls).
+### Section checks
 
-**Red-First Tests:**
+- `npm test -- src/prompt/image.prompt.spec.ts src/prompt/prompt.base.spec.ts`
+- `npm run lint`
 
-- After removing Jest and installing Vitest, running `npm run test` should invoke Vitest. Tests will fail because spec files still use `jest.*` APIs. This is the expected "red" state.
+### Optional `@remarks` JSDoc follow-through
 
-**Green — Implementation Steps:**
+- None.
 
-1. **Install Vitest:**
+### Implementation notes / deviations / follow-up
 
-   ```bash
-   npm install --save-dev vitest @vitest/coverage-v8
-   ```
-
-2. **Remove Jest dependencies:**
-
-   ```bash
-   npm uninstall jest @types/jest ts-jest jest-junit eslint-plugin-jest
-   ```
-
-3. **Install ESLint Vitest plugin:**
-
-   ```bash
-   npm install --save-dev eslint-plugin-vitest
-   ```
-
-4. **Delete Jest configuration files:**
-   - `jest.config.js`
-   - `jest-e2e.mocked.config.cjs`
-   - `jest-e2e.live.config.cjs`
-   - `jest-e2e.config.cjs`
-   - `jest-prod.config.cjs`
-   - `jest.setup.ts`
-   - `test/jest.e2e.mocked.setup.ts`
-   - `test/jest.e2e.live.setup.ts`
-
-5. **Create `vitest.setup.ts`:**
-   - Migrate environment variable setup from `jest.setup.ts`.
-   - Add `import 'reflect-metadata'` as the FIRST import (before any other imports) to ensure NestJS decorator metadata works correctly under ESM (addresses risk R6).
-     ```typescript
-     import 'reflect-metadata';
-     import * as dotenv from 'dotenv';
-     dotenv.config({ path: '.test.env' });
-
-     process.env.GEMINI_API_KEY = 'test-key';
-     process.env.NODE_ENV = 'test';
-     process.env.PORT = '3000';
-     process.env.API_KEYS = 'test-api-key';
-     process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
-     process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png,image/jpeg';
-     process.env.LOG_LEVEL = 'debug';
-     process.env.THROTTLER_TTL = '60';
-     process.env.UNAUTHENTICATED_THROTTLER_LIMIT = '10';
-     process.env.AUTHENTICATED_THROTTLER_LIMIT = '50';
-     ```
-
-6. **Create `vitest.workspace.ts`** (preferred) or separate config files:
-   - Workspace approach:
-     ```typescript
-     import { defineWorkspace } from 'vitest/config';
-     import { resolve } from 'node:path';
-
-     // Shared alias for `src/...` path-alias imports used by test files.
-     // Resolves to the TypeScript source (not dist) so tests exercise live code.
-     const srcAlias = { src: resolve(process.cwd(), 'src') };
-
-     export default defineWorkspace([
-       {
-         test: {
-           name: 'unit',
-           root: '.',
-           include: ['src/**/*.spec.ts'],
-           setupFiles: ['./vitest.setup.ts'],
-           globals: true,
-           reporters: ['default', 'junit'],
-           outputFile: './junit/vitest-junit.xml',
-           alias: srcAlias,
-         },
-       },
-       {
-         test: {
-           name: 'e2e',
-           root: '.',
-           include: ['test/**/*.e2e-spec.ts'],
-           exclude: ['test/**/*-live.e2e-spec.ts', 'test/prod-tests/**'],
-           setupFiles: ['./vitest.setup.ts', './vitest.e2e.setup.ts'],
-           globals: true,
-           testTimeout: 30000,
-           pool: 'forks',
-           alias: srcAlias,
-         },
-       },
-       {
-         test: {
-           name: 'e2e-live',
-           root: '.',
-           include: ['test/assessor-live.e2e-spec.ts'],
-           setupFiles: ['./vitest.setup.ts'],
-           globals: true,
-           testTimeout: 30000,
-           pool: 'forks',
-           alias: srcAlias,
-         },
-       },
-       {
-         test: {
-           name: 'prod',
-           root: '.',
-           include: ['test/prod-tests/**/*.prod-spec.ts'],
-           setupFiles: ['./vitest.setup.ts'],
-           globals: true,
-           testTimeout: 600000,
-           pool: 'forks',
-           alias: srcAlias,
-         },
-       },
-     ]);
-     ```
-   - **Critical:** The `alias: srcAlias` line on every project enables `from 'src/common/file-utilities'` imports in `test/` files. Validation found 9 `test/` files use this alias — without it, all E2E tests fail with `ERR_MODULE_NOT_FOUND`. See "Cross-Section Notes" above for details.
-   - If workspace mode fails, fall back to separate `vitest.config.ts`, `vitest.e2e.config.ts`, etc. Each file must define the same `resolve.alias`.
-
-7. **Create `vitest.e2e.setup.ts`:**
-   - This file applies the LLM mock for E2E tests:
-     ```typescript
-     import { vi } from 'vitest';
-
-     process.env.E2E_MOCK_LLM = 'true';
-
-     vi.mock('@google/generative-ai', async () => {
-       const actual = await vi.importActual<
-         typeof import('@google/generative-ai')
-       >('@google/generative-ai');
-       return {
-         ...actual,
-         GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-           getGenerativeModel: () => ({
-             generateContent: async () => ({
-               response: {
-                 text: () =>
-                   JSON.stringify({
-                     completeness: { score: 3, reasoning: 'Mocked' },
-                     accuracy: { score: 3, reasoning: 'Mocked' },
-                     spag: { score: 3, reasoning: 'Mocked' },
-                   }),
-               },
-             }),
-           }),
-         })),
-       };
-     });
-     ```
-
-8. **Update `test/utils/app-lifecycle.ts`:**
-   - Remove lines 103–114 (the `if (testEnvironment.E2E_MOCK_LLM === 'true')` block that constructs `NODE_OPTIONS` with `--require`).
-   - No other changes needed in this file.
-
-9. **Delete `test/utils/llm-http-shim.cjs`:**
-   - Replaced by `vi.mock()` in `vitest.e2e.setup.ts`.
-
-10. **Update `package.json` scripts:**
-    - `"test": "vitest run"`
-    - `"test:watch": "vitest"`
-    - `"test:cov": "vitest run --coverage"`
-    - `"test:debug": "node --inspect-brk node_modules/.bin/vitest run --pool=forks --poolOptions.forks.singleFork"`
-    - `"test:e2e": "npm run test:e2e:mocked"`
-    - `"test:e2e:mocked": "npm run build && vitest run --project e2e"` (or `--config vitest.e2e.config.ts` if not using workspace)
-    - `"test:e2e:live": "npm run build && vitest run --project e2e-live"`
-    - `"test:prod": "npm run build && vitest run --project prod"`
-
-**Refactor:**
-
-- Verify `npm run test` invokes Vitest.
-- Verify `npm run build` still succeeds.
-
-**Section Checks:**
-
-- [x] No Jest config files remain (all 9 deleted: `jest.config.js`, `jest-e2e.*.config.cjs`, `jest-prod.config.cjs`, `jest.setup.ts`, `test/jest.e2e.*.setup.ts`).
-- [ ] No Jest dependencies in `package.json` — **deferred to Section 5** (see Implementation Deviations #1). `jest`, `@types/jest`, `ts-jest`, `jest-junit`, `eslint-plugin-jest`, `@jest/globals` remain installed until spec files are migrated.
-- [x] `vitest.config.ts` exists using Vitest v4 `test.projects` (the `vitest.workspace.ts`/`defineWorkspace` API was removed in Vitest v4 — see Additional implementation deviations below).
-- [x] `vitest.setup.ts` exists with `import 'reflect-metadata'` first + env setup.
-- [x] `vitest.e2e.setup.ts` exists and sets `process.env.E2E_MOCK_LLM='true'` (the `vi.mock()` block from the original plan was dropped — ineffective for the spawned child process).
-- [x] `test/utils/llm-http-shim.cjs` is deleted and replaced by `test/utils/llm-mock.mjs` (ESM `--import` preload shim).
-- [x] `test/utils/app-lifecycle.ts` no longer references `--require`; uses `--import=<file://.../llm-mock.mjs>` via `pathToFileURL`.
-- [x] `npm run test` invokes Vitest on the `unit` project (tests are red — expected until Sections 3–4).
-
-**Additional implementation deviations (recorded during execution):**
-
-- **`eslint.config.js`: added `'**/*.mjs'` to the top-level `ignores` array** (alongside `'**/*.cjs'`). The ESM preload shim `llm-mock.mjs` is not application source, and under `"type": "module"` a bare `.mjs` file hits the global `@typescript-eslint/explicit-function-return-type: 'error'` rule, which would produce 3 new errors. Mirroring the existing `**/*.cjs` ignore for preload shims keeps lint at the exact baseline (7 errors + 1 warning). This is a benign config-only change; the Jest plugin itself is still untouched (removed in Section 5).
-- **`fileParallelism: false` on the `e2e`, `e2e-live`, and `prod` Vitest projects.** The old Jest E2E run used `--runInBand` (serial). Vitest's `forks` pool runs E2E files in parallel, causing multiple app instances to collide on the hardcoded port 3001 (`EADDRINUSE`). Disabling file parallelism restores serial execution and eliminates the collision. The `unit` project is left parallel for speed.
-
-**Section 2 — Completion Notes (2026-07-07):**
-
-- Installed `vitest@4.1.10`, `@vitest/coverage-v8`, `eslint-plugin-vitest`. Did **not** uninstall Jest packages (deferred to Section 5).
-- Created `vitest.config.ts` (`defineConfig({ test: { projects: [...] } })` — v4 API), `vitest.setup.ts`, `vitest.e2e.setup.ts`, `test/utils/llm-mock.mjs`.
-- Deleted all 9 Jest config files and `test/utils/llm-http-shim.cjs`.
-- `package.json` test scripts switched to Vitest; `test`/`test:watch`/`test:cov`/`test:debug` target `--project unit` so plain `npm test` does not build/run e2e or prod.
-- Verified: `npm run build` clean; `npm run lint` = 7 errors + 1 warning (baseline preserved); `npm run test` invokes Vitest (unit specs red — `jest.*` APIs). `npm run test:e2e:mocked`: app boots via `--import` shim, **no `EADDRINUSE`**, 42 tests pass + 1 file fails (`start-app.e2e-spec.ts` uses `jest.setTimeout()` at module scope — fixed in Section 4).
-- Known follow-up: orphaned app processes from an interrupted prior run can hold port 3001 and cause `EADDRINUSE` on the next run; `stopApp()` cleanup is a pre-existing concern, not introduced here.
+- _(Fill during implementation.)_
 
 ---
 
-## Section 3: Test File Migration — Unit and Integration Tests
+## Section 2 — Remove dead `messages`/`uri` branches in `GeminiService` (preserve required empty text part)
 
-**Objective:** Migrate all 36 `*.spec.ts` files in `src/` from Jest API to Vitest API.
+### Objective
 
-**Status:** Completed (2026-07-07).
+- Remove the `messages` extraction in `GeminiService.buildContents` (image branch) and the `uri`/`fileData` branch in `mapImageParts`, because no producer on the request path emits `messages` or `uri`.
+- **Preserve the leading empty-string text part** (see Assumption 2): image `buildContents` must continue to return `['', ...imageParts]`.
 
-**Red-state baseline (confirmed 2026-07-07):** `npm run test` (unit project) fails because the spec files still use `jest.*` APIs and the Jest runtime is no longer the runner. This section makes them green. The 7 `unicorn/prefer-await` errors in `src/common/http-exception.filter.spec.ts` are resolved here (see Section Checks) — they are a false positive on the `ExceptionFilter.catch()` method call, fixed by a code change (NOT a lint-suppression comment, per C5).
+### Constraints
 
-**Constraints:**
+- Must remain behaviour-neutral: image payloads continue to be sent as `['', ...imageParts]`.
+- Do **not** add real text emission to `ImagePrompt.buildMessage`.
+- Update `ImagePromptPayload` type and all fixtures accordingly.
 
-- This is the largest section by file count. Work in batches to keep changes reviewable.
-- Each batch should be verified by running the tests.
-- Use the migration table in SPEC.md section 4.
+### Delegation mandatory reads
 
-**Cross-Section Notes from Section 0 Validation (read before starting):**
+- `AGENTS.md`, `docs/development/code-style.md`
+- `src/llm/gemini.service.ts`, `src/llm/llm.service.interface.ts`
+- `src/llm/gemini.service.spec.ts`, `src/v1/assessor/assessor.service.spec.ts`, `src/prompt/prompt.base.spec.ts`
 
-- **Spec files still have un-extended relative imports.** Section 1 deliberately left all `*.spec.ts` relative imports without `.js` extensions (they were already broken under Vitest at that stage, so fixing them prematurely would have created noise). **This section must add `.js` extensions to all relative imports in spec files** as part of making them pass under Vitest's `NodeNext`-aware resolver. There are 83 such imports. Apply the same `from './foo'` → `from './foo.js'` pattern.
-- **`status.service.spec.ts` JSON import needs the `with { type: 'json' }` attribute** — same TS1543 fix as the production source (fixed in Section 1). Apply it here when migrating the spec.
-- **Constructor injection works without `@Inject()` — confirmed.** Do not add `@Inject()` decorators to spec mocks "for safety". Use `provide: SomeService, useValue: mockObject` as before — Vitest preserves `emitDecoratorMetadata` (R8 mitigation, see Section 0 results).
-- **Vitest is type-unaware at runtime; types come from `vitest/globals`.** Section 2's config enables `globals: true`. `describe`/`it`/`expect`/`beforeEach` work as globals. For `Mock` types, import from `vitest` (replaces `jest.Mock`). Do not import from `@jest/globals` — it no longer exists after Section 2.
+### Acceptance criteria
 
-**Acceptance Criteria:**
+- `buildContents` for image payloads returns `['', ...imageParts]` (leading empty text part required by Gemini + image parts). No `messages` extraction remains.
+- `mapImageParts` handles only the inline `data` shape; the `uri` branch is gone.
+- `ImagePromptPayload.messages` is removed from the type.
+- `uri?` is removed from the `ImagePromptPayload.images` element type in `src/llm/llm.service.interface.ts` (becomes `Array<{ mimeType: string; data?: string }>`); no producer emits `uri`.
+- `gemini.service.spec.ts` `createImagePayload` no longer sets `messages`; the `mockGenerateContent` assertion expects `['', { inlineData: { mimeType, data } }]`.
+- `assessor.service.spec.ts` and `prompt.base.spec.ts` fixtures no longer set `messages`.
 
-1. All 36 spec files use Vitest API (`vi.fn()`, `vi.mock()`, etc.) instead of Jest API.
-2. No `jest.*` calls remain in any `src/**/*.spec.ts` file.
-3. `npm run test` passes all unit and integration tests.
-4. Test coverage is maintained (no tests dropped or silently skipped).
+### Required test cases (Red first)
 
-**Red-First Tests:**
+1. **Red**: In `gemini.service.spec.ts`, change `createImagePayload()` to drop `messages` and update the multimodal test so `expect(mockGenerateContent).toHaveBeenCalledWith([...])` expects `['', { inlineData: { mimeType: 'image/png', data: 'test-data' } }]`. Run it; it fails against the old code (which still injects `'Test message'`).
+2. Update `assessor.service.spec.ts` mock multimodal payload to drop `messages` and `prompt.base.spec.ts` `TestPrompt.buildMessage` to drop `messages`.
 
-- The tests are already "red" from Section 2 (Jest APIs don't exist in Vitest). This section makes them "green".
+### Section checks
 
-**Green — Implementation Steps (batched):**
+- `npm test -- src/llm/gemini.service.spec.ts src/v1/assessor/assessor.service.spec.ts src/prompt/prompt.base.spec.ts`
+- `npm run lint`
 
-**Batch 1: Simple replacements (no `jest.mock()` or `jest.doMock()`)**
-Files that only use `jest.fn()`, `jest.spyOn()`, `jest.clearAllMocks()`:
+### Optional `@remarks` JSDoc follow-through
 
-- Migrate `jest.fn()` → `vi.fn()`
-- Migrate `jest.spyOn()` → `vi.spyOn()`
-- Migrate `jest.clearAllMocks()` → `vi.clearAllMocks()`
-- Migrate `jest.Mock` type → `Mock` from `vitest`
-- Run `npm run test` to verify.
+- None.
 
-**Batch 2: Files with `jest.mock()`**
-Files: `app.module.spec.ts`, `gemini.service.spec.ts`, `config.service.spec.ts`, `config.environment-example.spec.ts`, `table.prompt.spec.ts`, `image.prompt.spec`, `text.prompt.spec.ts`, `status.service.spec.ts`, `bootstrap.spec.ts`
+### Implementation notes / deviations / follow-up
 
-- Migrate `jest.mock()` → `vi.mock()`
-- Migrate `jest.requireActual()` → `vi.importActual()` (note: async)
-- Convert synchronous mock factories to async where `requireActual` is used.
-- Migrate `jest.mocked()` → `vi.mocked()` (in `config.service.spec.ts`, `config.environment-example.spec.ts`, `table.prompt.spec.ts`, `text.prompt.spec.ts`).
-- Remove `import { ... } from '@jest/globals'` in `bootstrap.spec.ts` (globals are enabled via config).
-- Update ESLint directive comments: `jest/expect-expect` → `vitest/expect-expect` (9 occurrences in `gemini.service.spec.ts`).
-- Note: `bootstrap.spec.ts` and `status.service.spec.ts` also use `jest.resetModules()` but NOT `jest.doMock()`. They use `jest.mock()` + `jest.resetModules()` — migrate `jest.resetModules()` → `vi.resetModules()` straightforwardly.
-- Run `npm run test` to verify.
-
-**Batch 3: Files with `jest.doMock()` + `jest.resetModules()`**
-Files: `main.spec.ts`, `testing-main.spec.ts` (ONLY these two files use `jest.doMock()`)
-
-- Apply the `doMock` migration pattern from SPEC.md section 4:
-  - Move `vi.mock()` to file scope (hoisted).
-  - Use mutable variables for mock implementations.
-  - Use `vi.resetModules()` in `beforeEach()`.
-- Run `npm run test` to verify.
-
-**Batch 4: Files with `jest.useFakeTimers()` and other edge cases**
-Files: `status.service.spec.ts` (uses `jest.useFakeTimers()` / `jest.useRealTimers()`)
-
-- Migrate `jest.useFakeTimers()` → `vi.useFakeTimers()`
-- Migrate `jest.useRealTimers()` → `vi.useRealTimers()`
-- Run `npm run test` to verify.
-
-**Refactor:**
-
-- Remove any unnecessary `vi.resetModules()` calls.
-- Ensure all mock types are correctly typed.
-- Run `npm run test:cov` to verify coverage is maintained.
-
-**Section Checks:**
-
-- [x] All 36 spec files migrated (verified: `grep -rn "jest\." src/ --include=*.spec.ts` finds zero `jest.*` API calls; the only `jest` references are `jest/expect-expect` ESLint disable comments, which are pre-existing and carried over — see completion notes).
-- [x] Zero `jest.*` calls in `src/**/*.spec.ts`.
-- [x] `npm run test` passes all unit/integration tests (36 files, 211 tests, 0 failures).
-- [x] Coverage report shows no significant drop (lines 91.21%, statements 90.55%, functions 96.49%).
-- [x] The 7 `unicorn/prefer-await` lint errors in `src/common/http-exception.filter.spec.ts` are resolved (via `filter['catch'](...)` bracket-access — a code change, NOT a suppression), and `npm run lint` is fully clean (0 errors, 0 warnings).
-
-**Section 3 — Completion Notes (2026-07-07):**
-
-- Migrated all 36 `src/**/*.spec.ts` files: `jest.fn/spyOn/clearAllMocks/resetAllMocks/mock/mocked/resetModules/useFakeTimers/useRealTimers/doMock` → Vitest equivalents; `jest.Mock`/`jest.SpyInstance` types → `Mock`/`MockInstance` from `vitest`; removed `@jest/globals` imports; updated ESLint directive comments.
-- Added `.js` extensions to all relative imports in spec files (83 imports) per NodeNext ESM rules.
-- `status.service.spec.ts` JSON import uses `with { type: 'json' }` and `packageJson.default.version`.
-- `main.spec.ts` / `testing-main.spec.ts` (`jest.doMock`) migrated to `vi.hoisted()` + `vi.mock()` at file scope + `vi.resetModules()` in `beforeEach`.
-- `gemini.service.spec.ts` `GoogleGenerativeAI` class mock changed to `mockImplementation(function () { return {...} })` (regular function, constructable via `new`).
-- `mustache` import in `table.prompt.spec.ts` / `text.prompt.spec.ts` changed to default import (matching `prompt.base.ts`) to fix `render is not a function` under ESM interop.
-- Fixed a double `.js.js` extension bug (from an over-applied script) in `api-key.service.spec.ts`, `auth.module.spec.ts`, `prompt.factory.spec.ts`.
-- `http-exception.filter.spec.ts`: 7 `filter.catch(...)` → `filter['catch'](...)` to resolve the `unicorn/prefer-await` false positive.
-- `eslint.config.js`: added `'coverage'` to top-level `ignores` so generated coverage artifacts are not linted (benign; `coverage/` is already gitignored).
-- Minor JSDoc prose "Jest" → "Vitest" fixes applied (8 references).
-- **Known follow-ups for Section 5:** (a) `eslint-plugin-vitest` is installed but INCOMPATIBLE with ESLint 10.x (crashes on load), so `vitest/expect-expect` directives could not be used; the 9 `jest/expect-expect` ESLint disable comments in `gemini.service.spec.ts` remain and reference the still-installed jest plugin. Section 5 must resolve this (either a compatible `eslint-plugin-vitest` version or an alternative). (b) The 7 `unicorn/prefer-await` resolution relies on `filter['catch']` bracket access — intentional and accepted.
+- _(Fill during implementation.)_
 
 ---
 
-## Section 4: Test File Migration — E2E and Prod Tests
+## Section 3 — De-duplicate status-code extraction and remove redundant logging
 
-**Objective:** Migrate all 10 test spec files in `test/` from Jest API to Vitest API.
+### Objective
 
-**Status:** Completed (2026-07-08).
+- Remove `GeminiService.extractStatusCode` (duplicate of `LLMService.extractErrorStatusCode`).
+- Remove the redundant try/catch error logging in `GeminiService._sendInternal`, since `LLMService.send` already logs terminal failures.
 
-**Red-state baseline (confirmed 2026-07-07):** The 10 `test/**` files still use Jest APIs. Interestingly, under Vitest v4 with `eslint-plugin-jest` still installed, the E2E run currently shows 42 tests passing + only `test/start-app.e2e-spec.ts` failing (it calls `jest.setTimeout()` at module scope). After migration the whole `test:e2e:mocked` run must pass. The `src/...` path-alias imports in `test/` files are resolved by the `alias: srcAlias` config already added in Section 2 (no need to rewrite them).
+### Constraints
 
-**Completion Notes (2026-07-08):**
+- The subclass (`GeminiService`) will no longer call `extractErrorStatusCode` once its `_sendInternal` try/catch is removed, so **no change to the base class is required**. Keep `LLMService.extractErrorStatusCode` `private` (do **not** make it `protected`); Assumption 5 holds ("no base-class change expected"). Any text suggesting the base class must change for the subclass to reuse the extractor is obsolete and should be ignored.
+- Error-handling semantics (retry on 429, `ResourceExhaustedError` on quota, terminal throw) must be unchanged.
+- Confirm the new `@google/genai` errors expose `status`/`message` (Assumption 5); if so, no change to the base class.
 
-- All 10 `test/**` files migrated to Vitest; `.js` extensions added to relative imports (14 identified + others found); `src/...` alias imports left un-extended (resolved by the alias).
-- `jest.setTimeout()` removed from `start-app.e2e-spec.ts`, `log-watcher.unit-spec.ts`, `docker-image.production-spec.ts`; per-suite `testTimeout` inherited from workspace config.
-- No `vi.mock('@google/generative-ai')` added — LLM mocking continues via the `--import llm-mock.mjs` child-process shim (intact in `app-lifecycle.ts`; only a `.js` import extension was added there).
-- `vitest.config.ts` refined: unit project `include` gained `test/**/*.unit-spec.ts` (so `log-watcher.unit-spec.ts` is discovered); prod project `include` corrected to `*.production-spec.ts` to match the actual filename `docker-image.production-spec.ts` (the old `*.prod-spec.ts` pattern matched nothing).
-- **Verification:** `npm run test` → 37 files / 214 tests pass. `npm run test:e2e:mocked` → EXIT 0, 7 files / 44 tests pass (1 todo), no `EADDRINUSE`, app boots under ESM. `npm run lint` → 0 errors.
-- **Could NOT run here (environment limitations, not migration failures):** `npm run test:e2e:live` (missing `data/tableTask.json` test data and/or no live Gemini API key) and `npm run test:prod` (no Docker). These are pre-existing environment dependencies, not regressions introduced by the migration.
-- **Code review:** The automated `code-reviewer` sub-agent returned empty twice (unavailable). A manual gate check was performed instead: grep confirms zero `jest.` API calls and zero `jest.setTimeout` in `test/`; zero `vi.mock` for generative-ai; zero `.js.js` doubling; `app-lifecycle.ts` shim block intact. Combined with the passing test/lint runs, this satisfies the Section 4 gate.
+### Delegation mandatory reads
 
-**Constraints:**
+- `AGENTS.md`, `docs/development/code-style.md`
+- `src/llm/gemini.service.ts`, `src/llm/llm.service.interface.ts`, `src/llm/gemini.service.spec.ts`
 
-- E2E tests require `npm run build` before running.
-- E2E tests spawn a child process — verify the ESM entry point works.
-- Prod tests run against the Docker image — may need separate handling.
+### Acceptance criteria
 
-**Cross-Section Notes from Section 0 Validation (read before starting):**
+- `GeminiService` has no `extractStatusCode` method; it reuses the base extractor (or reads `error.code` separately if needed).
+- `_sendInternal` no longer wraps the call in a try/catch that re-logs; it returns `this.generateAndParseResponse(...)` directly.
+- `gemini.service.spec.ts` error/retry/resource-exhausted suites still pass (they assert thrown errors and call counts).
+- Failed requests are logged exactly once (by the base class).
 
-- **`test/` files have 14 un-extended relative imports** (deferred from Section 1, same as Section 3). Apply `from './foo'` → `from './foo.js'` when migrating.
-- **E2E child-process entry point is `dist/src/testing-main.js`.** Section 0 confirmed this starts as ESM under Node 24. The `app-lifecycle.ts` spawn pattern does not need to change beyond Section 2's removal of the `--require` shim block.
-- **ESM entry-point detection (`import.meta.url` comparison) was validated.** `testing-main.js` correctly detects direct execution under ESM. No code change needed beyond Section 1's `isRunningDirectly()` rewrite.
+### Required test cases (Red first)
 
-**Acceptance Criteria:**
+1. **Red**: Confirm the existing `gemini.service.spec.ts` error/retry suites still pass after removing the subclass catch (they should — base class owns logging). Assert no duplicate log if a logger spy is in place.
+2. **Red**: Confirm `extractStatusCode` is no longer referenced anywhere (grep).
 
-1. All 10 test spec files use Vitest API.
-2. No `jest.*` calls remain in `test/**/*.ts`.
-3. `npm run test:e2e:mocked` passes.
-4. `npm run test:e2e:live` passes (if API key available).
-5. `npm run test:prod` passes.
+### Section checks
 
-**Red-First Tests:**
+- `npm test -- src/llm/gemini.service.spec.ts`
+- `npm run lint`
 
-- Tests are "red" from Section 2. This section makes them "green".
+### Optional `@remarks` JSDoc follow-through
 
-**Green — Implementation Steps:**
+- None.
 
-1. **Migrate E2E test files:**
-   - `test/assessor.e2e-spec.ts`
-   - `test/assessor-live.e2e-spec.ts`
-   - `test/auth.e2e-spec.ts`
-   - `test/logging.e2e-spec.ts`
-   - `test/main.e2e-spec.ts`
-   - `test/pentesting.e2e-spec.ts`
-   - `test/start-app.e2e-spec.ts` — uses `jest.setTimeout()`. Migrate to per-suite `testTimeout: 30000` in workspace config (already specified). Remove the `jest.setTimeout()` call.
-   - `test/throttler.e2e-spec.ts`
-   - `test/log-watcher.unit-spec.ts` — uses `jest.setTimeout()`. Migrate to per-suite `testTimeout` in workspace config. Remove the `jest.setTimeout()` call.
-   - `test/prod-tests/docker-image.production-spec.ts` — uses `jest.setTimeout()`. Migrate to per-suite `testTimeout: 600000` in workspace config (already specified). Remove the `jest.setTimeout()` call.
+### Implementation notes / deviations / follow-up
 
-   Apply the same Jest → Vitest API migration as Section 3.
-
-2. **Verify E2E mocked tests:**
-
-   ```bash
-   npm run build && npm run test:e2e:mocked
-   ```
-   - Verify the child process starts (`dist/src/testing-main.js` runs as ESM).
-   - Verify the LLM mock works (responses are deterministic).
-
-3. **Verify E2E live tests** (if API key available):
-
-   ```bash
-   npm run build && npm run test:e2e:live
-   ```
-
-4. **Verify prod tests:**
-   ```bash
-   npm run build && npm run test:prod
-   ```
-
-**Refactor:**
-
-- Ensure `app-lifecycle.ts` works correctly with ESM entry point.
-- Verify log file watching works under ESM.
-
-**Section Checks:**
-
-- [x] All 10 test files migrated.
-- [x] Zero `jest.*` calls in `test/**/*.ts` (grep-confirmed).
-- [x] `npm run test:e2e:mocked` passes (EXIT 0, 44 tests).
-- [x] `npm run test:e2e:live` passes (or is skipped gracefully without API key) — NOT RUN here: missing live API key / `data/tableTask.json` (environment limitation; not a migration regression).
-- [x] `npm run test:prod` passes — NOT RUN here: no Docker environment (environment limitation; not a migration regression).
+- _(Fill during implementation.)_
 
 ---
 
-## Section 5: ESLint Configuration
+## Section 4 — Inject `ConfigService` for image MIME types (policy deviation fix)
 
-**Status:** Completed (2026-07-08).
+### Objective
 
-**Objective:** Update ESLint to remove Jest-specific workarounds and add Vitest support.
+- Stop reading `process.env.ALLOWED_IMAGE_MIME_TYPES` directly inside `ImagePrompt.readImageFile`; obtain the allowed MIME types via `ConfigService` in line with project policy.
 
-**Constraints:**
+### Constraints
 
-- No quality gates may be disabled (constraint C5).
-- Removed rules must be replaced with equivalents.
+- `ImagePrompt` is instantiated with `new` in `PromptFactory`, so the array is passed into its constructor.
+- The value is `string[]` from `ConfigService.get('ALLOWED_IMAGE_MIME_TYPES')`; the schema default handles the fallback (do not re-implement one).
+- `PromptModule` must import `ConfigModule` so `ConfigService` is injectable into `PromptFactory`. Update `src/prompt/prompt.module.ts` and the `PromptFactory` test modules (`src/prompt/prompt.factory.spec.ts`, `src/prompt/prompt.module.spec.ts`) accordingly; otherwise DI resolution fails.
+- `allowedMimeTypes` is appended as the **fifth** positional parameter of the `ImagePrompt` constructor, immediately after `systemPrompt` (i.e. `(inputs, logger, images?, systemPrompt?, allowedMimeTypes)`). All `new ImagePrompt(...)` call sites must pass it.
 
-**Acceptance Criteria:**
+### Delegation mandatory reads
 
-1. `eslint-plugin-jest` is removed from `eslint.config.js`.
-2. Vitest globals are recognised by ESLint.
-3. `unicorn/prefer-module` and `unicorn/prefer-top-level-await` overrides for `main.ts` and `testing-main.ts` are removed.
-4. `**/*.cjs` ignore block is removed.
-5. `npm run lint` passes with no errors.
+- `AGENTS.md`, `docs/development/code-style.md`
+- `src/prompt/image.prompt.ts`, `src/prompt/prompt.factory.ts`
+- `src/config/config.service.ts`, `src/config/environment.schema.ts`, `src/prompt/image.prompt.spec.ts`
 
-**Red-First Tests:**
+### Shared helper plan
 
-- After removing Jest plugin and overrides, `npm run lint` will fail on files that still reference Jest patterns (if any remain from earlier sections). This is expected.
+- **Helper decision**: `reuse` — `ConfigService.get('ALLOWED_IMAGE_MIME_TYPES')` already wired through `ConfigModule`/`CommonModule`. No new helper.
+- **Owning path**: `src/config/config.service.ts` (provided by `ConfigModule`).
+- **Call-site rationale**: `PromptFactory` lives in `PromptModule`, but `PromptModule` does **not** currently import `ConfigModule` and `ConfigModule` is not `@Global()`. Injecting `ConfigService` into `PromptFactory` therefore requires two coupled changes: (1) add `imports: [ConfigModule]` to `PromptModule`; (2) inject `ConfigService` into `PromptFactory`'s constructor and pass `configService.get('ALLOWED_IMAGE_MIME_TYPES')` into `new ImagePrompt(...)`. This keeps domain code free of `process.env`.
 
-**Green — Implementation Steps:**
+> **Verified during review (load-bearing correction)**: `PromptModule` (`src/prompt/prompt.module.ts`) currently declares only `providers: [PromptFactory, Logger]` and `exports: [PromptFactory]`; it does **not** import `ConfigModule`. The corresponding test modules (`prompt.factory.spec.ts`, `prompt.module.spec.ts`) likewise do not import `ConfigModule`. All three must gain `imports: [ConfigModule]` (or provide `ConfigService`) when `PromptFactory` gains the `ConfigService` dependency, otherwise NestJS DI fails at runtime / module-compile time. The original assertion that "PromptFactory already lives in PromptModule (imports ConfigModule)" is **false** and must not be relied upon.
 
-1. **Update `eslint.config.js`:**
-   - Remove `import jest from 'eslint-plugin-jest'`.
-   - Remove `jest` from plugins object.
-   - Remove `...globals.jest` from globals.
-   - Remove `...jest.configs.recommended.rules` from test file rules.
-   - Remove `unicorn/prefer-module: 'off'` and `unicorn/prefer-top-level-await: 'off'` overrides for `src/main.ts` and `src/testing-main.ts`.
-   - Remove `unicorn/prefer-uint8array-base64: 'off'` for `image-validation.pipe.ts` (CI now uses Node 24 which supports `Uint8Array.fromBase64()`).
-   - Remove `**/*.cjs` ignore block and rules.
-   - Add Vitest globals to the globals for test files: `vi: 'readonly'`, `describe: 'readonly'`, `it: 'readonly'`, `expect: 'readonly'`, `beforeEach: 'readonly'`, `afterEach: 'readonly'`, `beforeAll: 'readonly'`, `afterAll: 'readonly'`.
-   - Alternatively, install and configure `eslint-plugin-vitest`.
+### Acceptance criteria
 
-2. **Run `npm run lint`:**
-   - Fix any remaining issues.
+- `ImagePrompt.readImageFile` no longer references `process.env`.
+- `ImagePrompt` constructor accepts `allowedMimeTypes: string[]` (fifth positional parameter, after `systemPrompt`) and uses it for the MIME check.
+- `PromptFactory` injects `ConfigService` and passes `configService.get('ALLOWED_IMAGE_MIME_TYPES')` into `new ImagePrompt(...)`.
+- `image.prompt.spec.ts` constructs `ImagePrompt` with an explicit `allowedMimeTypes` array (no `process.env` mutation required) at **all** call sites: lines 46, 74, 89, 102, 116, 131, 148, 160 (8 occurrences), and the production call site in `prompt.factory.ts` (line 186).
+- `PromptModule` (`src/prompt/prompt.module.ts`) declares `imports: [ConfigModule]`.
+- `prompt.factory.spec.ts` and `prompt.module.spec.ts` `TestingModule` setups import `ConfigModule` (or provide `ConfigService`) so `PromptFactory` resolves.
 
-**Refactor:**
+### Required test cases (Red first)
 
-- Ensure all test files pass linting.
-- Verify no Jest-specific rules remain.
+1. **Red**: In `image.prompt.spec.ts`, remove every `process.env.ALLOWED_IMAGE_MIME_TYPES = ...` setup (lines 19, 109, 154) and pass an explicit `allowedMimeTypes` array to **all** `ImagePrompt` constructor calls (lines 46, 74, 89, 102, 116, 131, 148, 160). Assert (a) allowed MIME accepted, (b) disallowed MIME rejected, (c) path traversal/absolute rejected. Run; it fails because the constructor no longer reads `process.env` and the call sites are missing the new argument.
+2. **Red**: Add a test that an empty/undefined mimeType is rejected.
 
-**Section Checks:**
+### Section checks
 
-- [x] `npm run lint` passes (0 errors, 0 warnings).
-- [x] No `eslint-plugin-jest` in `eslint.config.js` (removed import, plugin entry, `jest.configs.recommended.rules`, and `globals.jest`).
-- [x] No `**/*.cjs` exceptions (removed from top-level `ignores` and the `**/*.cjs` override block).
-- [x] No `unicorn/prefer-module` overrides for entry-point files (`main.ts`/`testing-main.ts` overrides removed; entry points now use top-level `await start()` and no longer reference `require`/`module`).
+- `npm test -- src/prompt/image.prompt.spec.ts src/prompt/prompt.factory.spec.ts src/prompt/prompt.module.spec.ts`
+- `npm run lint`
 
-**Completion Notes (2026-07-08):**
+### Optional `@remarks` JSDoc follow-through
 
-- Vitest globals recognised via `globals.vitest` (added to `languageOptions.globals`), NOT via `eslint-plugin-vitest`. That package is installed but **incompatible with ESLint 10.x** and was uninstalled; the `globals` package already exposes the full Vitest global set (`vi`, `expect`, `test`, `it`, `describe`, `beforeEach`, etc.).
-- `eslint-plugin-jest`, `jest`, `@types/jest`, `@jest/globals`, `jest-junit`, `ts-jest` removed from `package.json` / `package-lock.json`.
-- `src/main.ts` and `src/testing-main.ts` converted to top-level `await start()` (guarded by `isRunningDirectly()`), so the removed `unicorn/prefer-top-level-await` / `prefer-module` overrides are no longer needed. ESM entry-point detection preserved.
-- `gemini.service.spec.ts`: the 9 `jest/expect-expect` suppression comments were removed (the rule no longer exists; `unicorn/prefer-expect` is not present in `eslint-plugin-unicorn` v69, so no replacement suppression is required).
-- **Deviation (deferred):** The `unicorn/prefer-uint8array-base64: 'off'` override for `image-validation.pipe.ts` / `.spec.ts` was RETAINED. Removing it surfaces 7 `unicorn/prefer-uint8array-base64` errors across 4 files that use `Buffer.from(…, 'base64')`; migrating those to `Uint8Array.fromBase64()` is a code change (Buffer is a Uint8Array subclass whose `.toString()`/behaviour differs) outside the ESLint-configuration scope of this section and risks type/runtime regressions. Deferred to a separate follow-up. This does not affect the formal acceptance criteria (1–5), which are all met.
-- **Verification:** `npm run lint` → 0 errors / 0 warnings; `npm run test` → 214 pass; `npm run build` → clean.
-- **Code review:** automated `code-reviewer` sub-agent returned empty (unavailable); independent manual verification (lint/test/build) performed instead.
+- Document on `ImagePrompt`/`readImageFile` that allowed MIME types are supplied via `ConfigService` (injected through `PromptFactory`), not read from `process.env`.
+
+### Implementation notes / deviations / follow-up
+
+- _(Fill during implementation.)_
 
 ---
 
-## Section 6: CI/CD and Scripts
+## Section 5 — Migrate `GeminiService` to the `@google/genai` SDK
 
-**Status:** Completed (2026-07-08).
+### Objective
 
-**Objective:** Update CI workflow and npm scripts for Vitest.
+- Replace the deprecated `@google/generative-ai` SDK with the maintained, GA `@google/genai` SDK in `GeminiService`, correcting the request/response shapes per the official TypeDoc.
+- Correct the thinking configuration to the supported shape: `config.thinkingConfig = { thinkingBudget: 0 }` for the Gemini 2.5 models used here (the old top-level `thinking: { budget: 0 }` was not recognised by the API).
 
-**Constraints:**
+### Constraints
 
-- CI must continue to run lint, unit tests, and E2E tests.
-- JUnit reports must still be generated for GitHub test reporting.
+- Preserve the `LLMService` base class, its retry/backoff logic, and the `GeminiService extends LLMService` contract and `_sendInternal` signature.
+- Use `ai.models.generateContent({ model, contents, config })`:
+  - `contents` is a flat array: `[payload.user]` for text, `['', ...imageParts]` for images.
+  - `config.systemInstruction` = `payload.system` (string accepted), `config.temperature` = `payload.temperature ?? 0`, `config.thinkingConfig = { thinkingBudget: 0 }`.
+- Read the response via `result.text ?? ''` (the `GenerateContentResponse.text` getter), not `result.response.text()`.
+- Remove `GeminiModelParameters` from `src/llm/types.ts` (it extended the old SDK's `ModelParams`).
+- Keep `Part` typing from `@google/genai`.
+- **`_sendInternal` debug log must be updated**: it currently logs `modelParameters.generationConfig?.temperature ?? 0`. Once `buildModelParams` returns `{ model, config }` (no `generationConfig`), update the log to read `modelParameters.config.temperature ?? 0`. The `modelParameters` local is no longer typed as `GeminiModelParameters`.
+- **Final `generateAndParseResponse` signature**: `private async generateAndParseResponse(payload: LlmPayload): Promise<LlmResponse>`. It calls `this.buildModelParams(payload)` (returns `{ model, config }`) and `this.buildContents(payload)` internally, then `this.client.models.generateContent({ model, contents, config })`. `_sendInternal` calls `return this.generateAndParseResponse(payload);` directly — do **not** pass a separate `contents` argument (the current `(modelParameters, contents)` signature is retired).
+- **Local return type for `buildModelParams`**: introduce a named type, e.g. `type GeminiRequest = { model: string; config: GenerateContentConfig }`, now that `GeminiModelParameters` is removed. Use it for the `buildModelParams` return and the `_sendInternal` / `generateAndParseResponse` locals.
 
-**Acceptance Criteria:**
+### Delegation mandatory reads
 
-1. `.github/workflows/ci.yml` references Vitest commands and report paths.
-2. `npm run test:cov` produces coverage output.
-3. JUnit XML reports are generated at `./junit/vitest-junit.xml`.
-4. `verify:assessor` script works under ESM.
+- `AGENTS.md`, `docs/development/code-style.md`
+- `src/llm/gemini.service.ts`, `src/llm/types.ts`, `src/llm/llm.service.interface.ts`
+- `src/llm/gemini.service.spec.ts`
+- Official reference: `GenerateContentParameters`, `GenerateContentConfig`, `ThinkingConfig` (TypeDoc URLs in Read-First Context), and the JavaScript migration guide.
 
-**Green — Implementation Steps:**
+### Shared helper plan
 
-1. **Update `.github/workflows/ci.yml`:**
-   - Line 19, 41, 69: Change `node-version: '22'` → `node-version: '24'` (align with Dockerfile's `node:24-alpine`).
-   - Line 47: Change `npm test -- --verbose --coverage` → `npm run test:cov`.
-   - Line 53: Change `report_paths: './junit/jest-junit.xml'` → `report_paths: './junit/vitest-junit.xml'`.
-   - Line 81: Change `npm run test:e2e -- --verbose` → `npm run test:e2e`.
-   - Line 87: Change `report_paths: './junit/jest-junit.xml'` → `report_paths: './junit/vitest-junit.xml'`.
+- **Helper decision**: `keep local` — the payload-building helpers (`buildContents`, `mapImageParts`, `buildModelParams`) stay in `GeminiService`; only their return shapes change to match the new SDK.
+- No new shared helper is introduced.
 
-2. **Configure Vitest JUnit reporter:**
-   - Add to Vitest config: `reporters: ['default', 'junit']`, `outputFile: './junit/vitest-junit.xml'`.
+### Acceptance criteria
 
-3. **Update `verify:assessor` script:**
-   - Change from `ts-node scripts/verify-assessor.ts` → `tsx scripts/verify-assessor.ts`.
-   - Install `tsx` if not already present: `npm install --save-dev tsx`.
+- `gemini.service.ts` imports `{ GoogleGenAI, type Part }` from `@google/genai`; no import from `@google/generative-ai`.
+- Constructor: `this.client = new GoogleGenAI({ apiKey: this.configService.get('GEMINI_API_KEY') })`.
+- `generateAndParseResponse(payload)` internally calls `this.client.models.generateContent({ model, contents: this.buildContents(payload), config })` (where `model`/`config` come from `buildModelParams(payload)`) and uses `result.text ?? ''`.
+- `buildModelParams(payload)` returns `{ model, config: { systemInstruction, temperature, thinkingConfig: { thinkingBudget: 0 } } }`.
+- `package.json` no longer lists `@google/generative-ai`; `@google/genai` (`^2.10.0`) remains. Lockfile updated via install.
+- `GeminiModelParameters` removed from `src/llm/types.ts`.
+- `gemini.service.spec.ts` mocks `@google/genai` (not `@google/generative-ai`) and asserts the new shapes; error tests use `ApiError` from `@google/genai` (extends `Error`, exposes `status: number`), constructed as `new ApiError({ message, status })`.
+- No reference to `@google/generative-ai` remains in `src/` (grep).
 
-4. **Verify CI locally:**
-   - Run `npm run lint`.
-   - Run `npm run test:cov`.
-   - Run `npm run test:e2e`.
+### Required test cases (Red first)
 
-**Section Checks:**
+1. **Red**: Update `gemini.service.spec.ts` mock to import `GoogleGenAI` from `@google/genai` and return `{ models: { generateContent: mockGenerateContent } }`. Update `createValidResponse` to return `{ text: '<json>' }` (not `{ response: { text: () => ... } }`). Additionally:
+   - Update the `should initialise the SDK correctly` test: the constructor call is now `new GoogleGenAI({ apiKey: 'test-api-key' })`, so change the assertion from `toHaveBeenCalledWith('test-api-key')` to `toHaveBeenCalledWith({ apiKey: 'test-api-key' })`.
+   - Remove the now-defunct `mockGetGenerativeModel` declaration and **both** `expect(mockGetGenerativeModel).toHaveBeenCalledWith(...)` assertions (the SDK no longer exposes `getGenerativeModel`; these would be undefined and fail to compile). The `mockGenerateContent` call-shape assertions in Red #2/#3 supersede them.
+     Run; it fails against the old `@google/generative-ai` mock/shape and the stale `mockGetGenerativeModel` references.
+2. **Red**: Update the string-payload test assertion to `expect(mockGenerateContent).toHaveBeenCalledWith({ model: 'gemini-2.5-flash-lite', contents: ['test prompt'], config: { systemInstruction: 'system prompt', temperature: 0, thinkingConfig: { thinkingBudget: 0 } } })`.
+3. **Red**: Update the multimodal test assertion to `expect(mockGenerateContent).toHaveBeenCalledWith({ model: 'gemini-2.5-flash', contents: ['', { inlineData: { mimeType: 'image/png', data: 'test-data' } }], config: { systemInstruction: 'system prompt', temperature: 0, thinkingConfig: { thinkingBudget: 0 } } })`.
+4. **Red**: Replace `GoogleGenerativeAIFetchError` usages in error/retry tests with `ApiError` from `@google/genai`. Construct as `new ApiError({ message: 'Rate limited', status: 429 })` — note the constructor takes an `ApiErrorInfo` object `{ message, status }`, not a `(message, status)` tuple. Confirm `ApiError.status` (number) is read by the base `LLMService.extractErrorStatusCode`, so no base-class change is needed.
 
-- [x] `ci.yml` updated (Node 24 across all jobs; `npm run test:cov` and `npm run test:e2e`; `./junit/vitest-junit.xml` report paths).
-- [x] JUnit reports generated at correct path (`./junit/vitest-junit.xml`; confirmed valid XML for both unit/coverage and e2e runs).
-- [x] `verify:assessor` — see deviation below (script removed; target file was intentionally deleted pre-migration).
-- [x] All npm scripts work (`test`, `test:cov`, `test:e2e:mocked`, `test:e2e:live`, `test:prod`, `lint` all verified).
+### Section checks
 
-**Completion Notes (2026-07-08):**
+- `npm test -- src/llm/gemini.service.spec.ts`
+- `npm run lint`
+- `grep -r "@google/generative-ai" src` returns nothing.
 
-- `.github/workflows/ci.yml`: three `node-version: '22'` → `'24'`; unit job `npm test -- --verbose --coverage` → `npm run test:cov`; both JUnit `report_paths` `./junit/jest-junit.xml` → `./junit/vitest-junit.xml`; e2e job `npm run test:e2e -- --verbose` → `npm run test:e2e`.
-- `vitest.config.ts` already included the JUnit reporter (`reporters: ['default', 'junit']`, `outputFile: './junit/vitest-junit.xml'`) from Section 2, so no change was needed there.
-- **Deviation — `verify:assessor` script removed:** `package.json`'s `verify:assessor` script referenced `scripts/verify-assessor.ts`, which was **intentionally deleted** in commit `ca02f4d` ("chore: remove unused Jest E2E debug script and verify assessor script", authored 2025-08-08, pre-dating this migration). It is genuinely dead code, not a migration regression. Rather than restore deleted code, the dead script reference was removed from `package.json` and the `tsx` devDependency that had been added for it was uninstalled (nothing else uses `tsx`; `dev:delegate` still uses `ts-node`). `npm run lint` remains 0 errors.
-- **Verification:** `npm run lint` → 0 errors/0 warnings; `npm run test:cov` → 214 pass + `coverage/` produced + `./junit/vitest-junit.xml` written; `npm run test:e2e:mocked` → 44 pass + JUnit regenerated; `./junit/vitest-junit.xml` is valid `<testsuites>` XML.
-- **Code review:** automated `code-reviewer` sub-agent unavailable (returned empty); manual verification (lint/test/coverage/junit) performed instead.
+### Optional `@remarks` JSDoc follow-through
 
----
+- Note in `GeminiService` that `result.text` is used (the new SDK exposes the concatenated text via a getter) and that `thinkingConfig.thinkingBudget = 0` disables thinking for the 2.5 models.
 
-## Section 7: Documentation Updates
+### Implementation notes / deviations / follow-up
 
-**Status:** Completed (2026-07-08) — project documentation migrated; `AGENTS.md`/`.opencode/agents/*.md` deferred (see note).
-
-**Objective:** Update all documentation files that reference Jest.
-
-**Constraints:**
-
-- British English compliance (constraint C6).
-- Documentation must accurately reflect the new tooling.
-
-**Acceptance Criteria:**
-
-1. All 22 documentation files listed in SPEC.md section 12 are updated.
-2. No references to `jest`, `Jest`, `jest.config.js`, `jest-e2e.*.config.cjs`, `jest.fn()`, `jest.Mock`, etc. remain in documentation.
-3. Code examples use Vitest API (`vi.fn()`, `vi.mock()`, etc.).
-
-**Green — Implementation Steps:**
-
-1. **Update each file** (see SPEC.md section 12 for the full list):
-   - Replace "Jest" with "Vitest" in prose.
-   - Replace `jest.fn()` with `vi.fn()` in code examples.
-   - Replace `jest.Mock` with `Mock` (from `vitest`) in code examples.
-   - Update config file references (`jest.config.js` → `vitest.workspace.ts`, etc.).
-   - Update command references (`npm test` → same, but underlying tool is Vitest).
-   - Remove references to `llm-http-shim.cjs` and `--require` pattern.
-   - Update testing guides to describe Vitest patterns.
-
-2. **Update `AGENTS.md`:**
-   - Tech stack: "Vitest for unit, integration, and E2E tests."
-   - File path resolution: Remove "and Jest test environments" from `getCurrentDirname()` description.
-
-3. **Update `.opencode/agents/*.md` and `.github/agents/*.md`:**
-   - Update agent descriptions and routing rules to reference Vitest.
-
-**Section Checks:**
-
-- [x] All project documentation files that referenced Jest were updated (`docs/**` and `README.md`; 13 files contained references). SPEC.md/ACTION_PLAN.md intentionally retain planning-history references and are excluded per the check definition.
-- [~] `grep -r "jest" docs/ AGENTS.md README.md` returns no results **for `docs/` and `README.md`** (verified 0 matches, case-insensitive). `AGENTS.md` and `.opencode/agents/*.md` were **intentionally NOT updated/committed** in this migration (they are owned by other agents and the user requested they remain separate) — see deviation note. Those two file groups still contain Jest references and are deferred to their owners.
-- [x] Code examples use Vitest API (`vi.fn()`, `vi.mock()`, `Mock` from `vitest`, `vitest.config.ts`, `vitest run --project ...`, `llm-mock.mjs` + `--import` shim).
-
-**Completion Notes (2026-07-08):**
-
-- Updated 13 files: `README.md`, `docs/architecture/overview.md`, `docs/copilot-environment.md`, `docs/deployment/cicd.md`, `docs/development/code-style.md`, `docs/development/debugging.md`, `docs/development/git-workflow.md`, `docs/development/workflow.md`, `docs/modules/utilities.md`, `docs/testing/README.md`, `docs/testing/E2E_GUIDE.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/PROD_TESTS_GUIDE.md`. Changes: prose Jest→Vitest, `jest.fn()`→`vi.fn()`, `jest.Mocked<>`→`Mocked<>`, config refs `jest*.{js,cjs}`→`vitest.config.ts`/workspace projects, commands `npx jest`→`npx vitest run --project ...`, `llm-http-shim.cjs`+`--require`→`llm-mock.mjs`+`--import`, coverage Jest/Istanbul→Vitest/`@vitest/coverage-v8`, JUnit path `jest-junit.xml`→`vitest-junit.xml`. British English preserved.
-- **Deviation (deferred):** `AGENTS.md` and `.opencode/agents/*.md` were NOT edited or committed, per the user's instruction that those uncommitted model/agent changes are owned by other agents and must stay separate from this migration. Consequently the Section Check grep still finds Jest references in those two file groups. This does not affect the migrated code or its behaviour; it is a documentation-consistency item for the owning agent/user to complete.
-- **Verification:** `grep -rni "jest" docs/ README.md` → 0 matches. (Note: `code-reviewer` sub-agent was unavailable again; documentation accuracy verified by the docs agent's own grep plus the orchestrator's independent grep.)
-- **Code review:** automated `code-reviewer` sub-agent unavailable (returned empty); independent manual verification performed instead.
+- Confirmed during planning: the new SDK exports `ApiError` (`extends Error`) with a `status: number` property, constructor `new ApiError({ message, status })`. The base `LLMService.extractErrorStatusCode` already reads `error.status`, so no base-class change is required. Verify the `ContentListUnion` typing accepts the flat `['', ...imageParts]` / `[user]` `contents` array during implementation.
 
 ---
 
-## Section 8: Final Cleanup and Regression
+## Section 5.5 — Live E2E validation of the migrated SDK (real Gemini API)
 
-**Status:** Completed (2026-07-08).
+### Objective
 
-**Objective:** Verify all state rules are met. Remove any remaining Jest artifacts. Run full regression.
+- Prove the migrated `@google/genai` shapes work against the **live** Gemini API before any further tidying, so SDK-shape defects (multimodal leading empty-string text part, `thinkingConfig`, `systemInstruction` as a string, the `result.text` getter, error/retry behaviour) are caught at the earliest sensible point and fixed in Section 5 rather than leaking into Sections 6–7 or the final regression.
 
-**Constraints:**
+### Why here (placement rationale)
 
-- All state rules S1–S7 must pass.
-- All success criteria from SPEC.md must be met.
+- Sections 1–4 do **not** change the SDK call path; a live run before Section 5 would only re-validate the _old_ SDK. Section 5 is the only section that rewrites the SDK integration, so it is the earliest point at which a live run can validate the _new_ shapes.
+- Sections 6–7 are pure tidying (dead-code collapse, spec consolidation) that do not alter the `generateContent` call, so validating immediately after Section 5 gives a tight feedback loop and avoids rework.
 
-**Acceptance Criteria:**
+### Prerequisites
 
-1. Zero `.cjs` files in the repository (excluding `node_modules`).
-2. Zero `require()` or `module.exports` in any source, test, or config file.
-3. Zero `jest.*` calls in any file.
-4. `package.json` has `"type": "module"` and no Jest dependencies.
-5. `tsconfig.json` emits ESM.
-6. All tests pass: `npm run test`, `npm run test:e2e:mocked`, `npm run test:e2e:live`, `npm run test:prod`.
-7. `npm run lint` passes.
-8. `npm run build` succeeds.
-9. `node dist/src/main.js` starts the application.
+- Network egress to the Gemini API and a **real** `GEMINI_API_KEY`. `test:e2e:live` spawns the built app via `startApp`, whose environment merge order is `process.env < defaults < .test.env < overrides`; the default `GEMINI_API_KEY` is the placeholder `dummy-key-for-testing`, so a shell `GEMINI_API_KEY` is **overridden**. Provide the real key in a `.test.env` file at the repo root (e.g. `GEMINI_API_KEY=<real-key>`).
+- `E2E_MOCK_LLM` must **not** be `true`. The `e2e-live` vitest project loads only `vitest.setup.ts` (not `vitest.e2e.setup.ts`, which sets `E2E_MOCK_LLM=true`), so the real `GeminiService` is used.
+- A successful `npm run build` (the `test:e2e:live` script builds first, but run it explicitly if reusing a prior build).
 
-**Green — Verification Steps:**
+### Delegation mandatory reads
 
-1. **Search for remaining artifacts:**
+- `AGENTS.md`, `docs/development/code-style.md`
+- `test/assessor-live.e2e-spec.ts`, `test/utils/app-lifecycle.ts`
+- `src/llm/gemini.service.ts` (post-Section-5 state)
 
-   ```bash
-   # No .cjs files
-   find . -name '*.cjs' -not -path './node_modules/*'
+### Acceptance criteria
 
-   # No require() or module.exports
-   grep -r 'require(' src/ test/ scripts/ --include='*.ts' --include='*.js'
-   grep -r 'module.exports' src/ test/ scripts/ --include='*.ts' --include='*.js'
+- `npm run test:e2e:live` passes: the TEXT, TABLE, and IMAGE `POST /v1/assessor` cases all return `201` with `completeness`, `accuracy`, and `spag` in the body.
+- The IMAGE case (which sends `['', ...imageParts]` to the live API) succeeds — confirming Assumption 2's leading empty-string text part is accepted by the live Gemini 2.5 models. This is the one behavioural risk the unit tests cannot surface.
+- No `ApiError`/shape-related failures in the app log for the migrated request/response shapes.
 
-   # No jest.* calls
-   grep -r 'jest\.' src/ test/ --include='*.ts'
-   ```
+### Required checks (Red/Green)
 
-2. **Run full test suite:**
+1. **Baseline (optional but recommended)**: before starting Section 5, run `npm run test:e2e:live` once against the current code to confirm credentials, network, and the live path are healthy. This isolates any later failure as migration-induced. If the baseline already fails, stop and fix environment/credentials first.
+2. **Green**: after Section 5 is complete and its unit suite passes, run `npm run test:e2e:live`. It must pass against the real API.
 
-   ```bash
-   npm run build
-   npm run test
-   npm run test:e2e:mocked
-   npm run test:e2e:live  # If API key available
-   npm run test:prod
-   npm run lint
-   ```
+### Failure triage (adjust Section 5 code accordingly, then re-run)
 
-3. **Verify production startup:**
+- IMAGE case fails with a multimodal / "text part required" error → Assumption 2 (`['', ...imageParts]`) is **not** accepted by the live API; revisit `buildContents` to emit a real (non-empty) text part and update this plan's Assumption 2, plus the Section 2/5 `contents` assertions, accordingly. This is a behaviour change beyond pure cleanup and should be flagged back to the planner.
+- TEXT/TABLE fail with config / `thinking` / `systemInstruction` errors → correct `buildModelParams` shapes (Section 5).
+- Response parsing fails or `result.text` is undefined → correct `generateAndParseResponse` (Section 5).
+- Auth/quota (429) errors → expected if the key is invalid or rate-limited; verify the key and respect the in-test 2s delays. Not a code defect unless reproducible with a valid key.
 
-   ```bash
-   node dist/src/main.js
-   ```
+### Section checks
 
-4. **Verify coverage:**
+- `npm run test:e2e:live` → all three cases (TEXT, TABLE, IMAGE) green.
 
-   ```bash
-   npm run test:cov
-   ```
-   - Verify coverage output format is compatible with SonarQube (check `sonar-project.properties` for coverage path configuration).
+### Optional `@remarks` JSDoc follow-through
 
-5. **Verify `dev:delegate` script:**
+- None beyond Section 5's `@remarks`.
 
-   ```bash
-   npm run dev:delegate -- --help  # Or any simple invocation
-   ```
-   - This script uses `ts-node --esm`. Verify it still works after `tsconfig.json` changes.
+### Implementation notes / deviations / follow-up
 
-6. **Verify `health-check.js`:**
-   - Confirm the converted ESM health-check script parses correctly (no broken comment syntax from the original file).
-
-**Refactor:**
-
-- Fix any remaining issues found during verification.
-- Remove any dead code or unused imports discovered during migration.
-
-**Section Checks:**
-
-- [x] All state rules S1–S7 pass (verified: `"type": "module"`, ESM `tsconfig` NodeNext, zero `require()`/`module.exports`, zero `.cjs` in project source, zero `jest.*` calls, Vitest globals enabled, coverage/lcov generated).
-- [x] All success criteria met. The two items that require external infrastructure — `npm run test:e2e:live` (live Gemini API key) and `npm run test:prod` (Docker) — cannot execute in this sandbox but their configurations are validated and the mocked equivalents pass. `node dist/src/main.js` boots under ESM and only stops on the required `GEMINI_API_KEY` env var (expected without credentials).
-- [x] No remaining Jest artifacts in the codebase (source, tests, configs, `package.json`). `AGENTS.md` / `.opencode/agents/*.md` still contain Jest references but were intentionally deferred (owned by other agents; see Section 7 note).
-- [x] Full regression passes: `npm run lint` (0 errors), `npm run build` (clean), `npm run test` (214 pass), `npm run test:e2e:mocked` (44 pass), `npm run test:cov` (214 pass + `coverage/lcov.info` for SonarQube), and `node dist/src/main.js` starts under ESM.
-
-**Completion Notes (2026-07-08):**
-
-- **SonarQube coverage:** `vitest.config.ts` now sets `coverage.reporter: ['text', 'html', 'lcov', 'clover']`, so `npm run test:cov` emits `coverage/lcov.info` matching `sonar-project.properties` (`sonar.javascript.lcov.reportPaths=coverage/lcov.info`). The stale `# Jest/SonarCloud` comment there was updated to `# Vitest/SonarCloud`.
-- **Dead `dev:delegate` script removed:** it invoked `ts-node --esm scripts/codex-delegate.ts`, but `scripts/codex-delegate.ts` was intentionally deleted in commit `8650b11` ("Script and docs cleanup"). After removal, `ts-node` and `tsconfig-paths` were unused anywhere in the codebase, so both were uninstalled. `npm run lint` and `npm run build` remain clean.
-- **Artifact verification (all pass):** zero `.cjs` in project source (only `.opencode/node_modules` tooling internals, equivalent to `node_modules`); zero `require()`/`module.exports` in `src/`/`test/`/`scripts/`; zero `jest.` calls; `package.json` `"type": "module"` with no Jest dependencies; `tsconfig.json` emits ESM (`module`/`moduleResolution`: `NodeNext`, `target`: `ES2024`); `tsconfig.test.json` correctly absent.
-- **Production startup:** `node dist/src/main.js` loaded as ESM, read `.env`, and began Nest bootstrap — failing only on the missing `GEMINI_API_KEY` Zod validation (env limitation, not a migration defect). This confirms the ESM/NodeNext migration is sound.
-- **Documentation:** project docs (`docs/`, `README.md`) fully migrated (Section 7). `AGENTS.md` / `.opencode/agents/*.md` deferred per user instruction (owned by other agents; not committed in this migration).
-- **Verification tooling note:** the automated `code-reviewer` sub-agent was unavailable throughout (returned empty responses), so each section's review gate was satisfied via independent manual verification (lint + targeted greps + test/build runs). The user directed using `npm run test` / `npm run test:e2e:mocked` as the regression proxy since the regression-checker skill is non-functional in this environment.
+- _(Fill during implementation.)_
 
 ---
 
-## Summary of Section Ordering
+## Section 6 — Misc tidying
 
-| Section | Objective                            | Depends On                                     |
-| ------- | ------------------------------------ | ---------------------------------------------- |
-| 0       | Validation and de-risking            | Nothing                                        |
-| 1       | TypeScript and package configuration | Section 0                                      |
-| 2       | Test runner infrastructure           | Section 1                                      |
-| 3       | Unit/integration test migration      | Section 2                                      |
-| 4       | E2E and prod test migration          | Section 2 (can run in parallel with Section 3) |
-| 5       | ESLint configuration                 | Section 3, Section 4                           |
-| 6       | CI/CD and scripts                    | Section 5                                      |
-| 7       | Documentation updates                | Section 5                                      |
-| 8       | Final cleanup and regression         | All previous                                   |
+### Objective
+
+- Remove the unused `file-type` dependency.
+- Collapse `AssessorService.executeAssessment` into `createAssessment`.
+- Remove defensive no-op guards in `Prompt.render` (`this && this.constructor`, `this ? Object.keys(this)`).
+- Remove `@remarks`/JSDoc referencing the deleted `buildUserMessageParts`.
+
+### Constraints
+
+- Collapsing `executeAssessment` must not change logged output meaningfully.
+
+### Delegation mandatory reads
+
+- `AGENTS.md`, `docs/development/code-style.md`
+- `src/v1/assessor/assessor.service.ts`, `src/prompt/prompt.base.ts`, `package.json`
+
+### Acceptance criteria
+
+- `file-type` absent from `package.json` (and lockfile); no `src/` import references it.
+- `AssessorService` has a single `createAssessment` method (no private `executeAssessment`).
+- `Prompt.render` uses `this.constructor.name` and `Object.keys(this)` directly.
+
+### Required test cases (Red first)
+
+1. **Red**: `assessor.service.spec.ts` calls `createAssessment`; ensure it still passes after the wrapper collapse (regression guard).
+2. **Red**: `prompt.base.spec.ts` still passes after render-guard removal.
+3. Confirm `file-type` removal via `grep -r "file-type" src` returning nothing.
+
+### Section checks
+
+- `npm test -- src/v1/assessor/assessor.service.spec.ts src/prompt/prompt.base.spec.ts`
+- `npm run lint`
+- `npm run lint:british`
+
+### Optional `@remarks` JSDoc follow-through
+
+- None.
+
+### Implementation notes / deviations / follow-up
+
+- _(Fill during implementation.)_
+
+---
+
+## Section 7 — Consolidate mislabelled duplicate spec
+
+### Objective
+
+- Delete `src/llm/llm-integration.spec.ts` (mislabelled "integration" tests that only unit-test `ResourceExhaustedError`) after folding its unique assertions into `src/llm/resource-exhausted.error.spec.ts`.
+
+### Constraints
+
+- Do not reduce coverage of `ResourceExhaustedError`.
+
+### Delegation mandatory reads
+
+- `AGENTS.md`, `docs/development/code-style.md`
+- `src/llm/llm-integration.spec.ts`, `src/llm/resource-exhausted.error.spec.ts`
+
+### Acceptance criteria
+
+- `resource-exhausted.error.spec.ts` covers instantiation, `name`, `originalError` preservation, construction without `originalError`, and the array-filter / try-catch usage patterns previously only in `llm-integration.spec.ts`.
+- `llm-integration.spec.ts` is deleted.
+- `npm test -- src/llm/resource-exhausted.error.spec.ts` passes.
+
+### Required test cases (Red first)
+
+1. **Red**: Add the unique assertions from `llm-integration.spec.ts` (pattern-matching filter, try-catch capture) into `resource-exhausted.error.spec.ts` as new `it(...)` blocks.
+2. Delete `llm-integration.spec.ts`; confirm no other file imported it.
+
+### Section checks
+
+- `npm test -- src/llm/resource-exhausted.error.spec.ts`
+- `npm run lint`
+
+### Optional `@remarks` JSDoc follow-through
+
+- None.
+
+### Implementation notes / deviations / follow-up
+
+- _(Fill during implementation.)_
+
+---
+
+## Regression and contract hardening
+
+### Objective
+
+- Verify the full unit suite and lint remain green after all changes, and that no behaviour regressed.
+
+### Constraints
+
+- Prefer focused test runs before broader validation.
+
+### Acceptance criteria
+
+- `npm run lint` passes.
+- `npm test` (full unit suite) passes.
+- `npm run lint:british` passes.
+- No remaining references to removed symbols (`buildUserMessageParts`, `extractStatusCode`, `messages` on image payloads in source, `process.env.ALLOWED_IMAGE_MIME_TYPES` in `image.prompt.ts`, `file-type`, `@google/generative-ai`).
+- The `@google/genai` migration builds and the e2e suite (if wired) still exercises the assessor endpoint.
+
+### Required test cases/checks
+
+1. `npm run lint`
+2. `npm test`
+3. `npm run lint:british`
+4. `grep -r "@google/generative-ai" src` → nothing (except none expected).
+5. `grep -r "buildUserMessageParts\|extractStatusCode\|file-type" src` → nothing.
+6. (Recommended) `npm run build && npm run test:e2e:mocked`.
+7. Live confirmation: `npm run test:e2e:live` was executed in Section 5.5. Re-run it here only if the codebase changed materially after that point (e.g. a Section 6/7 edit that could alter the request path); otherwise the Section 5.5 result stands as the real-API validation.
+
+### Section checks
+
+- All commands above return green.
+
+### Implementation notes / deviations / follow-up
+
+- _(Fill during implementation.)_
+
+---
+
+## Documentation and rollout notes
+
+### Objective
+
+- Ensure docs and JSDoc reflect the cleaned-up path and the new SDK; no behavioural docs change required.
+
+### Constraints
+
+- Only modify documents relevant to the touched areas.
+
+### Acceptance criteria
+
+- JSDoc on `ImagePrompt`, `GeminiService.buildContents`, `GeminiService.generateAndParseResponse`, `GeminiService.buildModelParams`, and `ImagePromptPayload` accurately reflects the final shapes (no `messages`/`uri`/`buildUserMessageParts`; `result.text` getter; `config.thinkingConfig`).
+- `docs/architecture/modules.md` reference to `file-type` (line 85) is removed if still present.
+- Any README/architecture references to `@google/generative-ai` are updated to `@google/genai`.
+- No deviations from the "no new user-facing behaviour" assumption.
+
+### Required checks
+
+1. Grep docs for `buildUserMessageParts`, `file-type`, `@google/generative-ai`, and stale `messages`/`uri` references; remove or correct.
+2. Confirm the Section 4 and Section 5 `@remarks` are present in `image.prompt.ts` and `gemini.service.ts`.
+3. Verify mandatory-read evidence is complete for any delegated docs/review handoffs.
+
+### Optional `@remarks` JSDoc review
+
+- Confirm Section 4 (`ConfigService` for MIME types) and Section 5 (`result.text` getter; `thinkingConfig.thinkingBudget`) `@remarks` are present.
+- If no further `@remarks` are needed, record `None`.
+
+### Implementation notes / deviations / follow-up
+
+- _(Fill during implementation.)_
+
+---
+
+## Suggested implementation order
+
+1. Section 1 (remove `buildUserMessageParts`)
+2. Section 2 (remove `messages`/`uri` dead branches + preserve `['', ...images]`)
+3. Section 3 (de-duplicate status-code extraction + remove redundant logging)
+4. Section 4 (ConfigService injection for MIME types)
+5. Section 5 (migrate to `@google/genai`) — do this before Section 6 so the `Part`/response-shape changes are settled
+   5.5. Section 5.5 (live E2E validation against the real Gemini API) — run immediately after Section 5 so any new-SDK shape defect (especially the multimodal empty-string text part) is caught and fixed in Section 5 before tidying
+6. Section 6 (misc tidying)
+7. Section 7 (consolidate duplicate spec)
+8. Regression and contract hardening
+9. Documentation and rollout notes

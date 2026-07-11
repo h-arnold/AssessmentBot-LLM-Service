@@ -155,11 +155,9 @@ export class GeminiService extends LLMService {
    */
   private buildContents(payload: LlmPayload): (string | Part)[] {
     if (this.isImagePromptPayload(payload)) {
-      const { images, messages } = payload;
-      const textPrompt =
-        messages && messages.length > 0 ? messages[0].content : '';
+      const { images } = payload;
       const imageParts = this.mapImageParts(images);
-      return [textPrompt, ...imageParts];
+      return ['', ...imageParts];
     }
     if (this.isStringPromptPayload(payload)) {
       return [payload.user];
@@ -171,29 +169,15 @@ export class GeminiService extends LLMService {
   /**
    * Helper to map image payloads to Gemini API parts, ensuring the prompt
    * follows the correct structure.
-   * @param {Array<{ mimeType: string; data?: string; uri?: string }>} images
+   * @param {Array<{ mimeType: string; data?: string }>} images
    *   An array of image objects.
    * @returns {Part[]} An array of Parts for the Gemini API.
    */
   private mapImageParts(
-    images: Array<{ mimeType: string; data?: string; uri?: string }>,
+    images: Array<{ mimeType: string; data?: string }>,
   ): Part[] {
     return images
       .map((img) => {
-        // URI-based image (uploaded)
-        if (
-          typeof img === 'object' &&
-          'uri' in img &&
-          typeof img.uri === 'string' &&
-          typeof img.mimeType === 'string'
-        ) {
-          return {
-            fileData: {
-              uri: img.uri,
-              mimeType: img.mimeType,
-            },
-          };
-        }
         // Inline base64 image
         if (
           typeof img === 'object' &&
@@ -208,7 +192,6 @@ export class GeminiService extends LLMService {
             },
           };
         }
-        // Fallback: skip invalid image
       })
       .filter(Boolean) as Part[];
   }

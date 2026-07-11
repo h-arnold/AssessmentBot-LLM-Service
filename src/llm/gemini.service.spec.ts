@@ -55,7 +55,6 @@ const createStringPayload = (user: string = 'test'): StringPromptPayload => ({
 
 const createImagePayload = (): ImagePromptPayload => ({
   system: 'system prompt',
-  messages: [{ content: 'Test message' }],
   images: [{ mimeType: 'image/png', data: 'test-data' }],
 });
 
@@ -133,7 +132,7 @@ describe('GeminiService', () => {
         thinking: { budget: 0 },
       });
       expect(mockGenerateContent).toHaveBeenCalledWith([
-        'Test message',
+        '',
         { inlineData: { mimeType: 'image/png', data: 'test-data' } },
       ]);
       expectValidResponse(result, 3);

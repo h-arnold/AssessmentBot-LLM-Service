@@ -11,7 +11,7 @@ class TestPrompt extends Prompt {
     super(inputs, logger);
   }
   public async buildMessage(): Promise<LlmPayload> {
-    return { system: '', images: [], messages: [] } as LlmPayload;
+    return { system: '', images: [] } as LlmPayload;
   }
 }
 

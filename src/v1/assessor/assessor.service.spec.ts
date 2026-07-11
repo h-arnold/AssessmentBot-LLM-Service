@@ -186,7 +186,6 @@ describe('AssessorService', () => {
             data: 'base64-encoded-string-2',
           },
         ],
-        messages: [{ content: 'Assess this artwork.' }],
       };
 
       const mockPrompt = {

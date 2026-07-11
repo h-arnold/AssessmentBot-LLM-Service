@@ -351,6 +351,10 @@ For each section below:
 
 - Confirmed during planning: the new SDK exports `ApiError` (`extends Error`) with a `status: number` property, constructor `new ApiError({ message, status })`. The base `LLMService.extractErrorStatusCode` already reads `error.status`, so no base-class change is required. Verify the `ContentListUnion` typing accepts the flat `['', ...imageParts]` / `[user]` `contents` array during implementation.
 
+- **Implemented (sections 5 + 5.1):** `GeminiService` migrated to `@google/genai` — `new GoogleGenAI({ apiKey })`, `client.models.generateContent({ model, contents, config })`, `result.text ?? ''`, `thinkingConfig.thinkingBudget = 0`, and a string `systemInstruction` via `buildModelParams`. `GeminiModelParameters` removed from `types.ts` (replaced by an inline `GeminiRequest = { model: string; config: GenerateContentConfig }`); the now-orphaned `GeminiModelParameters` suite in `types.spec.ts` was removed. `buildContents`/`mapImageParts` (`['', ...imageParts]`) and the Section 3 catch/retry path are preserved. The `@remarks` JSDoc follow-through was applied (`result.text` getter + `thinkingBudget = 0` rationale). `grep -rn "@google/generative-ai" src test` is empty; `@google/generative-ai` removed from `package.json` and `package-lock.json`. Verification: unit 211/211, mocked E2E 44/44, lint 0, build 0.
+
+- **Section 5.5 (live E2E) is pending** a real `GEMINI_API_KEY` in `.test.env` (see Section 5.5). The migration is otherwise fully verified via mocked E2E + unit + build + code review (APPROVED).
+
 ---
 
 ## Section 5.1 — Rewrite the mocked-E2E LLM shim for `@google/genai`
@@ -429,7 +433,7 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **Implemented:** `test/utils/llm-mock.mjs` rewritten to import `GoogleGenAI` from `@google/genai` and patch `GoogleGenAI.prototype.models` with a getter that returns `{ generateContent: async () => ({ text: JSON.stringify(mockResponse) }) }` plus a silent setter that intercepts the constructor's `this.models = new Models(this.apiClient)` own-property assignment, so every subsequent read goes through the getter and returns the mock. This mirrors the old SDK's `GoogleGenerativeAI.prototype.getGenerativeModel` patch. `npm run test:e2e:mocked` passes (7 files / 44 tests, 0 failures) using the canned `mockResponse` with no real API calls. `@google/generative-ai` removed from `package.json` and `package-lock.json`; `grep -rn "@google/generative-ai" test` is empty.
 
 ---
 

@@ -488,7 +488,13 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **Live validation PASSED (3/3).** `npm run test:e2e:live` (`assessor-live.e2e-spec.ts`) succeeded against the **real Gemini API** for TEXT, TABLE, and IMAGE tasks. The IMAGE case confirms the multimodal `contents` shape with the leading empty-string text part (`['', ...imageParts]`) works end-to-end, validating Assumption 2 at the live API boundary.
+- For the run, the model was **temporarily** switched so both `buildModelParams` branches used `gemini-2.5-flash-lite` (cheapest multimodal model; supports `thinkingConfig`, so `thinkingConfig.thinkingBudget = 0` stays valid — unlike Gemma, which rejects `thinkingConfig`). The production models (`gemini-2.5-flash` for images, `gemini-2.5-flash-lite` for text) are **unchanged**; this swap was reverted after the run. No rate-limit (429) was hit across the 3 calls.
+- Confirmed live: `contents` array (`['', ...imageParts]` / `[user]`), `thinkingConfig.thinkingBudget = 0`, string `systemInstruction`, and the `result.text` getter all behave as designed against the real API. The retry/error path was not exercised (no simulated failure / 429 in the free-tier run).
+- **Two pre-existing bugs in `test/assessor-live.e2e-spec.ts` were discovered (unrelated to the migration) and temporarily worked around, then reverted. Committed code is unchanged:**
+  1. The spec resolves fixtures via `getCurrentDirname()` (which returns `process.cwd()`, i.e. the repo root), but the fixtures live in `test/data` and `test/ImageTasks`, so it looked for `data/`/`ImageTasks/` at the root and threw `ENOENT`. Worked around with temporary root symlinks (`data -> test/data`, `ImageTasks -> test/ImageTasks`).
+  2. `loadFileAsDataURI` calls `fileBuffer.toBase64()`, which is not a function on this Node runtime; the correct call is `fileBuffer.toString('base64')`. Temporarily patched for the run.
+- **Follow-up recommendation (out of scope for the SDK migration):** fix `assessor-live.e2e-spec.ts` so the live E2E is actually runnable — resolve `test/data` and `test/ImageTasks` relative to the test file (not `process.cwd()`), and use `toString('base64')`. Candidate for Section 6/7 or its own task; do **not** fold it into the Section 5 migration commit.
 
 ---
 

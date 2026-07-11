@@ -158,7 +158,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: removed `messages` extraction in `buildContents` (image branch now returns `['', ...imageParts]`) and the `uri`/`fileData` branch in `mapImageParts`; removed `messages?` and `uri?` from `ImagePromptPayload`. RED produced a genuine failure (multimodal test expected `''`, old code injected `'Test message'`) which GREEN resolved. Code review flagged a real `tsc` compile error (type-predicate filter incompatible with `Part` union) — fixed by reverting to `.filter(Boolean) as Part[]` — plus a stale JSDoc `uri?` reference (updated). `npm run build` now passes with zero tsc errors. No deviations from Assumption 2 (leading empty-string text part preserved). Note: `grep -n "messages" src/llm/llm.service.interface.ts` still matches two unrelated comments ("error messages"); addressed at final regression if the strict grep is enforced.
 
 ---
 

@@ -5,6 +5,7 @@ import { ImagePrompt } from './image.prompt.js';
 import { PromptFactory } from './prompt.factory.js';
 import { TablePrompt } from './table.prompt.js';
 import { TextPrompt } from './text.prompt.js';
+import { ConfigModule } from '../config/config.module.js';
 import {
   CreateAssessorDto,
   TaskType,
@@ -15,6 +16,7 @@ describe('PromptFactory', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ConfigModule],
       providers: [PromptFactory, Logger],
     }).compile();
 

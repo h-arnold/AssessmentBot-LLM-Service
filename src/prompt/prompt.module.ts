@@ -1,6 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
 
 import { PromptFactory } from './prompt.factory.js';
+import { ConfigModule } from '../config/config.module.js';
 
 /**
  * Module responsible for prompt generation and management.
@@ -18,6 +19,7 @@ import { PromptFactory } from './prompt.factory.js';
  * - `PromptFactory`: Makes the factory available to other modules
  */
 @Module({
+  imports: [ConfigModule],
   providers: [PromptFactory, Logger],
   exports: [PromptFactory],
 })

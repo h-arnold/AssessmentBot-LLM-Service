@@ -17,6 +17,7 @@ import { LlmPayload } from '../llm/llm.service.interface.js';
  */
 export class ImagePrompt extends Prompt {
   private readonly images: { path: string; mimeType: string }[];
+  private readonly allowedMimeTypes: string[];
 
   /**
    * Initialises the ImagePrompt instance with image-specific configuration.
@@ -24,6 +25,8 @@ export class ImagePrompt extends Prompt {
    *   information.
    * @param {Logger} logger - Logger instance for recording image prompt
    *   operations.
+   * @param {string[]} allowedMimeTypes - Array of allowed MIME types for image
+   *   validation, supplied via ConfigService through PromptFactory.
    * @param {{ path: string; mimeType: string }[]} [images] - Optional array of
    *   image objects with file paths and MIME types.
    * @param {string} [systemPrompt] - Optional system prompt string providing
@@ -32,10 +35,12 @@ export class ImagePrompt extends Prompt {
   constructor(
     inputs: PromptInput,
     logger: Logger,
+    allowedMimeTypes: string[],
     images?: { path: string; mimeType: string }[],
     systemPrompt?: string,
   ) {
     super(inputs, logger, undefined, systemPrompt);
+    this.allowedMimeTypes = allowedMimeTypes;
     this.images = images || [];
   }
 
@@ -136,20 +141,19 @@ export class ImagePrompt extends Prompt {
    * @param {string} imagePath - The relative path to the image file within the
    *   allowed directory. Path traversal is blocked to ensure security.
    * @param {string} [mimeType] - The MIME type of the image file. Must be one
-   *   of the allowed MIME types specified in the `ALLOWED_IMAGE_MIME_TYPES`
-   *   environment variable. Defaults to 'image/png' if not provided.
+   *   of the allowed MIME types configured in the environment schema. Defaults
+   *   to 'image/png' if not provided.
    * @returns {Promise<string>} A promise that resolves to the base64-encoded
    *   content of the image file.
    * @throws {Error} If the `imagePath` contains path traversal (`..`).
-   * @throws {Error} If the `mimeType` is not allowed based on the environment
-   *   configuration.
+   * @throws {Error} If the `mimeType` is not allowed based on the configuration.
    * @throws {Error} If the resolved file path is outside the authorised
    *   directory.
    * @remarks
    * - The method ensures security by validating the file path and MIME type before reading the file.
    * - The base directory for image files is restricted to `docs/ImplementationPlan/Stage6/Prompts`.
    * - The file path validation prevents unauthorized access to files outside the allowed directory.
-   * - The MIME type validation ensures only specific image types are processed.
+   * - Allowed MIME types are supplied via ConfigService (injected through PromptFactory), not read from process.env.
    */
   async readImageFile(imagePath: string, mimeType?: string): Promise<string> {
     // Security: Only allow reading from the Prompts directory, and block path traversal
@@ -163,12 +167,10 @@ export class ImagePrompt extends Prompt {
       );
       throw new Error('Unauthorised file path');
     }
-    // Get allowed MIME types from environment
-    const allowedMimeTypes = (
-      process.env.ALLOWED_IMAGE_MIME_TYPES || 'image/png'
-    )
-      .split(',')
-      .map((type) => type.trim().toLowerCase());
+    // Get allowed MIME types from injected configuration
+    const allowedMimeTypes = this.allowedMimeTypes.map((type) =>
+      type.trim().toLowerCase(),
+    );
     if (!mimeType || !allowedMimeTypes.includes(mimeType.toLowerCase())) {
       this.logger.warn(
         `Blocked image with disallowed MIME type: ${mimeType ?? 'unknown'}.`,

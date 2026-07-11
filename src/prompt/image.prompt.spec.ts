@@ -16,7 +16,6 @@ describe('ImagePrompt', () => {
   });
 
   it('should build a structured payload with text and images', async () => {
-    process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png'; // Ensure allowed MIME type is lowercase
     const inputs = {
       referenceTask: 'Reference text',
       studentTask: 'Student text',
@@ -44,7 +43,14 @@ describe('ImagePrompt', () => {
     );
 
     const systemPrompt = 'system prompt';
-    const prompt = new ImagePrompt(inputs, logger, images, systemPrompt);
+    const allowed = ['image/png'];
+    const prompt = new ImagePrompt(
+      inputs,
+      logger,
+      allowed,
+      images,
+      systemPrompt,
+    );
     const message = (await prompt.buildMessage()) as ImagePromptPayload;
 
     const calls = (fs.readFile as Mock).mock.calls;
@@ -72,7 +78,8 @@ describe('ImagePrompt', () => {
     const images = [
       { path: 'ref.png', mimeType: 'image/gif' }, // Not allowed by default
     ];
-    const prompt = new ImagePrompt(inputs, logger, images);
+    const allowed = ['image/png'];
+    const prompt = new ImagePrompt(inputs, logger, allowed, images);
     await expect(prompt.readImageFile('ref.png', 'image/gif')).rejects.toThrow(
       'Disallowed image MIME type',
     );
@@ -87,7 +94,8 @@ describe('ImagePrompt', () => {
     const images = [
       { path: 'ref.png', mimeType: undefined as unknown as string },
     ];
-    const prompt = new ImagePrompt(inputs, logger, images);
+    const allowed = ['image/png'];
+    const prompt = new ImagePrompt(inputs, logger, allowed, images);
     await expect(
       prompt.readImageFile('ref.png', undefined as unknown as string),
     ).rejects.toThrow('Disallowed image MIME type');
@@ -100,21 +108,22 @@ describe('ImagePrompt', () => {
       emptyTask: 'Empty text',
     };
     const images = [{ path: '../ref.png', mimeType: 'image/png' }];
-    const prompt = new ImagePrompt(inputs, logger, images);
+    const allowed = ['image/png'];
+    const prompt = new ImagePrompt(inputs, logger, allowed, images);
     await expect(
       prompt.readImageFile('../ref.png', 'image/png'),
     ).rejects.toThrow('Invalid image filename');
   });
 
   it('should accept allowed MIME types from env', async () => {
-    process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png,image/jpeg';
     const inputs = {
       referenceTask: 'Reference text',
       studentTask: 'Student text',
       emptyTask: 'Empty text',
     };
     const images = [{ path: 'ref.png', mimeType: 'image/jpeg' }];
-    const prompt = new ImagePrompt(inputs, logger, images);
+    const allowed = ['image/png', 'image/jpeg'];
+    const prompt = new ImagePrompt(inputs, logger, allowed, images);
     // Mock fs.readFile to resolve
     (fs.readFile as Mock).mockResolvedValueOnce('base64data');
     await expect(prompt.readImageFile('ref.png', 'image/jpeg')).resolves.toBe(
@@ -129,7 +138,8 @@ describe('ImagePrompt', () => {
       emptyTask: 'data:image/png;base64,EMPTYDATA',
     };
 
-    const prompt = new ImagePrompt(inputs, logger);
+    const allowed = ['image/png'];
+    const prompt = new ImagePrompt(inputs, logger, allowed);
     const message = (await prompt.buildMessage()) as ImagePromptPayload;
 
     expect(message.images).toEqual([
@@ -146,19 +156,20 @@ describe('ImagePrompt', () => {
       emptyTask: 'data:image/png;base64,EMPTYDATA',
     };
 
-    const prompt = new ImagePrompt(inputs, logger);
+    const allowed = ['image/png'];
+    const prompt = new ImagePrompt(inputs, logger, allowed);
 
     await expect(prompt.buildMessage()).rejects.toThrow('Invalid Data URI');
   });
 
   it('should reject unauthorised absolute paths', async () => {
-    process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png';
     const inputs = {
       referenceTask: 'Reference text',
       studentTask: 'Student text',
       emptyTask: 'Empty text',
     };
-    const prompt = new ImagePrompt(inputs, logger, []);
+    const allowed = ['image/png'];
+    const prompt = new ImagePrompt(inputs, logger, allowed, []);
 
     await expect(
       prompt.readImageFile('/etc/passwd', 'image/png'),

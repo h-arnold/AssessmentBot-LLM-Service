@@ -275,7 +275,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: `ImagePrompt` now takes a REQUIRED 3rd positional `allowedMimeTypes: string[]` (constructor reorder: `images`→4th, `systemPrompt`→5th); `readImageFile` uses `this.allowedMimeTypes` (no `process.env` read). `PromptFactory` injects `ConfigService` and passes `configService.get('ALLOWED_IMAGE_MIME_TYPES')`; `PromptModule` imports `ConfigModule`. All 8 `new ImagePrompt(...)` call sites pass `allowedMimeTypes` (no `undefined` holes; the two data-URI-only sites use `new ImagePrompt(inputs, logger, allowed)`). `assessor.service.spec.ts` mock returns a literal `['image/png','image/jpeg']` and its `process.env.ALLOWED_IMAGE_MIME_TYPES` assignments (beforeAll + `getMockEnvironmentValue`) were removed, as was the line in `vitest.setup.ts`; a comment notes the value is now via `ConfigService`. RED produced a genuine TS compile failure (new 3rd arg collided with old `images` param); GREEN resolved it. Code review APPROVED; `npm run build` clean. Note: the `assessor.service.spec.ts` mock routes the literal array through `getMockEnvironmentValue` (rather than a direct `if (key === ...) return [...]` in the `vi.fn`) — functionally equivalent (no `process.env` read), accepted as it satisfies the acceptance criteria and the regression grep.
 
 ---
 

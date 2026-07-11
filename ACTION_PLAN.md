@@ -212,7 +212,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: removed the duplicate `GeminiService.extractStatusCode` and replaced the call in the `_sendInternal` catch with an inline `error_.status ?? error_.statusCode ?? error_.response?.status` read (renamed to `error_` to satisfy the `unicorn/name-replacements` lint rule). The base-class `LLMService.extractErrorStatusCode` is untouched and remains `private`. The enriched context `{ model, payloadType, statusCode }` is still logged once via `geminiLogger`, and the `Zod validation failed` + `error.issues` log via `this.logger` is preserved; the original error is re-thrown. RED added two behaviour-preserving regression guards (enriched-context spy + Zod-issues spy) that pass against both pre- and post-change code. Code review APPROVED; `npm run build` clean. No base-class change, no deviation from the observability-preservation requirement.
 
 ---
 

@@ -106,7 +106,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: `buildUserMessageParts` removed from `ImagePrompt` (`src/prompt/image.prompt.ts`) and its stub from `TestPrompt` in `src/prompt/prompt.base.spec.ts`. Confirmed `prompt.base.ts` does not declare it (not abstract), so no contract change. RED (test stub removal) ran by Testing Specialist → 17 tests green; GREEN (method removal) ran by Implementation → 17 tests + lint green; Code Reviewer APPROVED. No deviations.
 
 ---
 

@@ -69,7 +69,13 @@ export class GeminiService extends LLMService {
     try {
       return await this.generateAndParseResponse(modelParameters, contents);
     } catch (error) {
-      const statusCode = this.extractStatusCode(error);
+      const error_ = error as {
+        status?: number;
+        statusCode?: number;
+        response?: { status?: number };
+      };
+      const statusCode =
+        error_.status ?? error_.statusCode ?? error_.response?.status;
       const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
       this.geminiLogger.error(
         {
@@ -244,24 +250,5 @@ export class GeminiService extends LLMService {
       : parsedJson;
 
     return LlmResponseSchema.parse(dataToValidate);
-  }
-
-  private extractStatusCode(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object') {
-      return undefined;
-    }
-    const error_ = error as {
-      status?: number;
-      statusCode?: number;
-      code?: number;
-      response?: { status?: number; statusCode?: number };
-    };
-    return (
-      error_.status ??
-      error_.statusCode ??
-      error_.response?.status ??
-      error_.response?.statusCode ??
-      (typeof error_.code === 'number' ? error_.code : undefined)
-    );
   }
 }

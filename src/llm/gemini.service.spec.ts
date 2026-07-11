@@ -170,6 +170,12 @@ describe('GeminiService', () => {
     });
 
     it('should throw a ZodError for an invalid response structure', async () => {
+      const loggerErrorSpy = vi.spyOn(
+        (service as unknown as { logger: { error: (...a: unknown[]) => void } })
+          .logger,
+        'error',
+      );
+
       mockGenerateContent.mockResolvedValue({
         response: {
           text: () => '{"invalid": "structure"}',
@@ -178,6 +184,39 @@ describe('GeminiService', () => {
 
       const payload = createStringPayload();
       await expect(service.send(payload)).rejects.toThrow(ZodError);
+
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        'Zod validation failed',
+        expect.any(Array),
+      );
+    });
+
+    it('should log enriched context on failure', async () => {
+      const geminiErrorSpy = vi.spyOn(
+        (
+          service as unknown as {
+            geminiLogger: { error: (...a: unknown[]) => void };
+          }
+        ).geminiLogger,
+        'error',
+      );
+
+      mockGenerateContent.mockRejectedValue(
+        new GoogleGenerativeAIFetchError('Server error', 500),
+      );
+
+      const payload = createStringPayload();
+      await expect(service.send(payload)).rejects.toThrow();
+
+      expect(geminiErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'gemini-2.5-flash-lite',
+          payloadType: 'text',
+          statusCode: 500,
+        }),
+        'Error communicating with or validating response from Gemini API',
+        expect.any(String),
+      );
     });
 
     it('should throw an error if JsonParserUtil fails to parse the response', async () => {

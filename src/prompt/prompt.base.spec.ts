@@ -13,12 +13,6 @@ class TestPrompt extends Prompt {
   public async buildMessage(): Promise<LlmPayload> {
     return { system: '', images: [], messages: [] } as LlmPayload;
   }
-  // Stub implementation to satisfy abstract base class
-  protected async buildUserMessageParts(): Promise<
-    import('@google/generative-ai').Part[]
-  > {
-    return [];
-  }
 }
 
 describe('Prompt Base Class', (): void => {

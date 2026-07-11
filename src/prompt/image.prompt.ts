@@ -16,21 +16,6 @@ import { LlmPayload } from '../llm/llm.service.interface.js';
  * and implements security measures for file access.
  */
 export class ImagePrompt extends Prompt {
-  /**
-   * Builds user message parts for image prompts.
-   *
-   * Image prompts handle content differently from text prompts and
-   * typically don't require separate user message parts since the
-   * images are included directly in the payload.
-   * @returns {Promise<import('@google/generative-ai').Part[]>} Promise
-   *   resolving to an empty array of Parts.
-   */
-  protected async buildUserMessageParts(): Promise<
-    import('@google/generative-ai').Part[]
-  > {
-    // For image prompts, this could return an empty array or a basic structure
-    return [];
-  }
   private readonly images: { path: string; mimeType: string }[];
 
   /**

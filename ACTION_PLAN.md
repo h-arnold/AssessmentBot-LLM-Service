@@ -642,7 +642,10 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **Consolidation:** the 3 unique assertions from the mislabelled `src/llm/llm-integration.spec.ts` (a 429/`GoogleGenerativeAIFetchError` originalError preservation scenario, an array-filter `instanceof` pattern, and a try-catch capture) were folded into `src/llm/resource-exhausted.error.spec.ts` as new `it(...)` blocks. The redundant `'should be exportable...'` test (#1) was dropped as fully covered by the existing instantiation test.
+- **Deletion:** `src/llm/llm-integration.spec.ts` was deleted (`git rm`). `grep -rn "llm-integration" src test docs` returns no references outside `ACTION_PLAN.md` prose, confirming nothing imported it.
+- **Coverage preserved (and slightly improved):** `resource-exhausted.error.spec.ts` now has 5 tests covering instantiation, `name`, `originalError` preservation (generic + 429 fetch-error), construction without `originalError`, and the array-filter / try-catch patterns. Full unit suite: 210 passed (was 211; net −1 because the deleted spec's redundant test #1 was not re-added). No behaviour regression.
+- **Verified:** `npm test -- src/llm/resource-exhausted.error.spec.ts` → 5 passed; `npm run lint` → 0; `npm run lint:british` → compliant; `npm run build` ✓; full `npm test` → 210 passed.
 
 ---
 

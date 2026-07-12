@@ -598,7 +598,10 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **`file-type` removed:** dropped from `package.json` and the lockfile (`npm install --package-lock-only`, offline). Confirmed unused: `grep -rn "from 'file-type'" src test` returns nothing. `mime-detect` (the real dependency, imported at `src/common/pipes/image-validation.pipe.ts:2`) is retained.
+- **`executeAssessment` collapsed:** its body was inlined into `createAssessment` and the private method deleted (grep sentinel `executeAssessment` returns nothing in `assessor.service.ts`). To satisfy `@typescript-eslint/explicit-function-return-type` and keep the `unicorn/try-complexity` score at 13, a small `describePayloadSummary` helper was added to summarise the request payload in the debug log — purely cosmetic, the logged content is equivalent to the prior inline expression. The `createAssessment` `try/catch` and its `'Assessment failed for task type: X.'` log with `error.stack` are preserved verbatim (the controller-facing failure log, distinct from the `LLMService` terminal log). Missing `LLMService`/`LlmPayload` imports were also restored.
+- **`Prompt.render` guards stripped:** the defensive truthiness guards (`this && this.constructor`, `this ? Object.keys(this)`) at lines 111/114 were replaced with the unconditional `this.constructor.name` and `Object.keys(this).join(', ')`. The two `this.logger.debug(...)` statements remain.
+- **Verified:** `npm run build` ✓; unit `npm test` → 211 passed; `npm run lint` → 0; `npm run lint:british` → compliant; `mime-detect` still imported exactly once.
 
 ---
 

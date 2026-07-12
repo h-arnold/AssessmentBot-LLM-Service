@@ -108,10 +108,10 @@ export abstract class Prompt {
       `Rendering template. Data keys: ${Object.keys(data).join(', ')}`,
     );
     this.logger.debug(
-      `Render called. this.constructor: ${this && this.constructor ? this.constructor.name : typeof this}`,
+      `Render called. this.constructor: ${this.constructor.name}`,
     );
     this.logger.debug(
-      `Render called. this keys: ${this ? Object.keys(this).join(', ') : 'undefined'}`,
+      `Render called. this keys: ${Object.keys(this).join(', ')}`,
     );
     const renderedContent = Mustache.render(template, data);
     this.logger.debug(`Template rendered. Output:\n${renderedContent}`);

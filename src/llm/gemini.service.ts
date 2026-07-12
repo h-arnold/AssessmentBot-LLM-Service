@@ -1,4 +1,8 @@
-import { GoogleGenerativeAI, ModelParams, Part } from '@google/generative-ai';
+import {
+  GoogleGenAI,
+  type GenerateContentConfig,
+  type Part,
+} from '@google/genai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
@@ -8,22 +12,20 @@ import {
   LlmPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
-import {
-  LlmResponse,
-  LlmResponseSchema,
-  GeminiModelParameters,
-} from './types.js';
+import { LlmResponse, LlmResponseSchema } from './types.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 
+type GeminiRequest = { model: string; config: GenerateContentConfig };
+
 /**
- * A service for interacting with the Google Gemini LLM.
- * It implements the LLMService interface and handles the specifics of
- * sending requests and validating responses from the Gemini API.
+ * A service for interacting with the Google Gemini LLM via the maintained
+ * `@google/genai` SDK. It implements the LLMService interface and handles the
+ * specifics of sending requests and validating responses from the Gemini API.
  */
 @Injectable()
 export class GeminiService extends LLMService {
-  private readonly client: GoogleGenerativeAI;
+  private readonly client: GoogleGenAI;
   private readonly geminiLogger = new Logger(GeminiService.name);
 
   constructor(
@@ -35,41 +37,30 @@ export class GeminiService extends LLMService {
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is not set in environment');
     }
-    this.client = new GoogleGenerativeAI(apiKey);
+    this.client = new GoogleGenAI({ apiKey });
   }
 
-  /**
-   * Internal method that sends a payload to the Gemini API to generate an
-   * assessment.
-   *
-   * This method is called by the base class's send method, which handles retry
-   * logic. It dynamically selects the appropriate Gemini model based on the
-   * payload type (text-only or multimodal with images). It attempts to repair
-   * malformed JSON in the response and validates the final structure against
-   * the LlmResponseSchema.
-   * @param {LlmPayload} payload The LlmPayload containing the prompt and any
-   *   associated data.
-   * @returns {Promise<LlmResponse>} A Promise that resolves to a validated
-   *   LlmResponse object.
-   * @throws {ZodError} If the response validation fails.
-   * @throws {Error} If the API call fails or the response is invalid.
-   */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    const modelParameters: GeminiModelParameters =
-      this.buildModelParams(payload);
+    const modelParameters: GeminiRequest = this.buildModelParams(payload);
     const contents = this.buildContents(payload);
 
     this.geminiLogger.debug(
       `Sending to Gemini with model: ${modelParameters.model}, temperature: ${
-        modelParameters.generationConfig?.temperature ?? 0
+        modelParameters.config.temperature ?? 0
       }`,
     );
     this.logPayload(payload, contents);
 
     try {
-      return await this.generateAndParseResponse(modelParameters, contents);
+      return await this.generateAndParseResponse(payload);
     } catch (error) {
-      const statusCode = this.extractStatusCode(error);
+      const error_ = error as {
+        status?: number;
+        statusCode?: number;
+        response?: { status?: number };
+      };
+      const statusCode =
+        error_?.status ?? error_?.statusCode ?? error_?.response?.status;
       const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
       this.geminiLogger.error(
         {
@@ -78,7 +69,7 @@ export class GeminiService extends LLMService {
           statusCode,
         },
         'Error communicating with or validating response from Gemini API',
-        this.isErrorObject(error) ? (error as Error).stack : undefined,
+        this.isErrorObject(error) ? error.stack : undefined,
       );
       if (error instanceof ZodError) {
         this.logger.error('Zod validation failed', error.issues);
@@ -91,110 +82,52 @@ export class GeminiService extends LLMService {
     }
   }
 
-  /**
-   * Type guard to check if the payload is for an image prompt.
-   * @param {LlmPayload} payload The payload to check.
-   * @returns {payload is ImagePromptPayload} True if the payload is an
-   *   ImagePromptPayload.
-   */
   private isImagePromptPayload(
     payload: LlmPayload,
   ): payload is ImagePromptPayload {
     return 'images' in payload;
   }
 
-  /**
-   * Type guard to check if the payload is for a string prompt.
-   * @param {LlmPayload} payload The payload to check.
-   * @returns {payload is StringPromptPayload} True if the payload is a
-   *   StringPromptPayload.
-   */
   private isStringPromptPayload(
     payload: LlmPayload,
   ): payload is StringPromptPayload {
     return 'user' in payload;
   }
 
-  /**
-   * Builds the model parameters for the Gemini API call.
-   *
-   * Selects the appropriate Gemini model based on payload type:
-   * - Image prompts use gemini-2.5-flash (full multimodal capabilities)
-   * - Text/Table prompts use gemini-2.5-flash-lite (optimised for text-only).
-   * @param {LlmPayload} payload The LlmPayload to be sent.
-   * @returns {GeminiModelParameters} The configured ModelParams object.
-   */
-  private buildModelParams(payload: LlmPayload): GeminiModelParameters {
-    // Select model based on payload type
+  private buildModelParams(payload: LlmPayload): GeminiRequest {
     const modelName = this.isImagePromptPayload(payload)
-      ? 'gemini-2.5-flash' // Full model for multimodal tasks
-      : 'gemini-2.5-flash-lite'; // Lite model for text-only tasks
+      ? 'gemini-2.5-flash'
+      : 'gemini-2.5-flash-lite';
 
     const systemInstruction = payload.system;
-    // Use temperature from payload, default to 0
     const temperature =
       typeof payload.temperature === 'number' ? payload.temperature : 0;
 
-    // The Gemini API supports a "thinking" budget parameter. Setting it to 0
-    // disables any additional thinking budget (per docs: https://ai.google.dev/gemini-api/docs/thinking)
-    // We cast to ModelParams (via unknown) to avoid type errors if the SDK typings
-    // do not yet include the `thinking` or `systemInstruction` fields.
-    const parameters: GeminiModelParameters = {
-      model: modelName,
+    const config: GenerateContentConfig = {
       systemInstruction,
-      generationConfig: { temperature },
-      thinking: { budget: 0 },
+      temperature,
+      thinkingConfig: { thinkingBudget: 0 },
     };
-    return parameters;
+    return { model: modelName, config };
   }
 
-  /**
-   * Builds the contents for the Gemini API call.
-   * @param {LlmPayload} payload The LlmPayload to be sent.
-   * @returns {(string | Part)[]} An array of strings or Parts for the API call.
-   */
   private buildContents(payload: LlmPayload): (string | Part)[] {
     if (this.isImagePromptPayload(payload)) {
-      const { images, messages } = payload;
-      const textPrompt =
-        messages && messages.length > 0 ? messages[0].content : '';
+      const { images } = payload;
       const imageParts = this.mapImageParts(images);
-      return [textPrompt, ...imageParts];
+      return ['', ...imageParts];
     }
     if (this.isStringPromptPayload(payload)) {
       return [payload.user];
     }
-    // This case should not be reachable if the payload is validated correctly
     throw new Error('Unsupported payload type');
   }
 
-  /**
-   * Helper to map image payloads to Gemini API parts, ensuring the prompt
-   * follows the correct structure.
-   * @param {Array<{ mimeType: string; data?: string; uri?: string }>} images
-   *   An array of image objects.
-   * @returns {Part[]} An array of Parts for the Gemini API.
-   */
   private mapImageParts(
-    images: Array<{ mimeType: string; data?: string; uri?: string }>,
+    images: Array<{ mimeType: string; data?: string }>,
   ): Part[] {
     return images
       .map((img) => {
-        // URI-based image (uploaded)
-        if (
-          typeof img === 'object' &&
-          'uri' in img &&
-          typeof img.uri === 'string' &&
-          typeof img.mimeType === 'string'
-        ) {
-          return {
-            fileData: {
-              uri: img.uri,
-              mimeType: img.mimeType,
-            },
-          };
-        }
-        // Inline base64 image
         if (
           typeof img === 'object' &&
           'data' in img &&
@@ -208,21 +141,10 @@ export class GeminiService extends LLMService {
             },
           };
         }
-        // Fallback: skip invalid image
       })
       .filter(Boolean) as Part[];
   }
 
-  /**
-   * Logs the payload being sent to Gemini, with different logging strategies
-   * based on payload type.
-   *
-   * For StringPromptPayload: logs the full contents.
-   * For ImagePromptPayload: logs only the length of contents to avoid logging
-   * large image data.
-   * @param {LlmPayload} payload The original payload being sent.
-   * @param {(string | Part)[]} contents The processed contents array.
-   */
   private logPayload(payload: LlmPayload, contents: (string | Part)[]): void {
     if (this.isStringPromptPayload(payload)) {
       this.geminiLogger.debug(
@@ -239,46 +161,40 @@ export class GeminiService extends LLMService {
     }
   }
 
+  /**
+   * Builds the Gemini request and parses the response into a validated
+   * LlmResponse.
+   * @param {LlmPayload} payload The payload to send.
+   * @returns {Promise<LlmResponse>} A validated assessment response.
+   * @remarks
+   * - The response text is read via the new SDK's `result.text` getter (the
+   *   concatenated text), falling back to an empty string when absent.
+   * - `thinkingConfig.thinkingBudget = 0` disables additional thinking for the
+   *   Gemini 2.5 models used here.
+   */
   private async generateAndParseResponse(
-    modelParameters: GeminiModelParameters,
-    contents: (string | Part)[],
+    payload: LlmPayload,
   ): Promise<LlmResponse> {
-    const model = this.client.getGenerativeModel(modelParameters);
-    const result = await model.generateContent(contents);
-    const responseText = result.response.text?.() ?? '';
+    const { model, config } = this.buildModelParams(payload);
+    const contents = this.buildContents(payload);
+    const result = await this.client.models.generateContent({
+      model,
+      contents,
+      config,
+    });
+    const responseText = result.text ?? '';
 
     this.geminiLogger.debug(`Raw response from Gemini: \n\n${responseText}`);
 
-    const parser: JsonParserUtility = this.jsonParserUtility;
-    const parsedJson: unknown = parser.parse(responseText);
+    const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
     this.geminiLogger.debug(
       `Parsed JSON response: ${JSON.stringify(parsedJson, null, 2)}`,
     );
 
-    // Handle cases where the LLM returns an array with a single object
     const dataToValidate: unknown = Array.isArray(parsedJson)
       ? (parsedJson as unknown[])[0]
       : parsedJson;
 
     return LlmResponseSchema.parse(dataToValidate);
-  }
-
-  private extractStatusCode(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object') {
-      return undefined;
-    }
-    const error_ = error as {
-      status?: number;
-      statusCode?: number;
-      code?: number;
-      response?: { status?: number; statusCode?: number };
-    };
-    return (
-      error_.status ??
-      error_.statusCode ??
-      error_.response?.status ??
-      error_.response?.statusCode ??
-      (typeof error_.code === 'number' ? error_.code : undefined)
-    );
   }
 }

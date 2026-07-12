@@ -106,7 +106,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: `buildUserMessageParts` removed from `ImagePrompt` (`src/prompt/image.prompt.ts`) and its stub from `TestPrompt` in `src/prompt/prompt.base.spec.ts`. Confirmed `prompt.base.ts` does not declare it (not abstract), so no contract change. RED (test stub removal) ran by Testing Specialist → 17 tests green; GREEN (method removal) ran by Implementation → 17 tests + lint green; Code Reviewer APPROVED. No deviations.
 
 ---
 
@@ -158,7 +158,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: removed `messages` extraction in `buildContents` (image branch now returns `['', ...imageParts]`) and the `uri`/`fileData` branch in `mapImageParts`; removed `messages?` and `uri?` from `ImagePromptPayload`. RED produced a genuine failure (multimodal test expected `''`, old code injected `'Test message'`) which GREEN resolved. Code review flagged a real `tsc` compile error (type-predicate filter incompatible with `Part` union) — fixed by reverting to `.filter(Boolean) as Part[]` — plus a stale JSDoc `uri?` reference (updated). `npm run build` now passes with zero tsc errors. No deviations from Assumption 2 (leading empty-string text part preserved). Note: `grep -n "messages" src/llm/llm.service.interface.ts` still matches two unrelated comments ("error messages"); addressed at final regression if the strict grep is enforced.
 
 ---
 
@@ -212,7 +212,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: removed the duplicate `GeminiService.extractStatusCode` and replaced the call in the `_sendInternal` catch with an inline `error_.status ?? error_.statusCode ?? error_.response?.status` read (renamed to `error_` to satisfy the `unicorn/name-replacements` lint rule). The base-class `LLMService.extractErrorStatusCode` is untouched and remains `private`. The enriched context `{ model, payloadType, statusCode }` is still logged once via `geminiLogger`, and the `Zod validation failed` + `error.issues` log via `this.logger` is preserved; the original error is re-thrown. RED added two behaviour-preserving regression guards (enriched-context spy + Zod-issues spy) that pass against both pre- and post-change code. Code review APPROVED; `npm run build` clean. No base-class change, no deviation from the observability-preservation requirement.
 
 ---
 
@@ -275,7 +275,7 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- Completed: `ImagePrompt` now takes a REQUIRED 3rd positional `allowedMimeTypes: string[]` (constructor reorder: `images`→4th, `systemPrompt`→5th); `readImageFile` uses `this.allowedMimeTypes` (no `process.env` read). `PromptFactory` injects `ConfigService` and passes `configService.get('ALLOWED_IMAGE_MIME_TYPES')`; `PromptModule` imports `ConfigModule`. All 8 `new ImagePrompt(...)` call sites pass `allowedMimeTypes` (no `undefined` holes; the two data-URI-only sites use `new ImagePrompt(inputs, logger, allowed)`). `assessor.service.spec.ts` mock returns a literal `['image/png','image/jpeg']` and its `process.env.ALLOWED_IMAGE_MIME_TYPES` assignments (beforeAll + `getMockEnvironmentValue`) were removed, as was the line in `vitest.setup.ts`; a comment notes the value is now via `ConfigService`. RED produced a genuine TS compile failure (new 3rd arg collided with old `images` param); GREEN resolved it. Code review APPROVED; `npm run build` clean. Note: the `assessor.service.spec.ts` mock routes the literal array through `getMockEnvironmentValue` (rather than a direct `if (key === ...) return [...]` in the `vi.fn`) — functionally equivalent (no `process.env` read), accepted as it satisfies the acceptance criteria and the regression grep.
 
 ---
 
@@ -350,6 +350,10 @@ For each section below:
 ### Implementation notes / deviations / follow-up
 
 - Confirmed during planning: the new SDK exports `ApiError` (`extends Error`) with a `status: number` property, constructor `new ApiError({ message, status })`. The base `LLMService.extractErrorStatusCode` already reads `error.status`, so no base-class change is required. Verify the `ContentListUnion` typing accepts the flat `['', ...imageParts]` / `[user]` `contents` array during implementation.
+
+- **Implemented (sections 5 + 5.1):** `GeminiService` migrated to `@google/genai` — `new GoogleGenAI({ apiKey })`, `client.models.generateContent({ model, contents, config })`, `result.text ?? ''`, `thinkingConfig.thinkingBudget = 0`, and a string `systemInstruction` via `buildModelParams`. `GeminiModelParameters` removed from `types.ts` (replaced by an inline `GeminiRequest = { model: string; config: GenerateContentConfig }`); the now-orphaned `GeminiModelParameters` suite in `types.spec.ts` was removed. `buildContents`/`mapImageParts` (`['', ...imageParts]`) and the Section 3 catch/retry path are preserved. The `@remarks` JSDoc follow-through was applied (`result.text` getter + `thinkingBudget = 0` rationale). `grep -rn "@google/generative-ai" src test` is empty; `@google/generative-ai` removed from `package.json` and `package-lock.json`. Verification: unit 211/211, mocked E2E 44/44, lint 0, build 0.
+
+- **Section 5.5 (live E2E) is pending** a real `GEMINI_API_KEY` in `.test.env` (see Section 5.5). The migration is otherwise fully verified via mocked E2E + unit + build + code review (APPROVED).
 
 ---
 
@@ -429,7 +433,7 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **Implemented:** `test/utils/llm-mock.mjs` rewritten to import `GoogleGenAI` from `@google/genai` and patch `GoogleGenAI.prototype.models` with a getter that returns `{ generateContent: async () => ({ text: JSON.stringify(mockResponse) }) }` plus a silent setter that intercepts the constructor's `this.models = new Models(this.apiClient)` own-property assignment, so every subsequent read goes through the getter and returns the mock. This mirrors the old SDK's `GoogleGenerativeAI.prototype.getGenerativeModel` patch. `npm run test:e2e:mocked` passes (7 files / 44 tests, 0 failures) using the canned `mockResponse` with no real API calls. `@google/generative-ai` removed from `package.json` and `package-lock.json`; `grep -rn "@google/generative-ai" test` is empty.
 
 ---
 
@@ -484,7 +488,68 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **Live validation PASSED (3/3).** `npm run test:e2e:live` (`assessor-live.e2e-spec.ts`) succeeded against the **real Gemini API** for TEXT, TABLE, and IMAGE tasks. The IMAGE case confirms the multimodal `contents` shape with the leading empty-string text part (`['', ...imageParts]`) works end-to-end, validating Assumption 2 at the live API boundary.
+- For the run, the model was **temporarily** switched so both `buildModelParams` branches used `gemini-2.5-flash-lite` (cheapest multimodal model; supports `thinkingConfig`, so `thinkingConfig.thinkingBudget = 0` stays valid — unlike Gemma, which rejects `thinkingConfig`). The production models (`gemini-2.5-flash` for images, `gemini-2.5-flash-lite` for text) are **unchanged**; this swap was reverted after the run. No rate-limit (429) was hit across the 3 calls.
+- Confirmed live: `contents` array (`['', ...imageParts]` / `[user]`), `thinkingConfig.thinkingBudget = 0`, string `systemInstruction`, and the `result.text` getter all behave as designed against the real API. The retry/error path was not exercised (no simulated failure / 429 in the free-tier run).
+- **Two pre-existing bugs in `test/assessor-live.e2e-spec.ts` were discovered (unrelated to the migration) and temporarily worked around, then reverted. Committed code is unchanged:**
+  1. The spec resolves fixtures via `getCurrentDirname()` (which returns `process.cwd()`, i.e. the repo root), but the fixtures live in `test/data` and `test/ImageTasks`, so it looked for `data/`/`ImageTasks/` at the root and threw `ENOENT`. Worked around with temporary root symlinks (`data -> test/data`, `ImageTasks -> test/ImageTasks`).
+  2. `loadFileAsDataURI` calls `fileBuffer.toBase64()`, which is not a function on this Node runtime; the correct call is `fileBuffer.toString('base64')`. Temporarily patched for the run.
+- **Follow-up recommendation (out of scope for the SDK migration):** now addressed as its own dedicated section — **Section 5.6** (fix `assessor-live.e2e-spec.ts` fixture paths + base64 encoding). Do **not** fold it into the Section 5 migration commit.
+
+---
+
+## Section 5.6 — Fix live E2E test harness bugs (fixture paths & base64 encoding)
+
+### Objective
+
+- Fix two pre-existing bugs in `test/assessor-live.e2e-spec.ts` (surfaced during the Section 5.5 live validation) so the live E2E suite is actually runnable against the real Gemini API.
+  1. Fixture path resolution: the spec resolves `path.join(getCurrentDirname(), 'data')` and `path.join(getCurrentDirname(), 'ImageTasks')`, but `getCurrentDirname()` returns `process.cwd()` (the repo root) while the fixtures live in `test/data` and `test/ImageTasks`. Prepend `'test'` so the paths resolve to `test/data` / `test/ImageTasks`.
+  2. `loadFileAsDataURI` calls `fileBuffer.toBase64()`, which is not a function on this Node runtime; the correct call is `fileBuffer.toString('base64')`.
+
+### Constraints
+
+- Primary change is `test/assessor-live.e2e-spec.ts`. The masked twin `test/assessor.e2e-spec.ts` carried the **identical latent `toBase64()` bug** in its own `loadFileAsDataURI` helper, so it was fixed too (required to satisfy the `grep -rn "toBase64" test` acceptance). `eslint.config.js` was updated to disable `unicorn/prefer-uint8array-base64` for both test files (extending the existing precedent set for `src/common/pipes/image-validation.pipe.ts`) — see the detailed explanatory comment in the config. No production (`src/`) logic changed; `package.json`/`package-lock.json` untouched in this section.
+- Do NOT fold this into the Section 5 migration commit — it is its own section and its own commit.
+- The live validation uses the real API key from `.test.env` (gitignored). To respect free-tier limits, the model MAY be temporarily switched to `gemini-2.5-flash-lite` for both `buildModelParams` branches during the validation run and reverted afterwards (same approach as Section 5.5); this swap is NOT committed.
+- The fix must keep the test's behaviour otherwise identical (same task payloads, same `completeness`/`accuracy`/`spag` assertions).
+
+### Delegation mandatory reads
+
+- `AGENTS.md`, `docs/development/code-style.md`
+- `test/assessor-live.e2e-spec.ts` (full file)
+- `src/common/file-utilities.ts` (confirms `getCurrentDirname()` returns `process.cwd()`)
+- `ACTION_PLAN.md` Section 5.5 (the live-validation notes that surfaced these bugs)
+
+### Acceptance criteria
+
+- `test/assessor-live.e2e-spec.ts` resolves fixtures via `path.join(getCurrentDirname(), 'test', 'data')` and `path.join(getCurrentDirname(), 'test', 'ImageTasks')`.
+- `loadFileAsDataURI` uses `fileBuffer.toString('base64')`; no `toBase64()` call remains.
+- `npm run test:e2e:live` passes (TEXT, TABLE, IMAGE) against the real API when a valid `GEMINI_API_KEY` is present in `.test.env`.
+- No production code changed; `grep -rn "toBase64" test` returns nothing.
+
+### Required test cases (Red first)
+
+1. **Red**: Run `npm run test:e2e:live` against the current (unfixed) spec with no temporary patches. It must FAIL — specifically with `ENOENT: .../data/tableTask.json` (fixture path bug #1) — confirming the bug is real and reproducible, not an environment quirk. Capture the failure mode.
+2. **Green**: Apply the two fixes (prepend `'test'` to the fixture dirs; `toString('base64')`). Re-run `npm run test:e2e:live` (valid key; optionally using the temporary `flash-lite` model swap to respect free-tier limits). It must PASS (3/3).
+3. **Regression guard**: `grep -rn "toBase64" test` → nothing; confirm the only changed file is `test/assessor-live.e2e-spec.ts`.
+
+### Section checks
+
+- `npm run test:e2e:live` → green (3 cases). (Requires a real `GEMINI_API_KEY` in `.test.env`; if unavailable, document the Red failure + the Green diff as the section's evidence and mark live confirmation deferred.)
+- `grep -rn "toBase64" test` → nothing.
+- `npm run lint` → exit 0.
+
+### Optional `@remarks` JSDoc follow-through
+
+- None (test-only file).
+
+### Implementation notes / deviations / follow-up
+
+- **Root cause of bug #2 clarified:** `unicorn/prefer-uint8array-base64` recommends `Uint8Array.prototype.toBase64()`, but that method is **not available at runtime** in this project's Node toolchain (verified via `node -e`: both `Buffer.prototype.toBase64` and `Uint8Array.prototype.toBase64` are `undefined`). The original `fileBuffer.toBase64()` therefore threw `toBase64 is not a function` at runtime. The correct, working call is `Buffer.prototype.toString('base64')`.
+- **Lint rule disabled in config (not inline):** per instruction, the rule was turned off for `test/assessor-live.e2e-spec.ts` and `test/assessor.e2e-spec.ts` in `eslint.config.js` (added to the existing `unicorn/prefer-uint8array-base64: 'off'` override block for `image-validation.pipe*`), with a detailed comment explaining the Node-runtime gap for future maintainers.
+- **Scope expansion (justified):** the masked twin `test/assessor.e2e-spec.ts` had the same `loadFileAsDataURI`/`toBase64()` bug; fixed identically so `grep -rn "toBase64" test` is clean and a latent runtime trap is removed.
+- **Verified:** `npm run test:e2e:live` → green (3/3: TEXT, TABLE, IMAGE) with the real API key; `npm run test:e2e:mocked` → 44 passed; `npm run lint` → exit 0; `grep -rn "toBase64" test` → NONE.
+- Model swap to `gemini-2.5-flash-lite` for both branches was used during the live run (per Section 5.5 precedent) and reverted; not committed.
 
 ---
 
@@ -533,7 +598,10 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **`file-type` removed:** dropped from `package.json` and the lockfile (`npm install --package-lock-only`, offline). Confirmed unused: `grep -rn "from 'file-type'" src test` returns nothing. `mime-detect` (the real dependency, imported at `src/common/pipes/image-validation.pipe.ts:2`) is retained.
+- **`executeAssessment` collapsed:** its body was inlined into `createAssessment` and the private method deleted (grep sentinel `executeAssessment` returns nothing in `assessor.service.ts`). To satisfy `@typescript-eslint/explicit-function-return-type` and keep the `unicorn/try-complexity` score at 13, a small `describePayloadSummary` helper was added to summarise the request payload in the debug log — purely cosmetic, the logged content is equivalent to the prior inline expression. The `createAssessment` `try/catch` and its `'Assessment failed for task type: X.'` log with `error.stack` are preserved verbatim (the controller-facing failure log, distinct from the `LLMService` terminal log). Missing `LLMService`/`LlmPayload` imports were also restored.
+- **`Prompt.render` guards stripped:** the defensive truthiness guards (`this && this.constructor`, `this ? Object.keys(this)`) at lines 111/114 were replaced with the unconditional `this.constructor.name` and `Object.keys(this).join(', ')`. The two `this.logger.debug(...)` statements remain.
+- **Verified:** `npm run build` ✓; unit `npm test` → 211 passed; `npm run lint` → 0; `npm run lint:british` → compliant; `mime-detect` still imported exactly once.
 
 ---
 
@@ -648,12 +716,15 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Optional `@remarks` JSDoc review
 
-- Confirm Section 4 (`ConfigService` for MIME types) and Section 5 (`result.text` getter; `thinkingConfig.thinkingBudget`) `@remarks` are present.
-- If no further `@remarks` are needed, record `None`.
+- Confirmed: Section 4 `@remarks` at `src/prompt/image.prompt.ts:152` ("Allowed MIME types are supplied via ConfigService ... not read from process.env.") and Section 5 `@remarks` at `src/llm/gemini.service.ts:169` ("response text is read via the new SDK's `result.text` getter"; "`thinkingConfig.thinkingBudget = 0` disables additional thinking for the Gemini 2.5 models") are present and accurate. JSDoc on `ImagePrompt`, `GeminiService.buildContents`/`generateAndParseResponse`/`buildModelParams`, and `ImagePromptPayload` already reflects the final shapes (no `messages`/`uri`/`buildUserMessageParts`; `result.text` getter; `config.thinkingConfig`). No further `@remarks` needed.
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **Doc edits applied (3):** `docs/modules/llm.md:328` → `**@google/genai**`; `docs/architecture/modules.md:85` → `` `mime-detect`: File type detection `` (the real dependency per `src/common/pipes/image-validation.pipe.ts:2`); `docs/testing/E2E_GUIDE.md:62` rewritten to describe the new shim mechanism (`GoogleGenAI` from `@google/genai`, patches `models.generateContent`, `result.text` getter rather than `result.response.text()`).
+- **Grep #1 clean:** `grep -rn "buildUserMessageParts\|extractStatusCode\|@google/generative-ai\|GoogleGenerativeAI\|getGenerativeModel\|file-type\|GoogleGenerativeAIFetchError" docs src test` → nothing. `test/utils/llm-mock.mjs` contains no `@google/generative-ai` import (rewritten in Section 5.1).
+- **JSDoc verified accurate:** all five referenced symbols inspected; no stale SDK references. The two mandatory `@remarks` blocks confirmed present and correct.
+- **FOLLOW-UP (fixed in a separate commit):** `docs/modules/llm.md` previously contained stale SDK **code examples** (lines ~85–135 for `buildModelParams` showing `ModelParams`/`generationConfig`/`thinking: { budget: 0 }`, and lines ~249–262 for `ImagePromptPayload` showing the removed `messages`/`uri` fields). These were not caught by grep #1 (its token list omits `ModelParams`/`generationConfig`/`messages`/`uri` as standalone doc tokens), so the literal acceptance passed, but the examples were misleading. A follow-up documentation refresh of those examples has now been applied (see the extra commit): the `buildModelParams` example now uses `GeminiRequest`/`GenerateContentConfig` with `config.thinkingConfig.thinkingBudget = 0`, and the `ImagePromptPayload` example drops `messages`/`uri` and uses the correct `images: Array<{ mimeType; data? }>` shape.
+- **Final De-Sloppification pass (separate commit):** the dedicated `de-sloppification` subagent was unavailable in this environment (its configured model `qwen-3.7-plus-free` does not resolve), so an equivalent inspection was run via the `code-reviewer` agent over all 27 changed files (21 commits vs `origin/master`). It returned 5 findings; 2 warranted were fixed in this commit: (1) an unused `const parser: JsonParserUtility = this.jsonParserUtility;` alias at `src/llm/gemini.service.ts:189` was removed in favour of `this.jsonParserUtility.parse(...)` directly; (2) a stale JSDoc path at `src/prompt/image.prompt.ts:154` (`docs/ImplementationPlan/Stage6/Prompts`) was corrected to the real base dir `docs/ImplementationPlan/Stage6/ExampleData/ImageTasks`. The other 3 were discarded as out-of-scope: one optional recompute-duplication (signature change, not warranted), and two that contradict established plan constraints — reusing `LLMService.extractErrorStatusCode` (Section 3 mandates it stays `private`) and dropping the `Prompt.render` debug logs (Section 6 mandates they remain). Verdict: ship-clean.
 
 ---
 

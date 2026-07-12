@@ -1,7 +1,4 @@
-import {
-  GoogleGenerativeAI,
-  GoogleGenerativeAIFetchError,
-} from '@google/generative-ai';
+import { GoogleGenAI, ApiError } from '@google/genai';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
@@ -15,37 +12,29 @@ import { LlmResponse } from './types.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 
-// Only mock the GoogleGenerativeAI class, not the error classes
-vi.mock('@google/generative-ai', async () => {
-  const actual = await vi.importActual<typeof import('@google/generative-ai')>(
-    '@google/generative-ai',
-  );
+// Only mock the GoogleGenAI class, not the error classes (ApiError is preserved
+// from the real SDK via the ...actual spread below).
+vi.mock('@google/genai', async () => {
+  const actual =
+    await vi.importActual<typeof import('@google/genai')>('@google/genai');
   return {
     ...actual,
-    GoogleGenerativeAI: vi.fn(),
+    GoogleGenAI: vi.fn(),
   };
 });
 
 const mockGenerateContent = vi.fn();
-const mockGetGenerativeModel = vi.fn(() => ({
-  generateContent: mockGenerateContent,
-}));
 
-const mockGoogleGenerativeAI = GoogleGenerativeAI as Mock;
-mockGoogleGenerativeAI.mockImplementation(function () {
+const mockGoogleGenAI = GoogleGenAI as Mock;
+mockGoogleGenAI.mockImplementation(function () {
   return {
-    getGenerativeModel: mockGetGenerativeModel,
+    models: { generateContent: mockGenerateContent },
   };
 });
 
 // Test fixtures and utilities
-const createValidResponse = (
-  score: number,
-): { response: { text: () => string } } => ({
-  response: {
-    text: (): string =>
-      `{"completeness": {"score": ${score}, "reasoning": "Test"}, "accuracy": {"score": ${score}, "reasoning": "Test"}, "spag": {"score": ${score}, "reasoning": "Test"}}`,
-  },
+const createValidResponse = (score: number): { text: string } => ({
+  text: `{"completeness": {"score": ${score}, "reasoning": "Test"}, "accuracy": {"score": ${score}, "reasoning": "Test"}, "spag": {"score": ${score}, "reasoning": "Test"}}`,
 });
 
 const createStringPayload = (user: string = 'test'): StringPromptPayload => ({
@@ -55,7 +44,6 @@ const createStringPayload = (user: string = 'test'): StringPromptPayload => ({
 
 const createImagePayload = (): ImagePromptPayload => ({
   system: 'system prompt',
-  messages: [{ content: 'Test message' }],
   images: [{ mimeType: 'image/png', data: 'test-data' }],
 });
 
@@ -86,9 +74,7 @@ describe('GeminiService', () => {
     } as unknown as ConfigService;
 
     // Mock JsonParserUtil
-    mockParse = vi.fn((json: string): unknown => {
-      return JSON.parse(json) as unknown;
-    });
+    mockParse = vi.fn((json: string): unknown => JSON.parse(json) as unknown);
 
     service = new GeminiService(configService, {
       parse: mockParse,
@@ -100,7 +86,7 @@ describe('GeminiService', () => {
   });
 
   it('should initialise the SDK correctly', () => {
-    expect(mockGoogleGenerativeAI).toHaveBeenCalledWith('test-api-key');
+    expect(mockGoogleGenAI).toHaveBeenCalledWith({ apiKey: 'test-api-key' });
   });
 
   describe('basic functionality', () => {
@@ -110,13 +96,15 @@ describe('GeminiService', () => {
       const payload = createStringPayload('test prompt');
       const result = await service.send(payload);
 
-      expect(mockGetGenerativeModel).toHaveBeenCalledWith({
+      expect(mockGenerateContent).toHaveBeenCalledWith({
         model: 'gemini-2.5-flash-lite',
-        systemInstruction: 'system prompt',
-        generationConfig: { temperature: 0 },
-        thinking: { budget: 0 },
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
-      expect(mockGenerateContent).toHaveBeenCalledWith(['test prompt']);
       expectValidResponse(result, 1);
     });
 
@@ -126,16 +114,18 @@ describe('GeminiService', () => {
       const payload = createImagePayload();
       const result = await service.send(payload);
 
-      expect(mockGetGenerativeModel).toHaveBeenCalledWith({
+      expect(mockGenerateContent).toHaveBeenCalledWith({
         model: 'gemini-2.5-flash',
-        systemInstruction: 'system prompt',
-        generationConfig: { temperature: 0 },
-        thinking: { budget: 0 },
+        contents: [
+          '',
+          { inlineData: { mimeType: 'image/png', data: 'test-data' } },
+        ],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
-      expect(mockGenerateContent).toHaveBeenCalledWith([
-        'Test message',
-        { inlineData: { mimeType: 'image/png', data: 'test-data' } },
-      ]);
       expectValidResponse(result, 3);
     });
 
@@ -146,9 +136,7 @@ describe('GeminiService', () => {
         '{"completeness": {"score": 4, "reasoning": "Test"}, "accuracy": {"score": 4, "reasoning": "Test"}, "spag": {"score": 4, "reasoning": "Test"}}';
 
       mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => malformedJson,
-        },
+        text: malformedJson,
       });
 
       mockParse.mockReturnValueOnce(JSON.parse(repairedJson));
@@ -172,9 +160,7 @@ describe('GeminiService', () => {
 
     it('should throw a ZodError for an invalid response structure', async () => {
       mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => '{"invalid": "structure"}',
-        },
+        text: '{"invalid": "structure"}',
       });
 
       const payload = createStringPayload();
@@ -183,9 +169,7 @@ describe('GeminiService', () => {
 
     it('should throw an error if JsonParserUtil fails to parse the response', async () => {
       mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => 'This is not JSON.',
-        },
+        text: 'This is not JSON.',
       });
 
       mockParse.mockImplementation(() => {
@@ -198,8 +182,39 @@ describe('GeminiService', () => {
       );
     });
 
+    it('should log enriched context on failure', async () => {
+      const geminiErrorSpy = vi.spyOn(
+        (
+          service as unknown as {
+            geminiLogger: { error: (...a: unknown[]) => void };
+          }
+        ).geminiLogger,
+        'error',
+      );
+
+      mockGenerateContent.mockRejectedValue(
+        new ApiError({ message: 'Server error', status: 500 }),
+      );
+
+      const payload = createStringPayload();
+      await expect(service.send(payload)).rejects.toThrow();
+
+      expect(geminiErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'gemini-2.5-flash-lite',
+          payloadType: 'text',
+          statusCode: 500,
+        }),
+        'Error communicating with or validating response from Gemini API',
+        expect.any(String),
+      );
+    });
+
     it('should not retry on non-429 errors', async () => {
-      const serverError = new GoogleGenerativeAIFetchError('Server error', 500);
+      const serverError = new ApiError({
+        message: 'Server error',
+        status: 500,
+      });
       mockGenerateContent.mockRejectedValue(serverError);
 
       const payload = createStringPayload();
@@ -218,7 +233,6 @@ describe('GeminiService', () => {
   ): Promise<void> => {
     const payload = createStringPayload();
 
-    // Chain the mock rejections followed by success
     let mockChain = mockGenerateContent;
     for (const error of errors) {
       mockChain = mockChain.mockRejectedValueOnce(error);
@@ -236,7 +250,6 @@ describe('GeminiService', () => {
   ): Promise<void> => {
     const payload = createStringPayload();
 
-    // Mock all calls to fail
     for (const error of errors) {
       mockGenerateContent.mockRejectedValueOnce(error);
     }
@@ -248,7 +261,7 @@ describe('GeminiService', () => {
   describe('retry logic', () => {
     it('should retry on 429 errors and eventually succeed', async () => {
       await testRetryBehaviorSuccess(
-        [new GoogleGenerativeAIFetchError('Rate limited', 429)],
+        [new ApiError({ message: 'Rate limited', status: 429 })],
         2,
       );
     });
@@ -256,8 +269,8 @@ describe('GeminiService', () => {
     it('should retry multiple times with exponential backoff', async () => {
       await testRetryBehaviorSuccess(
         [
-          new GoogleGenerativeAIFetchError('Rate limited', 429),
-          new GoogleGenerativeAIFetchError('Rate limited', 429),
+          new ApiError({ message: 'Rate limited', status: 429 }),
+          new ApiError({ message: 'Rate limited', status: 429 }),
         ],
         3,
       );
@@ -272,10 +285,10 @@ describe('GeminiService', () => {
     });
 
     it('should throw error after max retries exceeded', async () => {
-      const rateLimitError = new GoogleGenerativeAIFetchError(
-        'Rate limited',
-        429,
-      );
+      const rateLimitError = new ApiError({
+        message: 'Rate limited',
+        status: 429,
+      });
       await testRetryBehaviorFailure(
         [rateLimitError, rateLimitError, rateLimitError],
         3,
@@ -290,10 +303,10 @@ describe('GeminiService', () => {
     const payload = createStringPayload();
 
     const error = errorMessage.includes('RESOURCE_EXHAUSTED')
-      ? new GoogleGenerativeAIFetchError(errorMessage, statusCode)
+      ? new ApiError({ message: errorMessage, status: statusCode })
       : new Error(errorMessage);
 
-    if (!(error instanceof GoogleGenerativeAIFetchError)) {
+    if (!(error instanceof ApiError)) {
       (error as Error & { status?: number }).status = statusCode;
     }
 
@@ -324,10 +337,10 @@ describe('GeminiService', () => {
 
     it('should preserve original error in ResourceExhaustedError', async () => {
       const payload = createStringPayload();
-      const originalError = new GoogleGenerativeAIFetchError(
-        'RESOURCE_EXHAUSTED: Free tier quota exceeded',
-        429,
-      );
+      const originalError = new ApiError({
+        message: 'RESOURCE_EXHAUSTED: Free tier quota exceeded',
+        status: 429,
+      });
 
       mockGenerateContent.mockRejectedValueOnce(originalError);
 
@@ -347,7 +360,7 @@ describe('GeminiService', () => {
     it('should still retry regular rate limit errors (not resource exhausted)', async () => {
       mockGenerateContent
         .mockRejectedValueOnce(
-          new GoogleGenerativeAIFetchError('Rate limit exceeded', 429),
+          new ApiError({ message: 'Rate limit exceeded', status: 429 }),
         )
         .mockResolvedValueOnce(createValidResponse(1));
 

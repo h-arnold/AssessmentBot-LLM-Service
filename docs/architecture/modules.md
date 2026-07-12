@@ -82,7 +82,7 @@ This document provides a detailed breakdown of each module in the Assessment Bot
 
 - `zod`: Schema validation
 - `jsonrepair`: JSON parsing and repair
-- `file-type`: File type detection
+- `mime-detect`: File type detection
 
 **Exports**:
 

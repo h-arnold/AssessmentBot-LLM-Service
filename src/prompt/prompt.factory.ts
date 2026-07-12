@@ -5,6 +5,7 @@ import { Prompt } from './prompt.base.js';
 import { TablePrompt } from './table.prompt.js';
 import { TextPrompt } from './text.prompt.js';
 import { readMarkdown } from '../common/file-utilities.js';
+import { ConfigService } from '../config/config.service.js';
 import {
   CreateAssessorDto,
   TaskType,
@@ -21,6 +22,8 @@ import {
 @Injectable()
 export class PromptFactory {
   private readonly logger = new Logger(PromptFactory.name);
+
+  constructor(private readonly configService: ConfigService) {}
 
   /**
    * Creates an appropriate prompt instance based on the provided assessment
@@ -186,6 +189,7 @@ export class PromptFactory {
         return new ImagePrompt(
           imageInputs,
           this.logger,
+          this.configService.get('ALLOWED_IMAGE_MIME_TYPES'),
           dto.images,
           systemPrompt,
         );

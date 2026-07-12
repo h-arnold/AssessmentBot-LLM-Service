@@ -1,5 +1,4 @@
 import { LlmResponseSchema } from './types.js';
-import type { GeminiModelParameters } from './types.js';
 
 describe('LlmResponseSchema', () => {
   it('should validate a correct payload', () => {
@@ -69,60 +68,5 @@ describe('LlmResponseSchema', () => {
     };
     const result = LlmResponseSchema.safeParse(invalidPayload);
     expect(result.success).toBe(false);
-  });
-});
-
-describe('GeminiModelParameters type', () => {
-  it('should accept a valid params object with thinking and systemInstruction', () => {
-    const parameters: GeminiModelParameters = {
-      model: 'gemini-2.5-flash-lite',
-      generationConfig: { temperature: 0 },
-      thinking: { budget: 100 },
-      systemInstruction: 'Be concise',
-    };
-
-    expect(parameters).toMatchObject({
-      model: 'gemini-2.5-flash-lite',
-      generationConfig: { temperature: 0 },
-      thinking: { budget: 100 },
-      systemInstruction: 'Be concise',
-    });
-  });
-
-  it('should allow params with thinking omitted', () => {
-    const parameters: GeminiModelParameters = {
-      model: 'gemini-2.5-flash',
-      generationConfig: {},
-    };
-    expect(parameters).toMatchObject({
-      model: 'gemini-2.5-flash',
-      generationConfig: {},
-    });
-    expect(parameters).not.toHaveProperty('thinking');
-  });
-
-  it('should allow params with systemInstruction omitted', () => {
-    const parameters: GeminiModelParameters = {
-      model: 'gemini-2.5-flash',
-    };
-    expect(parameters).toMatchObject({
-      model: 'gemini-2.5-flash',
-    });
-    expect(parameters).not.toHaveProperty('systemInstruction');
-  });
-
-  it('should enforce types at compile-time for common mistakes', () => {
-    // @ts-expect-error - thinking.budget must be a number
-    const bad1: GeminiModelParameters = { model: 123 };
-
-    // @ts-expect-error - systemInstruction must be a string
-    const bad2: GeminiModelParameters = {
-      model: 'gemini-2.5-flash',
-      systemInstruction: 123,
-    };
-
-    // Add a runtime assertion so ESLint's vitest/expect-expect rule is satisfied
-    expect(bad1).toBeDefined();
-    expect(bad2).toBeDefined();
   });
 });

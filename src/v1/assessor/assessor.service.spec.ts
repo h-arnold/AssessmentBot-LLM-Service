@@ -29,29 +29,41 @@ const createMockLlmResponse = (score: number): LlmResponse => ({
   },
 });
 
-const getMockEnvironmentValue = (key: string): string => {
+// ALLOWED_IMAGE_MIME_TYPES is now supplied via ConfigService (not process.env)
+const getMockEnvironmentValue = (key: string): string | string[] => {
+  let value: string | string[];
   switch (key) {
-    case 'GEMINI_API_KEY':
-      return process.env.GEMINI_API_KEY ?? '';
-    case 'NODE_ENV':
-      return process.env.NODE_ENV ?? '';
-    case 'PORT':
-      return process.env.PORT ?? '';
-    case 'API_KEYS':
-      return process.env.API_KEYS ?? '';
-    case 'MAX_IMAGE_UPLOAD_SIZE_MB':
-      return process.env.MAX_IMAGE_UPLOAD_SIZE_MB ?? '';
     case 'ALLOWED_IMAGE_MIME_TYPES':
-      return process.env.ALLOWED_IMAGE_MIME_TYPES ?? '';
+      value = ['image/png', 'image/jpeg'];
+      break;
+    case 'GEMINI_API_KEY':
+      value = process.env.GEMINI_API_KEY ?? '';
+      break;
+    case 'NODE_ENV':
+      value = process.env.NODE_ENV ?? '';
+      break;
+    case 'PORT':
+      value = process.env.PORT ?? '';
+      break;
+    case 'API_KEYS':
+      value = process.env.API_KEYS ?? '';
+      break;
+    case 'MAX_IMAGE_UPLOAD_SIZE_MB':
+      value = process.env.MAX_IMAGE_UPLOAD_SIZE_MB ?? '';
+      break;
     case 'APP_NAME':
-      return process.env.APP_NAME ?? '';
+      value = process.env.APP_NAME ?? '';
+      break;
     case 'APP_VERSION':
-      return process.env.APP_VERSION ?? '';
+      value = process.env.APP_VERSION ?? '';
+      break;
     case 'LOG_LEVEL':
-      return process.env.LOG_LEVEL ?? '';
+      value = process.env.LOG_LEVEL ?? '';
+      break;
     default:
-      return '';
+      value = '';
   }
+  return value;
 };
 
 describe('AssessorService', () => {
@@ -69,7 +81,6 @@ describe('AssessorService', () => {
     process.env.PORT = '3000';
     process.env.API_KEYS = 'test-api-key';
     process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
-    process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png,image/jpeg';
     process.env.APP_NAME = 'Assessment Bot LLM Service';
     process.env.APP_VERSION = 'test-version';
     process.env.LOG_LEVEL = 'debug';
@@ -186,7 +197,6 @@ describe('AssessorService', () => {
             data: 'base64-encoded-string-2',
           },
         ],
-        messages: [{ content: 'Assess this artwork.' }],
       };
 
       const mockPrompt = {

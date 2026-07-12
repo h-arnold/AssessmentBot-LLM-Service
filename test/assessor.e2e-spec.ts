@@ -16,7 +16,7 @@ const loadFileAsDataURI = async (filePath: string): Promise<string> => {
   const fileBuffer = await fs.readFile(filePath);
   const mimeType =
     path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toBase64()}`;
+  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
 };
 
 interface TaskData {

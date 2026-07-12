@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { CreateAssessorDto } from './dto/create-assessor.dto.js';
-import { LLMService } from '../../llm/llm.service.interface.js';
+import { LLMService, LlmPayload } from '../../llm/llm.service.interface.js';
 import { LlmResponse } from '../../llm/types.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
 
@@ -40,7 +40,19 @@ export class AssessorService {
   async createAssessment(dto: CreateAssessorDto): Promise<LlmResponse> {
     this.logger.log(`Creating assessment for task type: ${dto.taskType}.`);
     try {
-      return await this.executeAssessment(dto);
+      const prompt = await this.promptFactory.create(dto);
+      this.logger.debug(
+        `Prompt created for task type: ${dto.taskType}. Building payload.`,
+      );
+
+      const message = await prompt.buildMessage();
+      this.logger.debug(
+        `LLM payload built for task type: ${dto.taskType} (${this.describePayloadSummary(message)}).`,
+      );
+
+      const response: LlmResponse = await this.llmService.send(message);
+      this.logger.log(`Assessment completed for task type: ${dto.taskType}.`);
+      return response;
     } catch (error) {
       this.logger.error(
         `Assessment failed for task type: ${dto.taskType}.`,
@@ -50,25 +62,15 @@ export class AssessorService {
     }
   }
 
-  private async executeAssessment(
-    dto: CreateAssessorDto,
-  ): Promise<LlmResponse> {
-    const prompt = await this.promptFactory.create(dto);
-    this.logger.debug(
-      `Prompt created for task type: ${dto.taskType}. Building payload.`,
-    );
-
-    const message = await prompt.buildMessage();
-    const payloadSummary =
-      'images' in message
-        ? `image payload with ${message.images.length} images`
-        : `text payload with ${message.user.length} characters`;
-    this.logger.debug(
-      `LLM payload built for task type: ${dto.taskType} (${payloadSummary}).`,
-    );
-
-    const response = await this.llmService.send(message);
-    this.logger.log(`Assessment completed for task type: ${dto.taskType}.`);
-    return response;
+  /**
+   * Describes an LLM payload for debug logging — determines whether it is an
+   * image or text payload and returns a human-readable summary string.
+   * @param {LlmPayload} message The LLM payload to describe.
+   * @returns {string} A human-readable summary string.
+   */
+  private describePayloadSummary(message: LlmPayload): string {
+    return 'images' in message
+      ? `image payload with ${message.images.length} images`
+      : `text payload with ${message.user.length} characters`;
   }
 }

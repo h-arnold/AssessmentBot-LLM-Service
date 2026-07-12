@@ -26,9 +26,7 @@ export type ImagePromptPayload = {
   /** The system instruction or context for the LLM. */
   system: string;
   /** Array of images with their metadata. */
-  images: Array<{ mimeType: string; data?: string; uri?: string }>;
-  /** Optional messages array. */
-  messages?: Array<{ content: string }>;
+  images: Array<{ mimeType: string; data?: string }>;
   /** Optional temperature for sampling (default: 0). */
   temperature?: number;
 };

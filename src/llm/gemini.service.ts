@@ -186,8 +186,7 @@ export class GeminiService extends LLMService {
 
     this.geminiLogger.debug(`Raw response from Gemini: \n\n${responseText}`);
 
-    const parser: JsonParserUtility = this.jsonParserUtility;
-    const parsedJson: unknown = parser.parse(responseText);
+    const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
     this.geminiLogger.debug(
       `Parsed JSON response: ${JSON.stringify(parsedJson, null, 2)}`,
     );

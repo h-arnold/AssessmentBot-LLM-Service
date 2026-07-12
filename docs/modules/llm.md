@@ -325,7 +325,7 @@ The module includes comprehensive test coverage:
 
 The LLM Module depends on:
 
-- **@google/generative-ai** - Google Gemini API client
+- **@google/genai** - Google Gemini API client
 - **ConfigModule** - Environment configuration management
 - **CommonModule** - Shared utilities (JsonParserUtil)
 - **zod** - Runtime type validation and schema enforcement

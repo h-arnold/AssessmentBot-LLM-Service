@@ -716,12 +716,14 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 
 ### Optional `@remarks` JSDoc review
 
-- Confirm Section 4 (`ConfigService` for MIME types) and Section 5 (`result.text` getter; `thinkingConfig.thinkingBudget`) `@remarks` are present.
-- If no further `@remarks` are needed, record `None`.
+- Confirmed: Section 4 `@remarks` at `src/prompt/image.prompt.ts:152` ("Allowed MIME types are supplied via ConfigService ... not read from process.env.") and Section 5 `@remarks` at `src/llm/gemini.service.ts:169` ("response text is read via the new SDK's `result.text` getter"; "`thinkingConfig.thinkingBudget = 0` disables additional thinking for the Gemini 2.5 models") are present and accurate. JSDoc on `ImagePrompt`, `GeminiService.buildContents`/`generateAndParseResponse`/`buildModelParams`, and `ImagePromptPayload` already reflects the final shapes (no `messages`/`uri`/`buildUserMessageParts`; `result.text` getter; `config.thinkingConfig`). No further `@remarks` needed.
 
 ### Implementation notes / deviations / follow-up
 
-- _(Fill during implementation.)_
+- **Doc edits applied (3):** `docs/modules/llm.md:328` → `**@google/genai**`; `docs/architecture/modules.md:85` → `` `mime-detect`: File type detection `` (the real dependency per `src/common/pipes/image-validation.pipe.ts:2`); `docs/testing/E2E_GUIDE.md:62` rewritten to describe the new shim mechanism (`GoogleGenAI` from `@google/genai`, patches `models.generateContent`, `result.text` getter rather than `result.response.text()`).
+- **Grep #1 clean:** `grep -rn "buildUserMessageParts\|extractStatusCode\|@google/generative-ai\|GoogleGenerativeAI\|getGenerativeModel\|file-type\|GoogleGenerativeAIFetchError" docs src test` → nothing. `test/utils/llm-mock.mjs` contains no `@google/generative-ai` import (rewritten in Section 5.1).
+- **JSDoc verified accurate:** all five referenced symbols inspected; no stale SDK references. The two mandatory `@remarks` blocks confirmed present and correct.
+- **FOLLOW-UP (out of scope for this section, recommend separate task):** `docs/modules/llm.md` still contains stale SDK **code examples** (lines ~85–135 for `buildModelParams` showing `ModelParams`/`generationConfig`/`thinking: { budget: 0 }`, and lines ~249–262 for `ImagePromptPayload` showing the removed `messages`/`uri` fields). These are not caught by grep #1 (its token list omits `ModelParams`/`generationConfig`/`messages`/`uri` as standalone doc tokens), so the literal acceptance passes, but the examples are misleading. A follow-up documentation refresh of those examples is recommended. Flagged, not auto-expanded, to avoid scope creep in this section.
 
 ---
 

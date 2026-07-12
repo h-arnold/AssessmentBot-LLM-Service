@@ -250,10 +250,27 @@ export default tseslint.config(
     },
   },
 
+  // `unicorn/prefer-uint8array-base64` is disabled for the files below.
+  //
+  // Root cause: the rule recommends `Uint8Array.prototype.toBase64()` instead of
+  // `Buffer.prototype.toString('base64')`. However, `toBase64()` is NOT available
+  // at runtime in the Node.js toolchain used by this project (verified via
+  // `node -e`: both `Buffer.prototype.toBase64` and `Uint8Array.prototype.toBase64`
+  // are `undefined`). Calling `toBase64()` therefore throws
+  // "fileBuffer.toBase64 is not a function" at runtime, which breaks the live/E2E
+  // test harness (this was the root cause of the Section 5.5 / 5.6 bug where the
+  // live E2E suite failed with `toBase64 is not a function`).
+  //
+  // The correct, working call in this environment is
+  // `Buffer.prototype.toString('base64')`, which is what these files use. Once the
+  // project's Node.js runtime ships a `Uint8Array.prototype.toBase64()`
+  // implementation, this override can be removed and the calls migrated back.
   {
     files: [
       'src/common/pipes/image-validation.pipe.ts',
       'src/common/pipes/image-validation.pipe.spec.ts',
+      'test/assessor-live.e2e-spec.ts',
+      'test/assessor.e2e-spec.ts',
     ],
     rules: {
       'unicorn/prefer-uint8array-base64': 'off',

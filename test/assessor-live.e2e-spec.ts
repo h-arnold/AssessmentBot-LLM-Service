@@ -16,7 +16,7 @@ const loadFileAsDataURI = async (filePath: string): Promise<string> => {
   const fileBuffer = await fs.readFile(filePath);
   const mimeType =
     path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toBase64()}`;
+  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
 };
 
 interface TaskData {
@@ -44,8 +44,8 @@ describe('AssessorController (e2e-live)', () => {
     app = await startApp(logFilePath);
 
     // Load test data asynchronously
-    const dataDirectory = path.join(getCurrentDirname(), 'data');
-    const imageDirectory = path.join(getCurrentDirname(), 'ImageTasks');
+    const dataDirectory = path.join(getCurrentDirname(), 'test', 'data');
+    const imageDirectory = path.join(getCurrentDirname(), 'test', 'ImageTasks');
 
     const tableTaskPath = path.join(dataDirectory, 'tableTask.json');
     const textTaskPath = path.join(dataDirectory, 'textTask.json');

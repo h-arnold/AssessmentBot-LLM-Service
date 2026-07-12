@@ -152,7 +152,7 @@ export class ImagePrompt extends Prompt {
    * @remarks
    * - The method ensures security by validating the file path and MIME type before reading the file.
    * - The base directory for image files is restricted to `docs/ImplementationPlan/Stage6/ExampleData/ImageTasks`.
-   * - The file path validation prevents unauthorized access to files outside the allowed directory.
+   * - The file path validation prevents unauthorised access to files outside the allowed directory.
    * - Allowed MIME types are supplied via ConfigService (injected through PromptFactory), not read from process.env.
    */
   async readImageFile(imagePath: string, mimeType?: string): Promise<string> {

@@ -60,7 +60,7 @@ export class GeminiService extends LLMService {
         response?: { status?: number };
       };
       const statusCode =
-        error_.status ?? error_.statusCode ?? error_.response?.status;
+        error_?.status ?? error_?.statusCode ?? error_?.response?.status;
       const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
       this.geminiLogger.error(
         {

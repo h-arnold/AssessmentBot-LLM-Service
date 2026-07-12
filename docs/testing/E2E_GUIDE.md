@@ -59,7 +59,7 @@ The test setup uses a specific strategy for managing environment variables to en
 When `E2E_MOCK_LLM=true`, the test runner applies an ESM preload shim to avoid live Gemini calls:
 
 - `startApp` injects `--import=<file://.../llm-mock.mjs>` via `NODE_OPTIONS`.
-- The shim (`test/utils/llm-mock.mjs`) imports `GoogleGenAI` from `@google/genai` and patches `models.generateContent` on the prototype so calls via `client.models.generateContent(...)` are intercepted. The patched function resolves to an object exposing a `result.text` getter that returns `JSON.stringify(mockResponse)` — a deterministic payload with fixed scores (all `3`) and short reasoning text.
+- The shim (`test/utils/llm-mock.mjs`) imports `GoogleGenAI` from `@google/genai` and patches the `models` property (getter + silent setter) on `GoogleGenAI.prototype` so calls via `client.models.generateContent(...)` are intercepted. The patched function resolves to an object exposing a plain `text` property that returns `JSON.stringify(mockResponse)` — a deterministic payload with fixed scores (all `3`) and short reasoning text.
 - `generateContent` returns a deterministic JSON payload with fixed scores (all `3`) and short reasoning text.
 
 This keeps the full HTTP request/response flow intact while making LLM responses stable and offline. Use the live suite when you need to validate real Gemini behaviour or quotas.

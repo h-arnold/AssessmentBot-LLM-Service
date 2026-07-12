@@ -25,7 +25,7 @@ describe('ResourceExhaustedError', () => {
       'RESOURCE_EXHAUSTED: Free tier quota exceeded',
     );
     Object.defineProperty(originalError, 'name', {
-      value: 'GoogleGenerativeAIFetchError',
+      value: 'UpstreamQuotaFetchError',
       writable: true,
       configurable: true,
     });

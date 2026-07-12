@@ -82,18 +82,19 @@ Implements Google Gemini-specific functionality:
 **Model Selection Logic:**
 
 ```typescript
-private buildModelParams(payload: LlmPayload): ModelParams {
+private buildModelParams(payload: LlmPayload): GeminiRequest {
   const modelName = this.isImagePromptPayload(payload)
-    ? 'gemini-2.5-flash'      // Multimodal model for images
-    : 'gemini-2.0-flash-lite'; // Fast model for text-only
+    ? 'gemini-2.5-flash'       // Multimodal model for images
+    : 'gemini-2.5-flash-lite';  // Fast model for text-only
 
-  return {
-    model: modelName,
+  const config: GenerateContentConfig = {
     systemInstruction: payload.system,
-    generationConfig: { temperature: payload.temperature ?? 0 },
+    temperature: payload.temperature ?? 0,
     // Disable additional thinking budget as per Gemini guidance
-    thinking: { budget: 0 },
+    thinkingConfig: { thinkingBudget: 0 },
   };
+
+  return { model: modelName, config };
 }
 ```
 
@@ -124,11 +125,6 @@ type ImagePromptPayload = {
     // Image data array
     mimeType: string;
     data?: string; // Base64 encoded image data
-    uri?: string; // File URI for uploaded images
-  }>;
-  messages?: Array<{
-    // Optional text messages
-    content: string;
   }>;
   temperature?: number; // Sampling temperature (default: 0)
 };
@@ -255,7 +251,6 @@ const imagePayload: ImagePromptPayload = {
       data: 'base64-encoded-image-data...',
     },
   ],
-  messages: [{ content: "Evaluate this student's drawing." }],
 };
 
 const response = await llmService.send(imagePayload);

@@ -494,7 +494,62 @@ GoogleGenerativeAI.prototype.getGenerativeModel =
 - **Two pre-existing bugs in `test/assessor-live.e2e-spec.ts` were discovered (unrelated to the migration) and temporarily worked around, then reverted. Committed code is unchanged:**
   1. The spec resolves fixtures via `getCurrentDirname()` (which returns `process.cwd()`, i.e. the repo root), but the fixtures live in `test/data` and `test/ImageTasks`, so it looked for `data/`/`ImageTasks/` at the root and threw `ENOENT`. Worked around with temporary root symlinks (`data -> test/data`, `ImageTasks -> test/ImageTasks`).
   2. `loadFileAsDataURI` calls `fileBuffer.toBase64()`, which is not a function on this Node runtime; the correct call is `fileBuffer.toString('base64')`. Temporarily patched for the run.
-- **Follow-up recommendation (out of scope for the SDK migration):** fix `assessor-live.e2e-spec.ts` so the live E2E is actually runnable — resolve `test/data` and `test/ImageTasks` relative to the test file (not `process.cwd()`), and use `toString('base64')`. Candidate for Section 6/7 or its own task; do **not** fold it into the Section 5 migration commit.
+- **Follow-up recommendation (out of scope for the SDK migration):** now addressed as its own dedicated section — **Section 5.6** (fix `assessor-live.e2e-spec.ts` fixture paths + base64 encoding). Do **not** fold it into the Section 5 migration commit.
+
+---
+
+## Section 5.6 — Fix live E2E test harness bugs (fixture paths & base64 encoding)
+
+### Objective
+
+- Fix two pre-existing bugs in `test/assessor-live.e2e-spec.ts` (surfaced during the Section 5.5 live validation) so the live E2E suite is actually runnable against the real Gemini API.
+  1. Fixture path resolution: the spec resolves `path.join(getCurrentDirname(), 'data')` and `path.join(getCurrentDirname(), 'ImageTasks')`, but `getCurrentDirname()` returns `process.cwd()` (the repo root) while the fixtures live in `test/data` and `test/ImageTasks`. Prepend `'test'` so the paths resolve to `test/data` / `test/ImageTasks`.
+  2. `loadFileAsDataURI` calls `fileBuffer.toBase64()`, which is not a function on this Node runtime; the correct call is `fileBuffer.toString('base64')`.
+
+### Constraints
+
+- Primary change is `test/assessor-live.e2e-spec.ts`. The masked twin `test/assessor.e2e-spec.ts` carried the **identical latent `toBase64()` bug** in its own `loadFileAsDataURI` helper, so it was fixed too (required to satisfy the `grep -rn "toBase64" test` acceptance). `eslint.config.js` was updated to disable `unicorn/prefer-uint8array-base64` for both test files (extending the existing precedent set for `src/common/pipes/image-validation.pipe.ts`) — see the detailed explanatory comment in the config. No production (`src/`) logic changed; `package.json`/`package-lock.json` untouched in this section.
+- Do NOT fold this into the Section 5 migration commit — it is its own section and its own commit.
+- The live validation uses the real API key from `.test.env` (gitignored). To respect free-tier limits, the model MAY be temporarily switched to `gemini-2.5-flash-lite` for both `buildModelParams` branches during the validation run and reverted afterwards (same approach as Section 5.5); this swap is NOT committed.
+- The fix must keep the test's behaviour otherwise identical (same task payloads, same `completeness`/`accuracy`/`spag` assertions).
+
+### Delegation mandatory reads
+
+- `AGENTS.md`, `docs/development/code-style.md`
+- `test/assessor-live.e2e-spec.ts` (full file)
+- `src/common/file-utilities.ts` (confirms `getCurrentDirname()` returns `process.cwd()`)
+- `ACTION_PLAN.md` Section 5.5 (the live-validation notes that surfaced these bugs)
+
+### Acceptance criteria
+
+- `test/assessor-live.e2e-spec.ts` resolves fixtures via `path.join(getCurrentDirname(), 'test', 'data')` and `path.join(getCurrentDirname(), 'test', 'ImageTasks')`.
+- `loadFileAsDataURI` uses `fileBuffer.toString('base64')`; no `toBase64()` call remains.
+- `npm run test:e2e:live` passes (TEXT, TABLE, IMAGE) against the real API when a valid `GEMINI_API_KEY` is present in `.test.env`.
+- No production code changed; `grep -rn "toBase64" test` returns nothing.
+
+### Required test cases (Red first)
+
+1. **Red**: Run `npm run test:e2e:live` against the current (unfixed) spec with no temporary patches. It must FAIL — specifically with `ENOENT: .../data/tableTask.json` (fixture path bug #1) — confirming the bug is real and reproducible, not an environment quirk. Capture the failure mode.
+2. **Green**: Apply the two fixes (prepend `'test'` to the fixture dirs; `toString('base64')`). Re-run `npm run test:e2e:live` (valid key; optionally using the temporary `flash-lite` model swap to respect free-tier limits). It must PASS (3/3).
+3. **Regression guard**: `grep -rn "toBase64" test` → nothing; confirm the only changed file is `test/assessor-live.e2e-spec.ts`.
+
+### Section checks
+
+- `npm run test:e2e:live` → green (3 cases). (Requires a real `GEMINI_API_KEY` in `.test.env`; if unavailable, document the Red failure + the Green diff as the section's evidence and mark live confirmation deferred.)
+- `grep -rn "toBase64" test` → nothing.
+- `npm run lint` → exit 0.
+
+### Optional `@remarks` JSDoc follow-through
+
+- None (test-only file).
+
+### Implementation notes / deviations / follow-up
+
+- **Root cause of bug #2 clarified:** `unicorn/prefer-uint8array-base64` recommends `Uint8Array.prototype.toBase64()`, but that method is **not available at runtime** in this project's Node toolchain (verified via `node -e`: both `Buffer.prototype.toBase64` and `Uint8Array.prototype.toBase64` are `undefined`). The original `fileBuffer.toBase64()` therefore threw `toBase64 is not a function` at runtime. The correct, working call is `Buffer.prototype.toString('base64')`.
+- **Lint rule disabled in config (not inline):** per instruction, the rule was turned off for `test/assessor-live.e2e-spec.ts` and `test/assessor.e2e-spec.ts` in `eslint.config.js` (added to the existing `unicorn/prefer-uint8array-base64: 'off'` override block for `image-validation.pipe*`), with a detailed comment explaining the Node-runtime gap for future maintainers.
+- **Scope expansion (justified):** the masked twin `test/assessor.e2e-spec.ts` had the same `loadFileAsDataURI`/`toBase64()` bug; fixed identically so `grep -rn "toBase64" test` is clean and a latent runtime trap is removed.
+- **Verified:** `npm run test:e2e:live` → green (3/3: TEXT, TABLE, IMAGE) with the real API key; `npm run test:e2e:mocked` → 44 passed; `npm run lint` → exit 0; `grep -rn "toBase64" test` → NONE.
+- Model swap to `gemini-2.5-flash-lite` for both branches was used during the live run (per Section 5.5 precedent) and reverted; not committed.
 
 ---
 

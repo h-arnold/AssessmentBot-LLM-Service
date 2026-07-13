@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { Logger } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { getCurrentDirname } from 'src/common/file-utilities';
+import { generateApiKey } from 'src/common/utils/crypto.utilities';
 
 import { waitForLog } from './log-watcher.js';
 
@@ -82,16 +83,22 @@ export async function startApp(
     ? dotenv.parse(fs.readFileSync(testEnvironmentPath))
     : {};
 
+  // Mint two valid abt_-prefixed keys for the test run.
+  // These are generated at startup so they pass the strict config schema
+  // but do not appear as hardcoded secret literals in source.
+  const generatedKey1 = generateApiKey('abt_');
+  const generatedKey2 = generateApiKey('abt_');
+
   // Define default values for the test run.
   const defaultTestValues = {
     NODE_ENV: 'test',
     PORT: '3001',
     LOG_FILE: logFilePath,
     GEMINI_API_KEY: 'dummy-key-for-testing', // Default dummy key
-    API_KEYS: 'test-api-key,test-api-key-2',
+    API_KEYS: `${generatedKey1},${generatedKey2}`,
     THROTTLER_TTL: '36000000',
     UNAUTHENTICATED_THROTTLER_LIMIT: '9',
-    AUTHENTICATED_THROTTLER_LIMIT: '12',
+    AUTHENTICATED_THROTTLER_LIMIT: '30',
     LLM_BACKOFF_BASE_MS: '2000', // Increased backoff for rate limiting (2 seconds instead of 1)
     LLM_MAX_RETRIES: '5', // Increased retries for rate limiting (5 instead of 3)
     LOG_LEVEL: 'debug',

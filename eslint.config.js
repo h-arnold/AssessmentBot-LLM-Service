@@ -272,6 +272,7 @@ export default tseslint.config(
       'src/common/utils/crypto.utilities.ts',
       'test/assessor-live.e2e-spec.ts',
       'test/assessor.e2e-spec.ts',
+      'test/auth.e2e-spec.ts',
     ],
     rules: {
       'unicorn/prefer-uint8array-base64': 'off',

@@ -3,8 +3,13 @@ import http from 'node:http';
 import path from 'node:path';
 
 import { Logger } from '@nestjs/common';
+import { generateApiKey } from 'src/common/utils/crypto.utilities';
 
 import { runCommand, waitForHttp } from './utils/docker-utilities.js';
+
+// Mint a single valid abt_-prefixed key for the container environment.
+// Generated once at module load so it is stable for the suite.
+const PROD_TEST_API_KEY = generateApiKey('abt_');
 
 const logger = new Logger('DockerImageProdSpec');
 
@@ -42,7 +47,7 @@ async function postJson(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer test-api-key',
+          Authorization: `Bearer ${PROD_TEST_API_KEY}`,
           'Content-Length': Buffer.byteLength(body).toString(),
         },
         hostname: 'localhost',
@@ -142,7 +147,7 @@ describe('Production Docker image smoke tests', () => {
       '-p',
       '3002:3000',
       '-e',
-      'API_KEYS=test-api-key',
+      `API_KEYS=${PROD_TEST_API_KEY}`,
       '-e',
       'GEMINI_API_KEY=dummy-key',
       IMAGE_TAG,

@@ -2,7 +2,7 @@
 
 > **Live implementation status**
 >
-> - **Current section / phase:** Section 1 + Section 2 + Section 3 — COMPLETE (red/green/review/regression/commit). Now starting Section 4 — E2E fixture regeneration.
+> - **Current section / phase:** Section 1 + Section 2 + Section 3 + Section 4 — COMPLETE (red/green/review/regression/commit). Now starting Section 5 — Documentation and rollout.
 > - **Baseline (established manually; `regression-checker` CLI tooling is absent from this repo):**
 >   - `npm run lint` → PASS
 >   - `npm run lint:british` → PASS
@@ -379,9 +379,9 @@ None (test fixtures).
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled when done)_
-- **Deviations from plan:** _(filled when done)_
-- **Follow-up:** must run after Sections 1 and 2 land; otherwise all authenticated E2E fails with `401`.
+- **Implementation notes:** E2E fixtures regenerated to the strict `abt_` + 32-base64url format. `test/utils/app-lifecycle.ts` now mints two valid keys at `startApp` startup via `generateApiKey('abt_')` (no hardcoded secret literals) and passes them as `API_KEYS`; the positive-path `apiKey` (first key) is therefore a configured, valid key. `test/prod-tests/docker-image.production-spec.ts` uses a single stable `generateApiKey('abt_')` key in both the `Bearer` header and the `API_KEYS=` docker env. The 5 new `test/auth.e2e-spec.ts` strict-format cases (foreign prefix, short body, bad charset, unconfigured, valid) all pass. `AUTHENTICATED_THROTTLER_LIMIT` raised from `'12'` to `'30'` in `defaultTestValues` (test-app env only, not production) to avoid rate-limit flakes across the larger auth suite. `eslint.config.js` exemption for `unicorn/prefer-uint8array-base64` extended to `test/auth.e2e-spec.ts` (consistent with pre-existing exemptions).
+- **Deviations from plan:** None material. The plan suggested regenerating fixtures to two fixed valid keys; instead keys are generated dynamically at test startup via the project's own `generateApiKey` helper, avoiding hardcoded high-entropy literals (which would trip `no-secrets`/`sonarjs/no-hardcoded-secrets` and require unauthorised lint overrides). The `AUTHENTICATED_THROTTLER_LIMIT` test-env bump (12→30) is a test-fixture tuning, not a production behaviour change (the schema's production default is untouched).
+- **Follow-up:** None blocking. Mock-backed unit specs (`gemini`/`llm`/`assessor.module`) still pass `API_KEYS: 'test-api-key'` through mocked `ConfigService`s (schema bypassed) — harmless; could be aligned for consistency in a follow-up but not required. Section 5 docs remain.
 
 ---
 

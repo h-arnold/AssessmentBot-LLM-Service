@@ -2,13 +2,13 @@
 
 > **Live implementation status**
 >
-> - **Current section / phase:** Section 1 + Section 2 + Section 3 + Section 4 + Section 5 — COMPLETE (red/green/review/regression/commit). Now running the final "Regression and contract hardening" gate, then the de-sloppification and final documentation passes.
+> - **Current section / phase:** ALL SECTIONS COMPLETE (1–5, each red/green/review/regression/commit/push). De-sloppification pass COMPLETE; Final documentation pass COMPLETE. Feature delivery finished and pushed to `origin/opencode/playful-eagle`.
 > - **Baseline (established manually; `regression-checker` CLI tooling is absent from this repo):**
 >   - `npm run lint` → PASS
 >   - `npm run lint:british` → PASS
 >   - `npm run build` → PASS
->   - `npm test` (unit) → PASS (210 tests)
->   - `npm run test:e2e` → PASS (44 passed, 1 todo)
+>   - `npm test` (unit) → PASS (228 tests)
+>   - `npm run test:e2e` → PASS (49 passed, 1 todo)
 > - **Regression signal:** the `regression-checker` skill's `npm run regression-checker` / `scripts/builder` tooling is not present in this checkout, so the equivalent manual commands above are used as the regression gate for each phase.
 
 ## Read-First Context
@@ -455,8 +455,8 @@ Docs mandatory docs: `SPEC.md`, `.env.example`, `docs/configuration/environment.
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled when done)_
-- **Deviations from plan:** _(filled when done)_
+- **Implementation notes:** Full gate green — `npm run lint`, `npm run lint:british`, `npm run build` all PASS; `npm test` 228 passed; `npm run test:e2e` 49 passed / 1 todo. No ESLint quality-gate overrides introduced.
+- **Deviations from plan:** None at the contract level. The `AUTHENTICATED_THROTTLER_LIMIT` test-env override was raised `12 → 30` (production default untouched) to accommodate the expanded `auth.e2e-spec.ts` suite (multiple distinct keys exercised per test file).
 
 ---
 
@@ -478,8 +478,23 @@ Docs mandatory docs: `SPEC.md`, `.env.example`, `docs/configuration/environment.
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled when done)_
-- **Deviations from plan:** _(filled when done)_
+- **Implementation notes:** Breaking-change caveat documented in `docs/configuration/environment.md` ("Breaking Change — API Key Format") and operator docs (`docs/auth/API_Key_Management.md`, `docs/deployment/production.md`). Operators MUST regenerate `API_KEYS` to the `abt_…` format via `npm run generate:api-key` before redeploying; unprefixed configured keys abort startup via config validation.
+- **Deviations from plan:** None.
+
+---
+
+## Post-implementation passes (de-sloppification + final documentation)
+
+### De-sloppification (5.1)
+
+- The `de-sloppification` sub-agent was unavailable in this environment (configured model `opencode/qwen-3.7-plus-free` not present). Per user direction, the de-sloppification review was delegated to the `code-reviewer` agent with a slop-focused brief.
+- **Findings:** 2 Must-fix doc defects — stale `openssl rand -base64 32` guidance in `docs/auth/API_Key_Management.md:10` and `docs/deployment/production.md:60` (would yield a 44-char padded key, not the strict `<prefix><32 base64url>` format); 1 Optional — `docs/development/debugging.md:216` inaccurate example DEBUG log (`key123***` / `API key validation result: success` do not match real output); 1 Optional inconsistency — `base64urlSlice()` vs `toString('base64url')` in test fixtures, deliberately left per plan follow-up I1.
+- **Resolved:** Docs agent fixed all three files; `openssl rand` references removed repo-wide (verified by `rg`); the debugging example now reflects the real log strings from `src/auth/api-key.service.ts`. `npm run lint:british` PASS; full regression gate green (228 unit, 49 e2e + 1 todo).
+- **Non-issues confirmed:** the `?? DEFAULT_API_KEY_PREFIX` fallback (sanctioned, SPEC decision #7) and the dual `z.base64url().length(32)` expressions (intentional "keep local" plan decision).
+
+### Final documentation pass (5.2)
+
+- Covered by the Section 5 edits (`.env.example`, `docs/configuration/environment.md`) plus the de-sloppification doc fixes (`docs/auth`, `docs/deployment`, `docs/development/debugging.md`). JSDoc `@remarks` were added during implementation (`api-key.service.ts`, `crypto.utilities.ts`). No module `AGENTS.md` or public API (Swagger) changes were required — the auth endpoints and their contracts are unchanged.
 
 ---
 

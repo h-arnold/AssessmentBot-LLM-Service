@@ -2,7 +2,7 @@
 
 > **Live implementation status**
 >
-> - **Current section / phase:** Section 1 + Section 2 + Section 3 + Section 4 — COMPLETE (red/green/review/regression/commit). Now starting Section 5 — Documentation and rollout.
+> - **Current section / phase:** Section 1 + Section 2 + Section 3 + Section 4 + Section 5 — COMPLETE (red/green/review/regression/commit). Now running the final "Regression and contract hardening" gate, then the de-sloppification and final documentation passes.
 > - **Baseline (established manually; `regression-checker` CLI tooling is absent from this repo):**
 >   - `npm run lint` → PASS
 >   - `npm run lint:british` → PASS
@@ -289,7 +289,7 @@ Code Reviewer mandatory docs: `SPEC.md`, `AGENTS.md`, `src/common/utils/crypto.u
    - Owning path: `src/common/utils/crypto.utilities.ts`.
    - Call-site rationale: CLI script + future tooling; small, pure, unit-testable.
    - Relevant canonical doc target: `docs/configuration/environment.md`.
-   - Planned doc status: `Not implemented`.
+   - Planned doc status: `Implemented`.
 
 ### Acceptance criteria
 
@@ -419,8 +419,9 @@ Docs mandatory docs: `SPEC.md`, `.env.example`, `docs/configuration/environment.
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled when done)_
-- **Deviations from plan:** _(filled when done)_
+- **Implementation notes:** `.env.example` updated: added `API_KEY_PREFIX` (default `abt_`) above `API_KEYS`, documented the strict `<API_KEY_PREFIX>` + 32 base64url-body format, replaced the `openssl rand -base64 32` guidance with `npm run generate:api-key` (default-prefix and `API_KEY_PREFIX=custom_ npm run generate:api-key` forms), and set the example to `API_KEYS=abt_<32-char-base64url-body>`. `docs/configuration/environment.md` updated: `API_KEYS` and `API_KEY_PREFIX` bullets document the format/validation; a new "Breaking Change — API Key Format" subsection documents the migration (regenerate via `npm run generate:api-key` before redeploying; unprefixed configured keys abort startup via config validation); the example block shows the prefixed form. British English verified via `check-british-english.sh`.
+- **Deviations from plan:** None material.
+- **Follow-up:** Shared-helper entries reconciled — `generateApiKey` marked `Implemented`; `DEFAULT_API_KEY_PREFIX` remains documented at its definition site in `src/config/environment.schema.ts`.
 
 ---
 

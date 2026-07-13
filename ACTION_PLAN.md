@@ -2,7 +2,7 @@
 
 > **Live implementation status**
 >
-> - **Current section / phase:** Section 1 + Section 2 — COMPLETE (red/green/review/regression/commit). Now starting Section 3 — Key generator helper + CLI script.
+> - **Current section / phase:** Section 1 + Section 2 + Section 3 — COMPLETE (red/green/review/regression/commit). Now starting Section 4 — E2E fixture regeneration.
 > - **Baseline (established manually; `regression-checker` CLI tooling is absent from this repo):**
 >   - `npm run lint` → PASS
 >   - `npm run lint:british` → PASS
@@ -321,9 +321,11 @@ Code Reviewer mandatory docs: `SPEC.md`, `AGENTS.md`, `src/common/utils/crypto.u
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled when done)_
-- **Deviations from plan:** _(filled when done)_
-- **Follow-up:** Section 5 docs will reference the `generate:api-key` command.
+- **Implementation notes:** `src/common/utils/crypto.utilities.ts` exports `generateApiKey(prefix)` = `prefix + randomBytes(24).toString('base64url')` (32 base64url chars / 192-bit entropy; `toString('base64url')` used as it is the TYPED method). `scripts/generate-api-key.ts` prints one key for `process.env.API_KEY_PREFIX ?? DEFAULT_API_KEY_PREFIX`. `package.json` gained `"generate:api-key": "node --experimental-strip-types scripts/generate-api-key.ts"`.
+- **Deviations from plan:**
+  - **D1 (necessary):** CLI uses `.ts` (not `.js`) import extensions. Empirically verified on Node v24.18.0: `node --experimental-strip-types` does NOT rewrite `environment.schema.js`→`environment.schema.ts`, so `.js` imports fail with `ERR_MODULE_NOT_FOUND`. The `.ts` form works (`environment.schema.ts` only depends on `zod`, so no `.js`→`.ts` cascade is needed). A comment in the CLI documents this so a maintainer does not "correct" it back.
+  - **D2 (sanctioned):** `eslint.config.js` — extended the EXISTING, documented `unicorn/prefer-uint8array-base64` exemption list (root cause: `Uint8Array.prototype.toBase64()` unavailable at runtime in this Node toolchain) to include `src/common/utils/crypto.utilities.ts`. This is an extension of a pre-authorised exemption, not a new unsanctioned inline override.
+- **Follow-up:** Section 5 docs will reference the `generate:api-key` command. The `generateApiKey` helper entry should be reconciled to `Implemented`.
 
 ---
 

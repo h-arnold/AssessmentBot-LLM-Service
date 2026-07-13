@@ -2,7 +2,7 @@
 
 > **Live implementation status**
 >
-> - **Current section / phase:** Section 1 — Config schema — COMPLETE (red/green/review/regression/commit). Now starting Section 2 — `ApiKeyService` strict validate + logging hardening.
+> - **Current section / phase:** Section 1 + Section 2 — COMPLETE (red/green/review/regression/commit). Now starting Section 3 — Key generator helper + CLI script.
 > - **Baseline (established manually; `regression-checker` CLI tooling is absent from this repo):**
 >   - `npm run lint` → PASS
 >   - `npm run lint:british` → PASS
@@ -256,9 +256,9 @@ Code Reviewer mandatory docs: `SPEC.md`, `CODE_REVIEW.md`, `AGENTS.md`, `src/aut
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled when done)_
-- **Deviations from plan:** _(filled when done)_
-- **Follow-up:** Section 3 (generator) reuses `DEFAULT_API_KEY_PREFIX` from Section 1; Section 4 (E2E fixtures) depends on this section's enforcement.
+- **Implementation notes:** `ApiKeyService` rewritten to the 4-step flow: (1) non-string/empty/prefix guard → opaque WARN; (2) body `z.base64url().length(32)` → identical opaque WARN; (3) `Set.has` membership → success log; (4) correct-format-but-unconfigured → opaque WARN + DEBUG-full. Constructor builds `apiKeyPrefix` (from `ConfigService.get('API_KEY_PREFIX')` with `?? DEFAULT_API_KEY_PREFIX`), `bodySchema`, and `apiKeySet` once. H2 startup log is now `Loaded <N> API key(s)` (count only). `@remarks` added to `validate` documenting opaque-WARN, DEBUG-full escape hatch, and format-oracle avoidance.
+- **Deviations from plan:** None material. `?? DEFAULT_API_KEY_PREFIX` fallback retained (dead but sanctioned by SPEC decision #7). No other unit specs needed updating thanks to that fallback (mocks returning `null`/`undefined` for `API_KEY_PREFIX` are handled).
+- **Follow-up:** Low/non-blocking review note I1 — test fixtures use `randomBytes(24).base64urlSlice()`, which is untyped in `@types/node` (latent type error outside the build path). Plan to standardise on `randomBytes(24).toString('base64url')` (typed, matches SPEC's generator) during the de-sloppification pass. Section 3 generator will use `toString('base64url')`.
 
 ---
 

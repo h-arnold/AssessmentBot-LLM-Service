@@ -269,6 +269,7 @@ export default tseslint.config(
     files: [
       'src/common/pipes/image-validation.pipe.ts',
       'src/common/pipes/image-validation.pipe.spec.ts',
+      'src/common/utils/crypto.utilities.ts',
       'test/assessor-live.e2e-spec.ts',
       'test/assessor.e2e-spec.ts',
     ],

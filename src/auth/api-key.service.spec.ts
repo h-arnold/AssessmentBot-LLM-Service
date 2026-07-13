@@ -1,12 +1,91 @@
+import { randomBytes } from 'node:crypto';
+
 import { Logger, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { ApiKeyService } from './api-key.service.js';
 import { ConfigService, Config } from '../config/config.service.js';
 
+const PREFIX = 'abt_';
+
+// Generate two valid configured keys deterministically at module scope.
+const VALID_KEY_1 = PREFIX + randomBytes(24).base64urlSlice();
+const VALID_KEY_2 = PREFIX + randomBytes(24).base64urlSlice();
+const UNCONFIGURED_KEY = PREFIX + randomBytes(24).base64urlSlice();
+
+/**
+ * Build a foreign-format secret (wrong prefix).
+ * @returns A string starting with 'ghp_' followed by 32 base64url chars.
+ */
+function foreignKey(): string {
+  return 'ghp_' + randomBytes(24).base64urlSlice();
+}
+
+/**
+ * Build a key with correct prefix but too-short body (31 base64url chars).
+ * @returns A key with 'abt_' prefix and a 31-char base64url body.
+ */
+function shortBodyKey(): string {
+  // 23 bytes -> 31 base64url chars (not 32)
+  return PREFIX + randomBytes(23).base64urlSlice();
+}
+
+/**
+ * Build a key with correct prefix and length but a non-base64url character.
+ * @returns A key whose body fails z.base64url() validation.
+ */
+function invalidBodyKey(): string {
+  return PREFIX + randomBytes(24).base64urlSlice().slice(0, 31) + '!';
+}
+
+/**
+ * Build a key with a different prefix (rejected at step 1).
+ * @returns A key starting with 'xyz_' followed by 32 base64url chars.
+ */
+function wrongPrefixKey(): string {
+  return 'xyz_' + randomBytes(24).base64urlSlice();
+}
+
+/**
+ * Build a mock ConfigService whose `get` method returns the given keys and PREFIX.
+ * @param keys - The API key array to return from `get('API_KEYS')`.
+ * @returns A partial ConfigService object suitable for TestingModule.
+ */
+function configureMockConfigService(keys: string[]): {
+  get: ReturnType<typeof vi.fn>;
+} {
+  const mockValues = new Map<keyof Config, string[] | string>([
+    ['API_KEYS', keys],
+    ['API_KEY_PREFIX', PREFIX],
+  ]);
+  const getMock = vi.fn((key: keyof Config): string[] | string | null => {
+    return mockValues.get(key) ?? null;
+  });
+  return { get: getMock };
+}
+
+/**
+ * Build a mock Logger with all standard level methods as vi.fn().
+ * @returns A partial Logger object suitable for TestingModule.
+ */
+function configureMockLogger(): {
+  log: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  debug: ReturnType<typeof vi.fn>;
+  verbose: ReturnType<typeof vi.fn>;
+} {
+  return {
+    log: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    verbose: vi.fn(),
+  };
+}
+
 describe('ApiKeyService', () => {
   let service: ApiKeyService;
-  let configService: ConfigService;
   let logger: Logger;
 
   beforeEach(async () => {
@@ -15,73 +94,163 @@ describe('ApiKeyService', () => {
         ApiKeyService,
         {
           provide: ConfigService,
-          useValue: {
-            get: vi.fn((key: keyof Config) => {
-              if (key === 'API_KEYS') {
-                return ['valid-key-1', 'valid-key-2'];
-              }
-              return null;
-            }),
-          },
+          useValue: configureMockConfigService([VALID_KEY_1, VALID_KEY_2]),
         },
         {
           provide: Logger,
-          useValue: {
-            log: vi.fn(),
-            error: vi.fn(),
-            warn: vi.fn(),
-            debug: vi.fn(),
-            verbose: vi.fn(),
-          },
+          useValue: configureMockLogger(),
         },
       ],
     }).compile();
 
     service = module.get<ApiKeyService>(ApiKeyService);
-    configService = module.get<ConfigService>(ConfigService);
     logger = module.get<Logger>(Logger);
   });
 
-  it('ApiKeyService.validate should accept a valid API key and return user context', () => {
-    const result = service.validate('valid-key-1');
-    expect(result).toEqual({ apiKey: 'valid-key-1' });
+  // ---- 1. Accept valid prefixed configured key ----
+
+  it('should accept a valid prefixed configured key and return user context', () => {
+    const result = service.validate(VALID_KEY_1);
+    expect(result).toEqual({ apiKey: VALID_KEY_1 });
+    expect(logger.log).toHaveBeenCalledWith(
+      'API key authentication attempt successful',
+    );
   });
 
-  it('ApiKeyService.validate should reject an invalid API key', () => {
-    expect(() => service.validate('invalid-key')).toThrow(
+  // ---- 2. Reject undefined/null/''/number ----
+
+  it('should reject undefined/null/empty/number with UnauthorizedException and opaque WARN', () => {
+    for (const value of [undefined, null, '', 123]) {
+      expect(() => service.validate(value as unknown)).toThrow(
+        UnauthorizedException,
+      );
+    }
+    expect(logger.warn).toHaveBeenCalledWith(
+      'API key is missing or has an invalid format.',
+    );
+  });
+
+  // ---- 3. Reject foreign-format secret ----
+
+  it('should reject a foreign-format secret and never echo the value at WARN or DEBUG', () => {
+    const key = foreignKey();
+    expect(() => service.validate(key)).toThrow(UnauthorizedException);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'API key is missing or has an invalid format.',
+    );
+    // No warn call should contain the foreign secret
+    const allWarnArguments = logger.warn.mock.calls.map((c) => String(c[0]));
+    expect(allWarnArguments.some((call) => call.includes(key))).toBe(false);
+    // No debug call should contain the foreign secret
+    const allDebugArguments = logger.debug.mock.calls.map((c) => String(c[0]));
+    expect(allDebugArguments.some((call) => call.includes(key))).toBe(false);
+  });
+
+  // ---- 4. Reject key with prefix but too-short body ----
+
+  it('should reject a key with correct prefix but too-short body and not echo the body', () => {
+    const key = shortBodyKey();
+    const body = key.slice(PREFIX.length);
+    expect(() => service.validate(key)).toThrow(UnauthorizedException);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'API key is missing or has an invalid format.',
+    );
+    // The body must not appear in any warn call
+    const allWarnArguments = logger.warn.mock.calls.map((c) => String(c[0]));
+    expect(allWarnArguments.some((call) => call.includes(body))).toBe(false);
+  });
+
+  // ---- 5. Reject key with prefix but non-base64url body ----
+
+  it('should reject a key with correct prefix but non-base64url body', () => {
+    const key = invalidBodyKey();
+    expect(() => service.validate(key)).toThrow(UnauthorizedException);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'API key is missing or has an invalid format.',
+    );
+    // The invalid character must not be echoed in any warn call
+    const allWarnArguments = logger.warn.mock.calls.map((c) => String(c[0]));
+    expect(allWarnArguments.some((call) => call.includes('!'))).toBe(false);
+  });
+
+  // ---- 6. Reject correct-format-but-unconfigured key ----
+
+  it('should reject a correct-format-but-unconfigured key with opaque WARN and full DEBUG', () => {
+    expect(() => service.validate(UNCONFIGURED_KEY)).toThrow(
+      UnauthorizedException,
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Authentication failed: invalid API key presented',
+    );
+    expect(logger.debug).toHaveBeenCalledWith(
+      'Invalid API key: ' + UNCONFIGURED_KEY,
+    );
+  });
+
+  // ---- 7. Wrong prefix rejected at step 1 ----
+
+  it('should reject a valid base64url body with a different prefix at step 1', () => {
+    const key = wrongPrefixKey();
+    expect(() => service.validate(key)).toThrow(UnauthorizedException);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'API key is missing or has an invalid format.',
+    );
+  });
+
+  // ---- 8. Set.has membership ----
+
+  it('should authenticate the second configured key and reject an unconfigured key', () => {
+    // Second configured key authenticates
+    const result = service.validate(VALID_KEY_2);
+    expect(result).toEqual({ apiKey: VALID_KEY_2 });
+    expect(logger.log).toHaveBeenCalledWith(
+      'API key authentication attempt successful',
+    );
+
+    // Unconfigured key is rejected (also covered by case 6)
+    expect(() => service.validate(UNCONFIGURED_KEY)).toThrow(
       UnauthorizedException,
     );
   });
 
-  it('ApiKeyService.validate should handle missing API key gracefully', () => {
-    expect(() => service.validate(undefined)).toThrow(UnauthorizedException);
-    expect(() => service.validate(null)).toThrow(UnauthorizedException);
-    expect(() => service.validate('')).toThrow(UnauthorizedException);
+  // ---- 9. H2: constructor logs count only ----
+
+  it('constructor should log only "Loaded 2 API key(s)" at DEBUG without key values', () => {
+    const debugCalls = logger.debug.mock.calls.map((c) => String(c[0]));
+    const countLine = debugCalls.find((call) => call.includes('Loaded'));
+    expect(countLine).toBeDefined();
+    expect(countLine).toContain('Loaded 2 API key(s)');
+    // No configured key value should appear in the constructor log
+    expect(countLine?.includes(VALID_KEY_1)).toBe(false);
+    expect(countLine?.includes(VALID_KEY_2)).toBe(false);
   });
 
-  it('ApiKeyService.validate should support multiple configured API keys', () => {
-    const result1 = service.validate('valid-key-1');
-    expect(result1).toEqual({ apiKey: 'valid-key-1' });
+  // ---- 10. Empty configured keys ----
 
-    const result2 = service.validate('valid-key-2');
-    expect(result2).toEqual({ apiKey: 'valid-key-2' });
-  });
+  describe('with empty configured keys', () => {
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ApiKeyService,
+          {
+            provide: ConfigService,
+            useValue: configureMockConfigService([]),
+          },
+          {
+            provide: Logger,
+            useValue: configureMockLogger(),
+          },
+        ],
+      }).compile();
 
-  it('ApiKeyService.validate should enforce API key format (length, character set)', () => {
-    // Assuming a minimum length of 10 for example
-    expect(() => service.validate('short')).toThrow(UnauthorizedException);
-    // Assuming only alphanumeric characters are allowed
-    expect(() => service.validate('valid-key!')).toThrow(UnauthorizedException);
-  });
+      service = module.get<ApiKeyService>(ApiKeyService);
+      logger = module.get<Logger>(Logger);
+    });
 
-  it('ApiKeyService.validate should load API keys from ConfigService', () => {
-    expect(configService.get).toHaveBeenCalledWith('API_KEYS');
-  });
-
-  it('ApiKeyService.validate should log structured authentication attempts without exposing raw API key', () => {
-    service.validate('valid-key-1');
-    expect(logger.log).toHaveBeenCalledWith(
-      expect.stringContaining('API key authentication attempt successful'),
-    );
+    it('should warn when no API keys are configured', () => {
+      expect(logger.warn).toHaveBeenCalledWith(
+        'No API keys configured. All requests will be unauthorised.',
+      );
+    });
   });
 });

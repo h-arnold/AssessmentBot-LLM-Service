@@ -213,8 +213,10 @@ LOG_LEVEL=debug npm run start:dev
 Check for:
 
 ```bash
-[DEBUG] Authentication attempt with key: key123***
-[DEBUG] API key validation result: success
+[WARN] API key is missing or has an invalid format.
+[INFO] API key authentication attempt successful
+# For a correctly-formatted but unconfigured key (visible at LOG_LEVEL=debug):
+[DEBUG] Invalid API key: abt_<32 base64url chars>
 ```
 
 ## Testing and Debugging

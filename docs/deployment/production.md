@@ -57,7 +57,8 @@ sudo ufw allow 443   # HTTPS
     # Edit .env with production values, especially API_KEYS and GEMINI_API_KEY
     ```
 
-    Generate secure API keys using `openssl rand -base64 32`.
+    Generate secure API keys using the provided generator, e.g. `npm run generate:api-key`.
+    This produces a key in the strict format (`abt_` prefix + 32 base64url characters) required by the application.
 
 3.  **Configure the domain:**
     Update the `Caddyfile` with your domain name.

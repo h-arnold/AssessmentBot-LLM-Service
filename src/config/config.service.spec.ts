@@ -48,7 +48,7 @@ describe('ConfigService', () => {
     process.env.GEMINI_API_KEY = 'test-key';
     process.env.NODE_ENV = 'test';
     process.env.PORT = '3000';
-    process.env.API_KEYS = 'test-api-key';
+    process.env.API_KEYS = 'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
     process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png,image/jpeg';
     process.env.LOG_LEVEL = 'debug';
@@ -199,24 +199,32 @@ describe('ConfigService', () => {
     });
 
     it('should correctly parse a single API key', () => {
-      const apiKey = 'a_single_valid_key';
+      const apiKey = 'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
       process.env.API_KEYS = apiKey;
       const configService = new ConfigService();
       expect(configService.get('API_KEYS')).toEqual([apiKey]);
     });
 
     it('should correctly parse multiple comma-separated API keys', () => {
-      const apiKeys = 'key1,key2,key3';
+      const apiKeys =
+        'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,abt_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
       process.env.API_KEYS = apiKeys;
       const configService = new ConfigService();
-      expect(configService.get('API_KEYS')).toEqual(['key1', 'key2', 'key3']);
+      expect(configService.get('API_KEYS')).toEqual([
+        'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        'abt_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+      ]);
     });
 
     it('should handle whitespace when parsing multiple keys', () => {
-      const apiKeys = '  key1  ,  key2  ,key3';
+      const apiKeys =
+        '  abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA  ,  abt_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB  ';
       process.env.API_KEYS = apiKeys;
       const configService = new ConfigService();
-      expect(configService.get('API_KEYS')).toEqual(['key1', 'key2', 'key3']);
+      expect(configService.get('API_KEYS')).toEqual([
+        'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        'abt_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+      ]);
     });
 
     it('should fail gracefully if API_KEYS is missing', () => {

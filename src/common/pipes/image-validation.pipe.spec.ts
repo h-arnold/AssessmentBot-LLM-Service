@@ -67,10 +67,16 @@ describe('ImageValidationPipe', () => {
       expect(result).toEqual(validBase64Jpg);
     });
 
-    it('should allow non-image string inputs', async () => {
+    it('should reject a non-data-URI string with a clear message', async () => {
       const text = 'this is not an image';
-      const result = await pipe.transform(text);
-      expect(result).toEqual(text);
+      await expect(pipe.transform(text)).rejects.toThrow(
+        'Image data must be a valid data URI.',
+      );
+    });
+
+    it('should reject a non-data-URI string as BadRequestException', async () => {
+      const text = 'plain-string-without-data-prefix';
+      await expect(pipe.transform(text)).rejects.toThrow(BadRequestException);
     });
 
     it('should allow non-Buffer/non-string inputs to pass through', async () => {

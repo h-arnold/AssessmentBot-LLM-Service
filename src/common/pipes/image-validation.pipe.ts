@@ -78,7 +78,7 @@ export class ImageValidationPipe implements PipeTransform {
     }
 
     if (!value.startsWith('data:')) {
-      return;
+      throw new BadRequestException('Image data must be a valid data URI.');
     }
 
     const { mimeType, base64Data } = this.parseImageDataUri(value);

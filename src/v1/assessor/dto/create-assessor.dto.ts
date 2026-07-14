@@ -11,7 +11,6 @@ export enum TaskType {
 
 const nonEmptyString = z.string().min(1);
 const bufferType = z.instanceof(Buffer);
-const imageObject = z.object({ path: z.string(), mimeType: z.string() });
 
 /**
  * Zod schema for validating the CreateAssessorDto.
@@ -82,16 +81,6 @@ export const assessorDtoSchema = z
          * @example "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
          */
         studentResponse: z.union([nonEmptyString, bufferType]),
-        /**
-         * An array of image objects, each with a path and mimeType.
-         * This field is used to provide additional image data related to the IMAGE taskType.
-         * Each object in the array represents an image with its file path and MIME type.
-         * @example [
-         *   { path: "/images/image1.png", mimeType: "image/png" },
-         *   { path: "/images/image2.jpg", mimeType: "image/jpeg" }
-         * ]
-         */
-        images: z.array(imageObject).optional(),
         systemPromptFile: z.string().optional(),
       })
       .strict(),

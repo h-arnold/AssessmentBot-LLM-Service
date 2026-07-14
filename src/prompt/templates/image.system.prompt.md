@@ -17,8 +17,8 @@ You have been given 2 - 3 images.
 Describe the images you see. Format your descriptions as follows:
 
 Reference Task: {description of the first image}
-Template: {description of the third image}
-Student Submission: {description of the second image}
+Template: {description of the second image}
+Student Submission: {description of the third image}
 
 ## Step 2:
 

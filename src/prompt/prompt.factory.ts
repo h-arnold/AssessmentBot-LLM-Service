@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { detectBufferMime } from 'mime-detect';
 
 import { ImagePrompt } from './image.prompt.js';
 import { Prompt } from './prompt.base.js';
@@ -59,7 +60,7 @@ export class PromptFactory {
     const systemPrompt = await this.loadSystemPrompt(systemPromptFile);
 
     // Instantiate the appropriate Prompt subclass
-    const prompt = this.instantiatePrompt(
+    const prompt = await this.instantiatePrompt(
       dto,
       inputs,
       userTemplateFile,
@@ -150,15 +151,16 @@ export class PromptFactory {
    * @param {string} [userTemplateFile] - Name of the user template file (if
    *   applicable).
    * @param {string} [systemPrompt] - System prompt content (if applicable).
-   * @returns {Prompt} Configured prompt instance ready for message generation.
+   * @returns {Promise<Prompt>} Promise resolving to a configured prompt
+   *   instance ready for message generation.
    * @throws {Error} If the task type is not supported.
    */
-  private instantiatePrompt(
+  private async instantiatePrompt(
     dto: CreateAssessorDto,
     inputs: unknown,
     userTemplateFile?: string,
     systemPrompt?: string,
-  ): Prompt {
+  ): Promise<Prompt> {
     switch (dto.taskType) {
       case TaskType.TEXT:
         return new TextPrompt(
@@ -175,24 +177,52 @@ export class PromptFactory {
           systemPrompt,
         );
       case TaskType.IMAGE: {
-        const imageInputs = {
-          referenceTask: Buffer.isBuffer(dto.reference)
-            ? dto.reference.toString()
-            : dto.reference,
-          studentTask: Buffer.isBuffer(dto.studentResponse)
-            ? dto.studentResponse.toString()
-            : dto.studentResponse,
-          emptyTask: Buffer.isBuffer(dto.template)
-            ? dto.template.toString()
-            : dto.template,
+        let imageInputs: {
+          referenceTask: string;
+          studentTask: string;
+          emptyTask: string;
         };
-        return new ImagePrompt(
-          imageInputs,
-          this.logger,
-          this.configService.get('ALLOWED_IMAGE_MIME_TYPES'),
-          dto.images,
-          systemPrompt,
-        );
+
+        if (Buffer.isBuffer(dto.reference)) {
+          // superRefine guarantees all three fields are Buffers when one is
+          const [referenceMimeType, studentMimeType, templateMimeType] =
+            await Promise.all([
+              detectBufferMime(dto.reference),
+              detectBufferMime(dto.studentResponse as Buffer),
+              detectBufferMime(dto.template as Buffer),
+            ]);
+
+          if (!referenceMimeType) {
+            throw new BadRequestException(
+              'Unable to detect MIME type for reference image buffer.',
+            );
+          }
+          if (!studentMimeType) {
+            throw new BadRequestException(
+              'Unable to detect MIME type for student response image buffer.',
+            );
+          }
+          if (!templateMimeType) {
+            throw new BadRequestException(
+              'Unable to detect MIME type for template image buffer.',
+            );
+          }
+
+          imageInputs = {
+            referenceTask: `data:${referenceMimeType};base64,${dto.reference.toString('base64')}`,
+            studentTask: `data:${studentMimeType};base64,${(dto.studentResponse as Buffer).toString('base64')}`,
+            emptyTask: `data:${templateMimeType};base64,${(dto.template as Buffer).toString('base64')}`,
+          };
+        } else {
+          // superRefine guarantees all three fields are strings when reference is
+          imageInputs = {
+            referenceTask: dto.reference,
+            studentTask: dto.studentResponse as string,
+            emptyTask: dto.template as string,
+          };
+        }
+
+        return new ImagePrompt(imageInputs, this.logger, systemPrompt);
       }
       default:
         throw new Error('Unsupported task type');

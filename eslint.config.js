@@ -252,19 +252,25 @@ export default tseslint.config(
 
   // `unicorn/prefer-uint8array-base64` is disabled for the files below.
   //
-  // Root cause: the rule recommends `Uint8Array.prototype.toBase64()` instead of
-  // `Buffer.prototype.toString('base64')`. However, `toBase64()` is NOT available
-  // at runtime in the Node.js toolchain used by this project (verified via
-  // `node -e`: both `Buffer.prototype.toBase64` and `Uint8Array.prototype.toBase64`
-  // are `undefined`). Calling `toBase64()` therefore throws
-  // "fileBuffer.toBase64 is not a function" at runtime, which breaks the live/E2E
-  // test harness (this was the root cause of the Section 5.5 / 5.6 bug where the
-  // live E2E suite failed with `toBase64 is not a function`).
+  // Root cause: the rule recommends `Uint8Array.prototype.toBase64()` /
+  // `Uint8Array.fromBase64()` over `Buffer.prototype.toString('base64')` /
+  // `Buffer.from(…, 'base64')`. However, those `Uint8Array` base64 methods are
+  // NOT available at runtime in the Node.js version shipped for this project.
+  // Verified empirically on Node 24:
+  //   typeof Buffer.prototype.toBase64 === 'undefined'
+  //   typeof Uint8Array.prototype.toBase64 === 'undefined'
+  // TypeScript's bundled lib typings falsely declare these methods, so the code
+  // compiles and lints as written, but calling them at runtime throws
+  // `TypeError: …toBase64 is not a function`. This is the exact defect that
+  // previously surfaced as HTTP 500s on IMAGE Buffer requests (CODE_REVIEW.md
+  // Latent Bug HIGH, fixed by converting Buffers to `data:` URIs via
+  // `Buffer.prototype.toString('base64')`).
   //
-  // The correct, working call in this environment is
-  // `Buffer.prototype.toString('base64')`, which is what these files use. Once the
-  // project's Node.js runtime ships a `Uint8Array.prototype.toBase64()`
-  // implementation, this override can be removed and the calls migrated back.
+  // The correct, runtime-safe call in this environment is
+  // `Buffer.prototype.toString('base64')` (and `Buffer.from(…, 'base64')`), which
+  // is what these files use. Once the project's Node.js runtime ships a
+  // `Uint8Array.prototype.toBase64()` implementation, this override can be
+  // removed and the calls migrated back to the native API.
   {
     files: [
       'src/common/pipes/image-validation.pipe.ts',
@@ -272,6 +278,8 @@ export default tseslint.config(
       'src/common/utils/crypto.utilities.ts',
       'src/auth/api-key.service.spec.ts',
       'src/config/environment.schema.spec.ts',
+      'src/prompt/prompt.factory.ts',
+      'src/prompt/prompt.factory.spec.ts',
       'vitest.setup.ts',
       'test/assessor-live.e2e-spec.ts',
       'test/assessor.e2e-spec.ts',

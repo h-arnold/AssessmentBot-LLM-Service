@@ -121,7 +121,7 @@ export class GeminiService extends LLMService {
     if (this.isImagePromptPayload(payload)) {
       const { images } = payload;
       const imageParts = this.mapImageParts(images);
-      return ['', ...imageParts];
+      return imageParts;
     }
     if (this.isStringPromptPayload(payload)) {
       return [payload.user];
@@ -192,7 +192,10 @@ export class GeminiService extends LLMService {
     });
     const responseText = result.text ?? '';
 
-    this.geminiLogger.debug(`Raw response from Gemini: \n\n${responseText}`);
+    // Pass the raw value as a structured field so pino serialises it lazily
+    // only when the debug level is enabled (avoids an unconditional, potentially
+    // large string concatenation on the hot path).
+    this.geminiLogger.debug({ responseText }, 'Raw response from Gemini');
 
     const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
     this.geminiLogger.debug({ parsedJson }, 'Parsed JSON response');

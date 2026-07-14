@@ -1,6 +1,6 @@
 import { ThrottlerModuleOptions } from '@nestjs/throttler';
 
-import { configSchema } from './environment.schema.js';
+import { configObjectSchema } from './environment.schema.js';
 
 /**
  * @file Configures the application's rate-limiting (throttling) settings.
@@ -12,7 +12,9 @@ import { configSchema } from './environment.schema.js';
  * NestJS decorators, such as `@Throttle()`, are executed when the application code is compiled, not when it runs.
  * This means they cannot access runtime-injected providers like `ConfigService` to get configuration values.
  *
- * To solve this, we import the shared `configSchema` and use it to parse `process.env` directly in this file.
+ * To solve this, we import the shared `configObjectSchema` (the pre-`superRefine`
+ * object schema) and pick only the throttler-related keys to parse `process.env`
+ * directly in this file.
  * This ensures that our rate-limiting values are validated with the same rules as the rest of the application's
  * configuration, but are available at compile time for the decorators to use.
  *
@@ -20,8 +22,16 @@ import { configSchema } from './environment.schema.js';
  * while keeping the validation logic centralised in `environment.schema.ts`.
  */
 
-// 1. Validate environment variables at compile time using the shared Zod schema.
-const validatedEnvironment = configSchema.parse(process.env);
+// 1. Validate only the throttler-related environment variables at compile
+//    time. We intentionally pick a subset of the shared schema so that
+//    unrelated required values (e.g. GEMINI_API_KEY) do not need to be present
+//    for the throttler configuration to load.
+const throttlerSchema = configObjectSchema.pick({
+  THROTTLER_TTL: true,
+  UNAUTHENTICATED_THROTTLER_LIMIT: true,
+  AUTHENTICATED_THROTTLER_LIMIT: true,
+});
+const validatedEnvironment = throttlerSchema.parse(process.env);
 
 // 2. Extract the validated throttler values into constants.
 const throttlerTtl = validatedEnvironment.THROTTLER_TTL;

@@ -1,4 +1,10 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  UseGuards,
+  ArgumentMetadata,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 
 import { AssessorService } from './assessor.service.js';
@@ -56,18 +62,22 @@ export class AssessorController {
    * For IMAGE task types, this method performs additional validation on the
    * image data using the ImageValidationPipe to ensure proper format, size,
    * and MIME type compliance.
-   * @param {CreateAssessorDto} assessorDto - Validated data transfer object
-   *   containing task details.
+   * @param {unknown} rawBody - The raw request body to be validated.
    * @returns {Promise<LlmResponse>} Promise resolving to LLM assessment
    *   response with scoring and reasoning.
    * @throws {BadRequestException} If validation fails for any field.
    * @throws {UnauthorizedException} If API key authentication fails.
    */
   @Post()
-  async create(
-    @Body(new ZodValidationPipe(assessorDtoSchema))
-    assessorDto: CreateAssessorDto,
-  ): Promise<LlmResponse> {
+  async create(@Body() rawBody: unknown): Promise<LlmResponse> {
+    const validationPipe = new ZodValidationPipe(
+      assessorDtoSchema,
+      this.configService,
+    );
+    const assessorDto = validationPipe.transform(rawBody, {
+      type: 'body',
+    } as ArgumentMetadata) as CreateAssessorDto;
+
     // If taskType is IMAGE, validate image fields using ImageValidationPipe
     if (assessorDto.taskType === 'IMAGE') {
       const imagePipe = new ImageValidationPipe(this.configService);

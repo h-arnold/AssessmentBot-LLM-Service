@@ -3,6 +3,19 @@ import * as z from 'zod';
 
 import { ZodValidationPipe } from './zod-validation.pipe.js';
 
+/**
+ * Creates a mock ConfigService for testing with a given NODE_ENV value.
+ * @param {string} nodeEnvironment - The NODE_ENV value the mock should return.
+ * @returns {{ get: (key: string) => (string | undefined) }} A mock ConfigService object.
+ */
+function createMockConfigService(nodeEnvironment: string): {
+  get: (key: string) => string | undefined;
+} {
+  return {
+    get: (key: string) => (key === 'NODE_ENV' ? nodeEnvironment : undefined),
+  };
+}
+
 describe('ZodValidationPipe', () => {
   const schema = z.object({
     name: z.string(),
@@ -11,7 +24,12 @@ describe('ZodValidationPipe', () => {
   let pipe: ZodValidationPipe;
 
   beforeEach(() => {
-    pipe = new ZodValidationPipe(schema);
+    pipe = new ZodValidationPipe(
+      schema,
+      createMockConfigService(
+        'test',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
   });
 
   it('should be defined', () => {
@@ -46,7 +64,12 @@ describe('ZodValidationPipe', () => {
     let arrayPipe: ZodValidationPipe;
 
     beforeEach(() => {
-      arrayPipe = new ZodValidationPipe(arraySchema);
+      arrayPipe = new ZodValidationPipe(
+        arraySchema,
+        createMockConfigService(
+          'test',
+        ) as unknown as import('../config/config.service.js').ConfigService,
+      );
     });
 
     it('should validate a valid array', () => {
@@ -96,7 +119,12 @@ describe('ZodValidationPipe', () => {
     let nestedPipe: ZodValidationPipe;
 
     beforeEach(() => {
-      nestedPipe = new ZodValidationPipe(nestedSchema);
+      nestedPipe = new ZodValidationPipe(
+        nestedSchema,
+        createMockConfigService(
+          'test',
+        ) as unknown as import('../config/config.service.js').ConfigService,
+      );
     });
 
     it('should handle nested validation schemas with valid data', () => {
@@ -146,6 +174,9 @@ describe('ZodValidationPipe', () => {
     });
     const pipeWithMultipleErrors = new ZodValidationPipe(
       schemaWithMultipleErrors,
+      createMockConfigService(
+        'development',
+      ) as unknown as import('../config/config.service.js').ConfigService,
     );
 
     const invalidData = {
@@ -153,17 +184,12 @@ describe('ZodValidationPipe', () => {
       password: 'short',
     };
 
-    const originalNodeEnvironment = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-
     let thrownError: unknown;
     try {
       pipeWithMultipleErrors.transform(invalidData, {} as ArgumentMetadata);
     } catch (error) {
       thrownError = error;
     }
-
-    process.env.NODE_ENV = originalNodeEnvironment;
     expect(thrownError).toBeInstanceOf(BadRequestException);
     const response = (
       thrownError as BadRequestException
@@ -188,10 +214,12 @@ describe('ZodValidationPipe', () => {
         message: 'Invalid API Key format',
       }),
     });
-    const sensitivePipe = new ZodValidationPipe(sensitiveSchema);
-
-    const originalNodeEnvironment = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
+    const sensitivePipe = new ZodValidationPipe(
+      sensitiveSchema,
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
 
     let productionError: unknown;
     try {
@@ -209,7 +237,6 @@ describe('ZodValidationPipe', () => {
     // In production, specific error messages should be generic or sanitised
     expect(response.errors[0].message).not.toContain('Invalid API Key format');
     expect(response.errors[0].message).toEqual('Invalid input'); // Zod's default for refined errors
-    process.env.NODE_ENV = originalNodeEnvironment;
   });
 });
 

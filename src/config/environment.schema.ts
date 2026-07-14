@@ -38,6 +38,7 @@ export const DEFAULT_API_KEY_PREFIX = 'abt_';
  * @property {number} AUTHENTICATED_THROTTLER_LIMIT - The maximum number of requests for authenticated routes within the TTL window.
  * @property {number} LLM_BACKOFF_BASE_MS - The base backoff time in milliseconds for LLM rate limit retries.
  * @property {number} LLM_MAX_RETRIES - The maximum number of retry attempts for LLM rate limit errors.
+ * @property {string} [LOG_FILE] - The optional path to a log file for E2E testing.
  */
 export const configSchema = z
   .object({
@@ -71,6 +72,7 @@ export const configSchema = z
     AUTHENTICATED_THROTTLER_LIMIT: z.coerce.number().int().min(0).default(90), // A full 3 activities from a full class of submissions at once.
     LLM_BACKOFF_BASE_MS: z.coerce.number().int().min(100).default(1000), // Minimum 100ms, default 1 second
     LLM_MAX_RETRIES: z.coerce.number().int().min(0).default(3), // Default 3 retries
+    LOG_FILE: z.string().optional(),
   })
   .superRefine((data, context) => {
     // Validation is a no-op when API_KEYS is undefined so the compile-time

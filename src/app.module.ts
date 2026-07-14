@@ -77,7 +77,7 @@ const customProperties = (
       useFactory: (configService: ConfigService): Params => {
         const logLevel = configService.get('LOG_LEVEL');
         const nodeEnvironment = configService.get('NODE_ENV');
-        const logFile = process.env.LOG_FILE; // Used for E2E tests
+        const logFile = configService.get('LOG_FILE'); // Used for E2E tests
 
         const serializers = {
           req: (request: IncomingMessage): IncomingMessage =>

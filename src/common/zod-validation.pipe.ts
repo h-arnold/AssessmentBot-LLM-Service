@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import type { ZodType } from 'zod';
 
+import { ConfigService } from '../config/config.service.js';
+
 /**
  * A custom validation pipe that uses Zod schemas to validate incoming data.
  * This pipe is designed to be used with NestJS and implements the `PipeTransform` interface.
@@ -16,7 +18,7 @@ import type { ZodType } from 'zod';
  *   name: z.string(),
  *   age: z.number(),
  * });
- * const validationPipe = new ZodValidationPipe(schema);
+ * const validationPipe = new ZodValidationPipe(schema, configService);
  * ```
  * @remarks
  * - If the schema is not provided, the pipe will simply return the input value without validation.
@@ -24,6 +26,7 @@ import type { ZodType } from 'zod';
  * - In non-production mode, detailed validation issues are logged and returned.
  * @class
  * @param schema - The Zod schema used for validation.
+ * @param configService - The configuration service for accessing environment settings.
  * @function transform
  * Validates the input value against the provided Zod schema.
  * If validation fails, it throws a `BadRequestException` with the validation errors.
@@ -36,7 +39,10 @@ import type { ZodType } from 'zod';
 export class ZodValidationPipe implements PipeTransform {
   private readonly logger = new Logger(ZodValidationPipe.name);
 
-  constructor(private schema?: ZodType) {}
+  constructor(
+    private schema?: ZodType,
+    private readonly configService?: ConfigService,
+  ) {}
 
   transform(value: unknown, metadata: ArgumentMetadata): unknown {
     if (!this.schema) {
@@ -50,8 +56,9 @@ export class ZodValidationPipe implements PipeTransform {
     }
 
     const error = result.error;
+    const nodeEnvironment = this.configService?.get('NODE_ENV');
     const errors =
-      process.env.NODE_ENV === 'production'
+      nodeEnvironment === 'production'
         ? [{ message: 'Invalid input' }]
         : error.issues.map((issue) => ({
             message: issue.message,

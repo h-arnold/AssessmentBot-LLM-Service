@@ -70,7 +70,10 @@ describe('AppModule logging configuration', () => {
     expect(forRootAsync).toHaveBeenCalledTimes(1);
 
     const options = getLoggerModuleOptions();
-    const configService = buildConfigService({ NODE_ENV: 'production' });
+    const configService = buildConfigService({
+      NODE_ENV: 'production',
+      LOG_FILE: 'test-app-log.log',
+    });
     const result: Params = options.useFactory(
       configService as unknown as ConfigService,
     );

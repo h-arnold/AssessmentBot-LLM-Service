@@ -8,6 +8,7 @@ import {
 import { BaseExceptionFilter } from '@nestjs/core';
 import { Request, Response } from 'express';
 
+import { ConfigService } from '../config/config.service.js';
 import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
 
 /**
@@ -48,7 +49,10 @@ interface LogContext {
  */
 @Catch()
 export class HttpExceptionFilter extends BaseExceptionFilter {
-  constructor(private readonly logger: Logger) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly configService: ConfigService,
+  ) {
     super();
   }
 
@@ -80,7 +84,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
 
     // Sanitise sensitive messages in production for 5xx errors.
     const finalMessage =
-      process.env.NODE_ENV === 'production' && status >= 500
+      this.configService.get('NODE_ENV') === 'production' && status >= 500
         ? 'Internal server error'
         : message;
 

@@ -9,6 +9,19 @@ import { Mock, MockInstance } from 'vitest';
 import { HttpExceptionFilter } from './http-exception.filter.js';
 import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
 
+/**
+ * Creates a mock ConfigService for testing.
+ * @param {string} nodeEnvironment - The NODE_ENV value to return.
+ * @returns {object} A mock ConfigService.
+ */
+function createMockConfigService(nodeEnvironment: string): {
+  get: (key: string) => string | undefined;
+} {
+  return {
+    get: (key: string) => (key === 'NODE_ENV' ? nodeEnvironment : undefined),
+  };
+}
+
 interface JsonErrorResponseBody {
   statusCode: number;
   message: string;
@@ -59,7 +72,12 @@ describe('HttpExceptionFilter', () => {
 
   beforeEach(() => {
     logger = new Logger();
-    filter = new HttpExceptionFilter(logger);
+    filter = new HttpExceptionFilter(
+      logger,
+      createMockConfigService(
+        'test',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
     vi.clearAllMocks();
   });
 
@@ -262,6 +280,12 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('should sanitise sensitive messages in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
     const exception = new HttpException(
       'Internal database error',
       HttpStatus.INTERNAL_SERVER_ERROR,
@@ -303,12 +327,7 @@ describe('HttpExceptionFilter', () => {
       switchToWs: vi.fn(),
     };
 
-    const originalNodeEnvironment = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
-
-    filter['catch'](exception, mockArgumentsHost);
-
-    process.env.NODE_ENV = originalNodeEnvironment;
+    productionFilter['catch'](exception, mockArgumentsHost);
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
     expectJsonErrorResponse(mockJson, {

@@ -95,7 +95,7 @@ async function readMarkdownFromCandidates(
     if (!resolvedPath.startsWith(baseDirectory)) continue;
     tried.push(resolvedPath);
     try {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- authorised: path-traversal guard + validated name; see docs/development/linter-overrides.md
       const content = await fs.readFile(resolvedPath, { encoding: 'utf8' });
       return content;
     } catch (error: unknown) {

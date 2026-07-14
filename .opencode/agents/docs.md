@@ -175,6 +175,7 @@ Provide a concise handoff summary including:
 │   │   ├── codex-delegation.md                      # Sub-agent delegation guide
 │   │   ├── debugging.md                             # Debugging guide
 │   │   ├── git-workflow.md                          # Git workflow
+│   │   ├── linter-overrides.md                      # Authorised eslint-disable overrides
 │   │   └── workflow.md                              # Development workflow
 │   │
 │   ├── llm/

@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Mock } from 'vitest';
 
 import { ImageValidationPipe } from './image-validation.pipe.js';
+import { ConfigService } from '../../config/config.service.js';
 
 interface PipeLike {
   transform: (value: unknown) => Promise<unknown>;
@@ -21,9 +22,7 @@ describe('ImageValidationPipe', () => {
       }),
     };
 
-    pipe = Object.assign(Object.create(ImageValidationPipe.prototype), {
-      configService,
-    }) as PipeLike;
+    pipe = new ImageValidationPipe(configService as unknown as ConfigService);
   });
 
   it('should be defined', () => {
@@ -67,10 +66,16 @@ describe('ImageValidationPipe', () => {
       expect(result).toEqual(validBase64Jpg);
     });
 
-    it('should allow non-image string inputs', async () => {
+    it('should reject a non-data-URI string with a clear message', async () => {
       const text = 'this is not an image';
-      const result = await pipe.transform(text);
-      expect(result).toEqual(text);
+      await expect(pipe.transform(text)).rejects.toThrow(
+        'Image data must be a valid data URI.',
+      );
+    });
+
+    it('should reject a non-data-URI string as BadRequestException', async () => {
+      const text = 'plain-string-without-data-prefix';
+      await expect(pipe.transform(text)).rejects.toThrow(BadRequestException);
     });
 
     it('should allow non-Buffer/non-string inputs to pass through', async () => {
@@ -163,19 +168,20 @@ describe('ImageValidationPipe', () => {
     });
 
     it('should handle empty ALLOWED_IMAGE_MIME_TYPES (reject all images)', async () => {
-      vi.spyOn(configService, 'get').mockImplementation(
-        (key: string): unknown => {
-          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
-            return 1;
-          }
+      const emptyMimeConfig = {
+        get: vi.fn((key: string): unknown => {
+          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') return 1;
           return [];
-        },
+        }),
+      };
+      const emptyMimePipe = new ImageValidationPipe(
+        emptyMimeConfig as unknown as ConfigService,
       );
       const validPngBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
         'base64',
       );
-      await expect(pipe.transform(validPngBuffer)).rejects.toThrow(
+      await expect(emptyMimePipe.transform(validPngBuffer)).rejects.toThrow(
         BadRequestException,
       );
     });

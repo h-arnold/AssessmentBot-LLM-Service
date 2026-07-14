@@ -47,9 +47,9 @@ export class ConfigService {
     );
 
     // envFilePath is constructed from cwd and a fixed filename, safe to use
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- authorised: fixed, non-user-controlled filename; see docs/development/linter-overrides.md
     if (fs.existsSync(environmentFilePath)) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- authorised: fixed, non-user-controlled filename; see docs/development/linter-overrides.md
       loadedEnvironment = dotenv.parse(fs.readFileSync(environmentFilePath));
     }
 
@@ -74,7 +74,7 @@ export class ConfigService {
    */
   get<T extends keyof Config>(key: T): Config[T] {
     // `key` is constrained to validated schema keys, so this access is not user-controlled.
-    // eslint-disable-next-line security/detect-object-injection
+    // eslint-disable-next-line security/detect-object-injection -- authorised: key constrained to keyof Config (typed, validated schema); see docs/development/linter-overrides.md
     return this.config[key];
   }
 

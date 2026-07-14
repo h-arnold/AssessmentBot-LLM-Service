@@ -39,17 +39,22 @@ import { ConfigService } from '../../config/config.service.js';
  */
 @Injectable()
 export class ImageValidationPipe implements PipeTransform {
-  constructor(private readonly configService: ConfigService) {}
+  private readonly allowedMimeTypes: Set<string>;
+
+  constructor(private readonly configService: ConfigService) {
+    this.allowedMimeTypes = new Set(
+      this.configService.get('ALLOWED_IMAGE_MIME_TYPES'),
+    );
+  }
 
   async transform(value: unknown): Promise<unknown> {
     const maxFileSize =
       this.configService.get('MAX_IMAGE_UPLOAD_SIZE_MB') * 1024 * 1024;
-    const allowedMimeTypes = this.configService.get('ALLOWED_IMAGE_MIME_TYPES');
 
     if (Buffer.isBuffer(value)) {
-      await this.validateBuffer(value, maxFileSize, allowedMimeTypes);
+      await this.validateBuffer(value, maxFileSize);
     } else if (typeof value === 'string') {
-      this.validateString(value, maxFileSize, allowedMimeTypes);
+      this.validateString(value, maxFileSize);
     }
 
     return value;
@@ -58,31 +63,26 @@ export class ImageValidationPipe implements PipeTransform {
   private async validateBuffer(
     value: Buffer,
     maxFileSize: number,
-    allowedMimeTypes: string[],
   ): Promise<void> {
     this.ensureBufferWithinSize(value, maxFileSize);
 
     const fileType = await detectBufferMime(value);
-    if (!fileType || !allowedMimeTypes.includes(fileType)) {
+    if (!fileType || !this.allowedMimeTypes.has(fileType)) {
       throw new BadRequestException('Invalid image type.');
     }
   }
 
-  private validateString(
-    value: string,
-    maxFileSize: number,
-    allowedMimeTypes: string[],
-  ): void {
+  private validateString(value: string, maxFileSize: number): void {
     if (value.length > 10 * 1024 * 1024) {
       throw new BadRequestException('Base64 image string is too large.');
     }
 
     if (!value.startsWith('data:')) {
-      return;
+      throw new BadRequestException('Image data must be a valid data URI.');
     }
 
     const { mimeType, base64Data } = this.parseImageDataUri(value);
-    if (!allowedMimeTypes.includes(mimeType)) {
+    if (!this.allowedMimeTypes.has(mimeType)) {
       throw new BadRequestException('Invalid image type.');
     }
 

@@ -29,10 +29,10 @@ const mockConfigService = {
 /**
  * A mock implementation of a JSON parser utility for testing purposes.
  *
- * This mock object contains a `parse` method that simulates the behavior of
+ * This mock object contains a `parse` method that simulates the behaviour of
  * parsing a JSON string into a JavaScript object. The `parse` method is
  * implemented using Vitest's `vi.fn` to allow tracking calls and providing custom
- * behavior during tests.
+ * behaviour during tests.
  * @property {Mock} parse - A Vitest mock function that takes a JSON string
  * as input and returns the parsed JavaScript object.
  */

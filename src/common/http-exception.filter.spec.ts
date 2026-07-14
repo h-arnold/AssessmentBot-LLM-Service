@@ -9,6 +9,19 @@ import { Mock, MockInstance } from 'vitest';
 import { HttpExceptionFilter } from './http-exception.filter.js';
 import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
 
+/**
+ * Creates a mock ConfigService for testing.
+ * @param {string} nodeEnvironment - The NODE_ENV value to return.
+ * @returns {object} A mock ConfigService.
+ */
+function createMockConfigService(nodeEnvironment: string): {
+  get: (key: string) => string | undefined;
+} {
+  return {
+    get: (key: string) => (key === 'NODE_ENV' ? nodeEnvironment : undefined),
+  };
+}
+
 interface JsonErrorResponseBody {
   statusCode: number;
   message: string;
@@ -59,7 +72,12 @@ describe('HttpExceptionFilter', () => {
 
   beforeEach(() => {
     logger = new Logger();
-    filter = new HttpExceptionFilter(logger);
+    filter = new HttpExceptionFilter(
+      logger,
+      createMockConfigService(
+        'test',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
     vi.clearAllMocks();
   });
 
@@ -203,7 +221,7 @@ describe('HttpExceptionFilter', () => {
      * Mocks the `ArgumentsHost` interface for HTTP requests in NestJS unit tests.
      *
      * This mock provides implementations for `getResponse`, `getRequest`, and `getNext` methods,
-     * allowing tests to simulate the behavior of the HTTP context within exception filters or interceptors.
+     * allowing tests to simulate the behaviour of the HTTP context within exception filters or interceptors.
      * @returns An object with mocked `getResponse`, `getRequest`, and `getNext` methods.
      */
     const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
@@ -225,7 +243,7 @@ describe('HttpExceptionFilter', () => {
      * - `switchToRpc`: Returns a mock object with stubbed `getData` and `getContext` methods.
      * - `switchToWs`: Returns a mock object with stubbed `getData`, `getClient`, and `getPattern` methods.
      *
-     * Useful for simulating the behavior of `ArgumentsHost` in exception filters and other NestJS constructs during testing.
+     * Useful for simulating the behaviour of `ArgumentsHost` in exception filters and other NestJS constructs during testing.
      */
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
@@ -262,6 +280,12 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('should sanitise sensitive messages in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
     const exception = new HttpException(
       'Internal database error',
       HttpStatus.INTERNAL_SERVER_ERROR,
@@ -274,7 +298,7 @@ describe('HttpExceptionFilter', () => {
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
     /**
-     * Mocks the behavior of a request object for testing purposes.
+     * Mocks the behaviour of a request object for testing purposes.
      *
      * This mock function simulates an HTTP request with predefined properties:
      * - `url`: The request URL (`/test`).
@@ -303,12 +327,7 @@ describe('HttpExceptionFilter', () => {
       switchToWs: vi.fn(),
     };
 
-    const originalNodeEnvironment = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
-
-    filter['catch'](exception, mockArgumentsHost);
-
-    process.env.NODE_ENV = originalNodeEnvironment;
+    productionFilter['catch'](exception, mockArgumentsHost);
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
     expectJsonErrorResponse(mockJson, {
@@ -341,7 +360,7 @@ describe('HttpExceptionFilter', () => {
     /**
      * Mock implementation of the `ArgumentsHost` interface used for testing purposes.
      *
-     * This mock object provides stubbed methods to simulate the behavior of NestJS's `ArgumentsHost`,
+     * This mock object provides stubbed methods to simulate the behaviour of NestJS's `ArgumentsHost`,
      * allowing for controlled testing of exception filters and other components that depend on the host context.
      * @property {() => mockHttpArgumentsHost} switchToHttp - Mocked method to simulate switching to HTTP context.
      * @property {Mock} getArgByIndex - Vitest mock function to retrieve an argument by index.

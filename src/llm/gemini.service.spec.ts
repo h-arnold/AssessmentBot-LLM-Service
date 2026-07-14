@@ -117,7 +117,6 @@ describe('GeminiService', () => {
       expect(mockGenerateContent).toHaveBeenCalledWith({
         model: 'gemini-2.5-flash',
         contents: [
-          '',
           { inlineData: { mimeType: 'image/png', data: 'test-data' } },
         ],
         config: {

@@ -210,6 +210,12 @@ export abstract class LLMService {
    * @returns {boolean} True if the error is a resource exhausted error.
    */
   private isResourceExhaustedError(error: unknown): boolean {
+    // Check for gRPC-style string status indicating resource exhaustion
+    // (e.g. error.status === 'RESOURCE_EXHAUSTED') regardless of numeric code.
+    if (this.matchesStringStatus(error, (s) => s === 'resource_exhausted')) {
+      return true;
+    }
+
     // Use the utility function to extract status code from various error formats
     const statusCode = this.extractErrorStatusCode(error);
 
@@ -229,6 +235,43 @@ export abstract class LLMService {
         'quota has been exhausted',
       ];
       return patterns.some((pattern) => message.includes(pattern));
+    }
+
+    return false;
+  }
+
+  /**
+   * Checks whether a string status/code property on the error (or its nested
+   * `.error` object) satisfies a given predicate. This handles gRPC-style
+   * string status codes such as `'RESOURCE_EXHAUSTED'` or `'RATE_LIMIT_EXCEEDED'`.
+   * @param error - The error to inspect.
+   * @param predicate - A function that receives a lower-case string value
+   *   and returns true when it matches the desired status.
+   * @returns True if any recognised status field matches the predicate.
+   */
+  private matchesStringStatus(
+    error: unknown,
+    predicate: (lower: string) => boolean,
+  ): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const error_ = error as Record<string, unknown>;
+
+    const check = (value: unknown): boolean =>
+      typeof value === 'string' && predicate(value.toLowerCase());
+
+    if (check(error_.status) || check(error_.code)) {
+      return true;
+    }
+
+    // Check nested error object (API error response body pattern)
+    if (error_.error && typeof error_.error === 'object') {
+      const inner = error_.error as Record<string, unknown>;
+      if (check(inner.status) || check(inner.code)) {
+        return true;
+      }
     }
 
     return false;
@@ -262,6 +305,17 @@ export abstract class LLMService {
       return false;
     }
 
+    // Check for gRPC-style string status indicating rate limiting
+    // (e.g. error.status === 'RATE_LIMIT_EXCEEDED')
+    if (
+      this.matchesStringStatus(
+        error,
+        (s) => s === 'rate_limit_exceeded' || s === '429',
+      )
+    ) {
+      return true;
+    }
+
     // Use the utility function to extract status code from various error formats
     const statusCode = this.extractErrorStatusCode(error);
     if (statusCode === 429) {
@@ -283,6 +337,9 @@ export abstract class LLMService {
    * Utility function to extract HTTP status code from various error formats.
    *
    * This is designed to work with different LLM SDK error structures.
+   * Recognises numeric `status`, `statusCode`, `code`, `response.status`,
+   * `error.status`, and `error.code`, as well as string values that parse
+   * to a number (e.g. `'429'`).
    * @param {unknown} error The error to extract status code from.
    * @returns {number | undefined} The HTTP status code if found, undefined
    *   otherwise.
@@ -292,25 +349,44 @@ export abstract class LLMService {
       return undefined;
     }
 
-    // Check for status property directly
-    if ('status' in error && typeof error.status === 'number') {
-      return error.status;
-    }
+    const error_ = error as Record<string, unknown>;
 
-    // Check for statusCode property (alternative naming)
-    if ('statusCode' in error && typeof error.statusCode === 'number') {
-      return error.statusCode;
-    }
+    // Coerce a value to a number (handles '429' strings too)
+    const toNumber = (value: unknown): number | undefined => {
+      if (typeof value === 'number' && !Number.isNaN(value)) return value;
+      if (typeof value === 'string') {
+        const parsed = Number(value);
+        if (!Number.isNaN(parsed)) return parsed;
+      }
+      return undefined;
+    };
 
-    // Check for response.status (nested in response object)
+    // Check direct properties in priority order
+    const directStatus: number | undefined =
+      toNumber(error_.status) ??
+      toNumber(error_.statusCode) ??
+      toNumber(error_.code);
+    if (directStatus !== undefined) return directStatus;
+
+    // Check response.status (nested in response object)
     if (
-      'response' in error &&
-      error.response &&
-      typeof error.response === 'object' &&
-      'status' in error.response &&
-      typeof (error.response as Record<string, unknown>).status === 'number'
+      'response' in error_ &&
+      error_.response &&
+      typeof error_.response === 'object'
     ) {
-      return (error.response as Record<string, unknown>).status as number;
+      const responseStatus = toNumber(
+        (error_.response as Record<string, unknown>).status,
+      );
+      if (responseStatus !== undefined) return responseStatus;
+    }
+
+    // Check nested error object (API error response body pattern,
+    // e.g. { error: { code: 429, status: 'RESOURCE_EXHAUSTED' } })
+    if ('error' in error_ && error_.error && typeof error_.error === 'object') {
+      const inner = error_.error as Record<string, unknown>;
+      const innerStatus: number | undefined =
+        toNumber(inner.status) ?? toNumber(inner.code);
+      if (innerStatus !== undefined) return innerStatus;
     }
 
     return undefined;

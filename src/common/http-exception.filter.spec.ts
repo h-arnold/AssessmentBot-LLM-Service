@@ -203,7 +203,7 @@ describe('HttpExceptionFilter', () => {
      * Mocks the `ArgumentsHost` interface for HTTP requests in NestJS unit tests.
      *
      * This mock provides implementations for `getResponse`, `getRequest`, and `getNext` methods,
-     * allowing tests to simulate the behavior of the HTTP context within exception filters or interceptors.
+     * allowing tests to simulate the behaviour of the HTTP context within exception filters or interceptors.
      * @returns An object with mocked `getResponse`, `getRequest`, and `getNext` methods.
      */
     const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
@@ -225,7 +225,7 @@ describe('HttpExceptionFilter', () => {
      * - `switchToRpc`: Returns a mock object with stubbed `getData` and `getContext` methods.
      * - `switchToWs`: Returns a mock object with stubbed `getData`, `getClient`, and `getPattern` methods.
      *
-     * Useful for simulating the behavior of `ArgumentsHost` in exception filters and other NestJS constructs during testing.
+     * Useful for simulating the behaviour of `ArgumentsHost` in exception filters and other NestJS constructs during testing.
      */
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
@@ -274,7 +274,7 @@ describe('HttpExceptionFilter', () => {
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
     /**
-     * Mocks the behavior of a request object for testing purposes.
+     * Mocks the behaviour of a request object for testing purposes.
      *
      * This mock function simulates an HTTP request with predefined properties:
      * - `url`: The request URL (`/test`).
@@ -341,7 +341,7 @@ describe('HttpExceptionFilter', () => {
     /**
      * Mock implementation of the `ArgumentsHost` interface used for testing purposes.
      *
-     * This mock object provides stubbed methods to simulate the behavior of NestJS's `ArgumentsHost`,
+     * This mock object provides stubbed methods to simulate the behaviour of NestJS's `ArgumentsHost`,
      * allowing for controlled testing of exception filters and other components that depend on the host context.
      * @property {() => mockHttpArgumentsHost} switchToHttp - Mocked method to simulate switching to HTTP context.
      * @property {Mock} getArgByIndex - Vitest mock function to retrieve an argument by index.

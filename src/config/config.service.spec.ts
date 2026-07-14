@@ -129,7 +129,7 @@ describe('ConfigService', () => {
       expect(service.get('APP_NAME')).toBe('TestAppNameFromDotEnv');
     });
 
-    it('should prioritize process.env over .env file', async () => {
+    it('should prioritise process.env over .env file', async () => {
       // Mock .env file existence and content
       mockExistsSync.mockImplementation((filePath: PathLike) => {
         return normalisePath(filePath).includes('.env');

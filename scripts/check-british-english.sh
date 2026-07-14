@@ -24,6 +24,11 @@ AMERICAN_WORDS=(
   "optimize"
   "utilize"
   "modernize"
+  "behavior"
+  "prioritize"
+  "sanitize"
+  "catalog"
+  "gray"
 )
 
 # Corresponding British spellings
@@ -44,6 +49,11 @@ BRITISH_WORDS=(
   "optimise"
   "utilise"
   "modernise"
+  "behaviour"
+  "prioritise"
+  "sanitise"
+  "catalogue"
+  "grey"
 )
 
 # Build regex pattern with word boundaries

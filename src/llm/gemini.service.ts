@@ -76,7 +76,9 @@ export class GeminiService extends LLMService {
         this.isErrorObject(error) ? error.stack : undefined,
       );
       if (error instanceof ZodError) {
-        this.logger.error('Zod validation failed', error.issues);
+        this.logger.error(
+          `Zod validation failed: ${JSON.stringify(error.issues)}`,
+        );
         throw error;
       }
 

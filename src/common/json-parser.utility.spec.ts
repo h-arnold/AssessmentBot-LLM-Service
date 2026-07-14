@@ -65,7 +65,7 @@ describe('JsonParserUtil', () => {
     const irreparableJson = 'this is not json';
     expect(() => utility.parse(irreparableJson)).toThrow(BadRequestException);
     expect(errorSpy).toHaveBeenCalledWith(
-      `JSON parsing failed: No JSON object found in input: ${irreparableJson}`,
+      `JSON parsing failed: No valid JSON object found in input: ${irreparableJson}`,
     );
   });
 
@@ -76,6 +76,31 @@ describe('JsonParserUtil', () => {
       user: { id: 1, name: 'John Doe' },
     };
     expect(utility.parse(embeddedJson)).toEqual(expected);
+  });
+
+  it('should handle JSON followed by commentary containing a closing brace (M3)', () => {
+    const text = 'Here is the result: {"a":1} and note that x > y } done';
+    expect(utility.parse(text)).toEqual({ a: 1 });
+  });
+
+  it('should handle a closing brace inside a string value without truncating (regression)', () => {
+    const text = '{"reasoning": "The closing brace } is shown"}';
+    expect(utility.parse(text)).toEqual({
+      reasoning: 'The closing brace } is shown',
+    });
+  });
+
+  it('should throw BadRequestException for unbalanced braces even when trailing } exists', () => {
+    // The trailing } is not part of a balanced JSON object, and there is
+    // no valid JSON to extract.
+    const text = 'Some text } here';
+    expect(() => utility.parse(text)).toThrow(BadRequestException);
+  });
+
+  it('should handle deeply nested JSON with trailing prose containing }', () => {
+    const text =
+      'Output: {"outer": {"inner": [1, 2, 3]}} and final check } end';
+    expect(utility.parse(text)).toEqual({ outer: { inner: [1, 2, 3] } });
   });
 
   it('should log repaired JSON at debug level to prevent PII leakage in production', () => {

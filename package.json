@@ -19,6 +19,7 @@
     "start:prod": "NODE_ENV=production node dist/src/main.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "generate:api-key": "node --experimental-strip-types scripts/generate-api-key.ts",
     "lint:british": "./scripts/check-british-english.sh",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",

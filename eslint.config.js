@@ -269,8 +269,13 @@ export default tseslint.config(
     files: [
       'src/common/pipes/image-validation.pipe.ts',
       'src/common/pipes/image-validation.pipe.spec.ts',
+      'src/common/utils/crypto.utilities.ts',
+      'src/auth/api-key.service.spec.ts',
+      'src/config/environment.schema.spec.ts',
+      'vitest.setup.ts',
       'test/assessor-live.e2e-spec.ts',
       'test/assessor.e2e-spec.ts',
+      'test/auth.e2e-spec.ts',
     ],
     rules: {
       'unicorn/prefer-uint8array-base64': 'off',

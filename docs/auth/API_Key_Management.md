@@ -7,8 +7,8 @@ This document outlines best practices for managing API keys within the Assessmen
 API keys should be treated as sensitive credentials. Follow these guidelines for generation:
 
 - **Randomness**: Always use a cryptographically secure random string generator. Avoid predictable patterns or sequential keys.
-  - _Example (OpenSSL)_: `openssl rand -base64 32` (generates a 32-byte base64 encoded key)
-- **Length**: Ensure keys are sufficiently long to prevent brute-force attacks. A minimum of 32 characters (256 bits) is recommended.
+  - _Generation_: Use the provided generator script to produce a key in the strict format (prefix `abt_` + 32 base64url characters). Run `npm run generate:api-key` for the default `abt_` prefix. To mint a key with a custom prefix, set the `API_KEY_PREFIX` environment variable first (e.g. `API_KEY_PREFIX=custom_ npm run generate:api-key`); the generated key will use that prefix.
+- **Length**: Keys MUST be exactly 32 base64url characters (192 bits) following the configured `API_KEY_PREFIX`.
 - **Uniqueness**: Each API key should be unique.
 
 ## 2. Key Rotation Procedures

@@ -1,4 +1,5 @@
 import { ChildProcessWithoutNullStreams } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 
 import { getCurrentDirname } from 'src/common/file-utilities';
@@ -18,6 +19,14 @@ describe('Authentication E2E Tests', () => {
   );
 
   const INVALID_API_KEY = 'invalid_key';
+
+  // Strict-format rejection fixtures (generated at module load from CSPRNG).
+  // These are module-level so they are stable within a single test-file run but
+  // differ across runs (no hardcoded high-entropy literals).
+  const FOREIGN_KEY = 'ghp_' + randomBytes(24).toString('base64url');
+  const SHORT_BODY_KEY = 'abt_' + randomBytes(23).toString('base64url');
+  const BAD_CHARSET_KEY = 'abt_' + randomBytes(23).toString('base64url') + '!';
+  const UNCONFIGURED_KEY = 'abt_' + randomBytes(24).toString('base64url');
 
   beforeAll(async () => {
     const app = await startApp(logFilePath);
@@ -133,6 +142,64 @@ describe('Authentication E2E Tests', () => {
       .send({})
       .expect(401); // Should be unauthorized if case-sensitive
     expect(response.body).toHaveProperty('statusCode', 401);
+  });
+
+  describe('Strict API key format validation', () => {
+    it('rejects a foreign-prefix key (ghp_...) with 401', async () => {
+      const response = await request(appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${FOREIGN_KEY}`)
+        .send({})
+        .expect(401);
+
+      expect(response.body).toHaveProperty('statusCode', 401);
+    });
+
+    it('rejects a key with a valid prefix but body too short (31 chars) with 401', async () => {
+      const response = await request(appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${SHORT_BODY_KEY}`)
+        .send({})
+        .expect(401);
+
+      expect(response.body).toHaveProperty('statusCode', 401);
+    });
+
+    it('rejects a key with a valid prefix but non-base64url body charset with 401', async () => {
+      const response = await request(appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${BAD_CHARSET_KEY}`)
+        .send({})
+        .expect(401);
+
+      expect(response.body).toHaveProperty('statusCode', 401);
+    });
+
+    it('rejects a correctly formatted but unconfigured key with 401', async () => {
+      const response = await request(appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${UNCONFIGURED_KEY}`)
+        .send({})
+        .expect(401);
+
+      expect(response.body).toHaveProperty('statusCode', 401);
+    });
+
+    it('authenticates a valid configured key (positive regression)', async () => {
+      // This test documents the positive path. After the GREEN agent regenerates
+      // app-lifecycle.ts with valid abt_ keys this assertion should pass.
+      const response = await request(appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${apiKey}`)
+        .send({
+          taskType: 'TEXT',
+          reference: 'The quick brown fox jumps over the lazy dog.',
+          template: 'Write a sentence about a fox.',
+          studentResponse: 'A fox is a mammal.',
+        });
+
+      expect(response.status).toBe(201);
+    });
   });
 
   // 3.1 Health Endpoint

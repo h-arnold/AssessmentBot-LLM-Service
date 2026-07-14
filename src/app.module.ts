@@ -2,9 +2,10 @@ import { IncomingMessage, ServerResponse } from 'node:http';
 
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule, Params } from 'nestjs-pino';
 
+import { ApiKeyThrottlerGuard } from './auth/api-key-throttler.guard.js';
 import { AuthModule } from './auth/auth.module.js';
 import { LogRedactor } from './common/utils/log-redactor.utility.js';
 import { ConfigModule } from './config/config.module.js';
@@ -52,14 +53,18 @@ function hasRequestId(
  * This module establishes the application's global rate-limiting strategy.
  * 1.  `ThrottlerModule.forRoot(throttlerConfig)`: This imports the throttler configuration from `throttler.config.ts`,
  *     setting up the default rate limits that apply to all unauthenticated routes across the application.
- * 2.  `{ provide: APP_GUARD, useClass: ThrottlerGuard }`: This registers the `ThrottlerGuard` as a global guard.
- *     By doing so, every endpoint in the application is automatically protected by the default rate-limiting
- *     rules unless explicitly overridden in a specific controller.
+ * 2.  `{ provide: APP_GUARD, useClass: ApiKeyThrottlerGuard }`: This registers the custom
+ *     {@link ApiKeyThrottlerGuard} as a global guard. Unlike the default `ThrottlerGuard`, this guard
+ *     keys rate-limiting by API key for authenticated requests (those with a `Bearer <token>` header),
+ *     falling back to IP-based tracking for unauthenticated traffic. This ensures each API key has its
+ *     own independent rate-limit counter, preventing one key from being throttled by activity on another
+ *     key behind the same IP.
  *
  * This setup provides a baseline level of protection against abuse, which can then be fine-tuned for specific
  * resource-intensive or authenticated endpoints.
  * @see config/throttler.config.ts - For the source of the default throttler configuration.
  * @see v1/assessor/assessor.controller.ts - For an example of how to override the global throttler settings.
+ * @see auth/api-key-throttler.guard.ts - The custom guard implementation.
  */
 const customProperties = (
   request: IncomingMessage,
@@ -132,7 +137,7 @@ const customProperties = (
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: ApiKeyThrottlerGuard,
     },
   ],
 })

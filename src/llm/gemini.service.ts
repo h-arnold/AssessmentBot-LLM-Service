@@ -52,7 +52,11 @@ export class GeminiService extends LLMService {
     this.logPayload(payload, contents);
 
     try {
-      return await this.generateAndParseResponse(payload);
+      return await this.generateAndParseResponse(
+        payload,
+        modelParameters,
+        contents,
+      );
     } catch (error) {
       const error_ = error as {
         status?: number;
@@ -147,9 +151,7 @@ export class GeminiService extends LLMService {
 
   private logPayload(payload: LlmPayload, contents: (string | Part)[]): void {
     if (this.isStringPromptPayload(payload)) {
-      this.geminiLogger.debug(
-        `String payload being sent: ${JSON.stringify(contents, null, 2)}`,
-      );
+      this.geminiLogger.debug({ contents }, 'String payload being sent');
     } else if (this.isImagePromptPayload(payload)) {
       this.geminiLogger.debug(
         `Image payload being sent with ${contents.length} content items`,
@@ -165,6 +167,9 @@ export class GeminiService extends LLMService {
    * Builds the Gemini request and parses the response into a validated
    * LlmResponse.
    * @param {LlmPayload} payload The payload to send.
+   * @param {GeminiRequest} modelParameters The pre-built model parameters
+   *   (model name and generation config).
+   * @param {(string | Part)[]} contents The pre-built content parts to send.
    * @returns {Promise<LlmResponse>} A validated assessment response.
    * @remarks
    * - The response text is read via the new SDK's `result.text` getter (the
@@ -174,9 +179,10 @@ export class GeminiService extends LLMService {
    */
   private async generateAndParseResponse(
     payload: LlmPayload,
+    modelParameters: GeminiRequest,
+    contents: (string | Part)[],
   ): Promise<LlmResponse> {
-    const { model, config } = this.buildModelParams(payload);
-    const contents = this.buildContents(payload);
+    const { model, config } = modelParameters;
     const result = await this.client.models.generateContent({
       model,
       contents,
@@ -187,9 +193,7 @@ export class GeminiService extends LLMService {
     this.geminiLogger.debug(`Raw response from Gemini: \n\n${responseText}`);
 
     const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
-    this.geminiLogger.debug(
-      `Parsed JSON response: ${JSON.stringify(parsedJson, null, 2)}`,
-    );
+    this.geminiLogger.debug({ parsedJson }, 'Parsed JSON response');
 
     const dataToValidate: unknown = Array.isArray(parsedJson)
       ? (parsedJson as unknown[])[0]

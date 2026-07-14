@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Mock } from 'vitest';
 
 import { ImageValidationPipe } from './image-validation.pipe.js';
+import { ConfigService } from '../../config/config.service.js';
 
 interface PipeLike {
   transform: (value: unknown) => Promise<unknown>;
@@ -21,9 +22,7 @@ describe('ImageValidationPipe', () => {
       }),
     };
 
-    pipe = Object.assign(Object.create(ImageValidationPipe.prototype), {
-      configService,
-    }) as PipeLike;
+    pipe = new ImageValidationPipe(configService as unknown as ConfigService);
   });
 
   it('should be defined', () => {
@@ -169,19 +168,20 @@ describe('ImageValidationPipe', () => {
     });
 
     it('should handle empty ALLOWED_IMAGE_MIME_TYPES (reject all images)', async () => {
-      vi.spyOn(configService, 'get').mockImplementation(
-        (key: string): unknown => {
-          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
-            return 1;
-          }
+      const emptyMimeConfig = {
+        get: vi.fn((key: string): unknown => {
+          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') return 1;
           return [];
-        },
+        }),
+      };
+      const emptyMimePipe = new ImageValidationPipe(
+        emptyMimeConfig as unknown as ConfigService,
       );
       const validPngBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
         'base64',
       );
-      await expect(pipe.transform(validPngBuffer)).rejects.toThrow(
+      await expect(emptyMimePipe.transform(validPngBuffer)).rejects.toThrow(
         BadRequestException,
       );
     });

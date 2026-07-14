@@ -70,9 +70,7 @@ export abstract class Prompt {
   ) {
     this.logger = logger;
     // Prompt constructor received inputs is set to verbose logging because it can output the base64 strings from image prompts, which often isn't particularly helpful for debugging.
-    this.logger.verbose(
-      `Prompt constructor received inputs: ${JSON.stringify(inputs)}`,
-    );
+    this.logger.verbose({ inputs }, 'Prompt constructor received inputs');
     const parsed: PromptInput = PromptInputSchema.parse(inputs);
     this.referenceTask = parsed.referenceTask;
     this.studentTask = parsed.studentTask;

@@ -60,7 +60,7 @@ export class ApiKeyService {
    * - Authorisation check against configured valid keys.
    * @remarks
    * (a) Opaque WARN prevents secret leakage at production `info` level.
-   * (b) The DEBUG-full line is an accepted-risk troubleshooting escape hatch.
+   * (b) No branch logs the key value, even at DEBUG level.
    * (c) Both format branches use the same opaque message to avoid a format oracle.
    * @param {unknown} apiKey - The API key to validate (can be of any type
    *   initially).
@@ -93,7 +93,7 @@ export class ApiKeyService {
 
     // Step 4: Correct format but not configured
     this.logger.warn('Authentication failed: invalid API key presented');
-    this.logger.debug(`Invalid API key: ${apiKey}`);
+    this.logger.debug('Authentication failed: invalid API key presented');
     throw new UnauthorizedException('Invalid API key');
   }
 }

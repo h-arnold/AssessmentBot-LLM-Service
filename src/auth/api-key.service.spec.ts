@@ -175,7 +175,7 @@ describe('ApiKeyService', () => {
 
   // ---- 6. Reject correct-format-but-unconfigured key ----
 
-  it('should reject a correct-format-but-unconfigured key with opaque WARN and full DEBUG', () => {
+  it('should reject a correct-format-but-unconfigured key with opaque logs that never leak the key', () => {
     expect(() => service.validate(UNCONFIGURED_KEY)).toThrow(
       UnauthorizedException,
     );
@@ -183,8 +183,17 @@ describe('ApiKeyService', () => {
       'Authentication failed: invalid API key presented',
     );
     expect(logger.debug).toHaveBeenCalledWith(
-      'Invalid API key: ' + UNCONFIGURED_KEY,
+      'Authentication failed: invalid API key presented',
     );
+    // The key value must not appear in any log output at any level
+    const allLogArguments = [
+      ...logger.warn.mock.calls,
+      ...logger.debug.mock.calls,
+      ...logger.log.mock.calls,
+    ].map((call) => String(call[0]));
+    expect(
+      allLogArguments.some((logLine) => logLine.includes(UNCONFIGURED_KEY)),
+    ).toBe(false);
   });
 
   // ---- 7. Wrong prefix rejected at step 1 ----

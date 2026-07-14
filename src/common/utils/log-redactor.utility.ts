@@ -12,8 +12,8 @@ export const LogRedactor = {
   /**
    * Clones the request object and redacts sensitive headers.
    *
-   * Creates a shallow copy of the incoming HTTP request and removes or masks
-   * sensitive headers such as authorization tokens to prevent them from
+   * Creates a shallow copy of the incoming HTTP request and masks sensitive
+   * headers such as authorization and x-api-key to prevent them from
    * appearing in log files.
    * @param {IncomingMessage} request - The incoming HTTP request.
    * @returns {IncomingMessage} A cloned and redacted request object safe for
@@ -26,6 +26,9 @@ export const LogRedactor = {
     clonedRequest.headers = { ...request.headers };
     if (clonedRequest.headers.authorization) {
       clonedRequest.headers.authorization = 'Bearer <redacted>';
+    }
+    if (clonedRequest.headers['x-api-key']) {
+      clonedRequest.headers['x-api-key'] = '[REDACTED]';
     }
     return clonedRequest;
   },

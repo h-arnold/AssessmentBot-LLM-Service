@@ -1,6 +1,11 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 
+// Module-level cache for markdown template content.
+// Templates are immutable for the process lifetime, so no invalidation is
+// required.
+const templateCache = new Map<string, string>();
+
 /**
  * Utility function to get the project root directory path.
  *
@@ -37,7 +42,37 @@ export async function readMarkdown(
     throw new Error('Invalid markdown filename');
   }
 
-  // If caller provided a basePath use only that, otherwise try known candidates.
+  // Check cache before hitting disk
+  const cacheKey = basePath ? `${basePath}::${name}` : `default::${name}`;
+  const cached = templateCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const content = await readMarkdownFromCandidates(name, basePath);
+  templateCache.set(cacheKey, content);
+  return content;
+}
+
+/**
+ * Attempts to read a markdown file by trying several candidate base
+ * directories.
+ *
+ * When no explicit basePath is given the method searches
+ * `src/prompt/templates`, `dist/src/prompt/templates`, and a path relative to
+ * the runtime location of this module.  Security checks ensure the resolved
+ * path stays within its base directory.
+ * @param {string} name - The markdown file name (must pass validation before
+ *   calling).
+ * @param {string} [basePath] - Explicit base directory, or undefined to try
+ *   the default candidates.
+ * @returns {Promise<string>} The file content.
+ * @throws {Error} When the file cannot be found in any candidate path.
+ */
+async function readMarkdownFromCandidates(
+  name: string,
+  basePath?: string,
+): Promise<string> {
   const candidates: string[] = [];
   if (basePath) {
     candidates.push(basePath);

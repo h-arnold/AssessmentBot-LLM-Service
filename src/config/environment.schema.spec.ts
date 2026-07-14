@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { configSchema, DEFAULT_API_KEY_PREFIX } from './environment.schema.js';
 
-const validBody = randomBytes(24).base64urlSlice();
+const validBody = randomBytes(24).toString('base64url');
 
 const validEnvironment = {
   GEMINI_API_KEY: 'dummy-key-for-testing',
@@ -33,8 +33,8 @@ describe('Environment schema', () => {
     });
 
     it('should accept multiple comma-separated fully-valid keys', () => {
-      const key2 = `abt_${randomBytes(24).base64urlSlice()}`;
-      const key3 = `abt_${randomBytes(24).base64urlSlice()}`;
+      const key2 = `abt_${randomBytes(24).toString('base64url')}`;
+      const key3 = `abt_${randomBytes(24).toString('base64url')}`;
       const result = configSchema.parse({
         ...validEnvironment,
         API_KEYS: `abt_${validBody},${key2},${key3}`,
@@ -99,7 +99,7 @@ describe('Environment schema', () => {
     });
 
     it('should reject a key with the default prefix when a custom prefix is configured', () => {
-      const otherBody = randomBytes(24).base64urlSlice();
+      const otherBody = randomBytes(24).toString('base64url');
       expect(() =>
         configSchema.parse({
           ...validEnvironment,

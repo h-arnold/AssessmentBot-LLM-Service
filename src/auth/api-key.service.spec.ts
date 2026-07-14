@@ -9,16 +9,16 @@ import { ConfigService, Config } from '../config/config.service.js';
 const PREFIX = 'abt_';
 
 // Generate two valid configured keys deterministically at module scope.
-const VALID_KEY_1 = PREFIX + randomBytes(24).base64urlSlice();
-const VALID_KEY_2 = PREFIX + randomBytes(24).base64urlSlice();
-const UNCONFIGURED_KEY = PREFIX + randomBytes(24).base64urlSlice();
+const VALID_KEY_1 = PREFIX + randomBytes(24).toString('base64url');
+const VALID_KEY_2 = PREFIX + randomBytes(24).toString('base64url');
+const UNCONFIGURED_KEY = PREFIX + randomBytes(24).toString('base64url');
 
 /**
  * Build a foreign-format secret (wrong prefix).
  * @returns A string starting with 'ghp_' followed by 32 base64url chars.
  */
 function foreignKey(): string {
-  return 'ghp_' + randomBytes(24).base64urlSlice();
+  return 'ghp_' + randomBytes(24).toString('base64url');
 }
 
 /**
@@ -27,7 +27,7 @@ function foreignKey(): string {
  */
 function shortBodyKey(): string {
   // 23 bytes -> 31 base64url chars (not 32)
-  return PREFIX + randomBytes(23).base64urlSlice();
+  return PREFIX + randomBytes(23).toString('base64url');
 }
 
 /**
@@ -35,7 +35,7 @@ function shortBodyKey(): string {
  * @returns A key whose body fails z.base64url() validation.
  */
 function invalidBodyKey(): string {
-  return PREFIX + randomBytes(24).base64urlSlice().slice(0, 31) + '!';
+  return PREFIX + randomBytes(24).toString('base64url').slice(0, 31) + '!';
 }
 
 /**
@@ -43,7 +43,7 @@ function invalidBodyKey(): string {
  * @returns A key starting with 'xyz_' followed by 32 base64url chars.
  */
 function wrongPrefixKey(): string {
-  return 'xyz_' + randomBytes(24).base64urlSlice();
+  return 'xyz_' + randomBytes(24).toString('base64url');
 }
 
 /**

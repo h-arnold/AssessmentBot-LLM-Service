@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.test.env' });
 
 // Generate a valid API key matching the strict format: prefix (abt_) + 32 base64url chars
-const testApiKey = 'abt_' + randomBytes(24).base64urlSlice();
+const testApiKey = 'abt_' + randomBytes(24).toString('base64url');
 process.env.API_KEYS = testApiKey;
 process.env.GEMINI_API_KEY = 'test-key';
 process.env.NODE_ENV = 'test';

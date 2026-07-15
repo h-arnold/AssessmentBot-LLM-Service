@@ -8,8 +8,6 @@ Welcome to the comprehensive documentation for the Assessment Bot LLM Service pr
 
 - [Project Overview](../README.md) - Main project README with setup instructions
 - [Contributing Guide](../CONTRIBUTING.md) - How to contribute to the project
-- [Development Environment](copilot-environment.md) - GitHub Copilot and development setup
-- [Dev Container Setup](../.devcontainer/README.md) - VS Code dev container configuration
 
 ### 🔧 Development
 
@@ -17,7 +15,6 @@ Welcome to the comprehensive documentation for the Assessment Bot LLM Service pr
 - [Debugging Guide](development/debugging.md) - Debugging techniques and tools
 - [Code Style Guide](development/code-style.md) - Coding standards and conventions
 - [Git Workflow](development/git-workflow.md) - Branching strategy and commit conventions
-- [Codex Delegation](development/codex-delegation.md) - Running focused sub-agent tasks
 
 ### 🏗️ Architecture & Design
 
@@ -54,10 +51,7 @@ Welcome to the comprehensive documentation for the Assessment Bot LLM Service pr
 
 ### 🔒 Security
 
-- [Security Overview](security/overview.md) - _[TODO]_ Security architecture and principles
 - [Authentication & Authorisation](security/auth.md) - Security implementation details
-- [Input Validation](security/validation.md) - _[TODO]_ Input sanitisation and validation
-- [Security Testing](security/testing.md) - _[TODO]_ Security testing procedures
 
 ### 📝 Prompt System
 

@@ -142,6 +142,9 @@ Provide a concise handoff summary including:
 ├── CONTRIBUTING.md                                  # Contribution guidelines
 ├── docs/
 │   ├── README.md                                    # Main documentation index
+│   ├── ACTION_PLAN_TEMPLATE.md                      # Action plan template for delivery
+│   ├── SPEC_TEMPLATE.md                             # Feature specification template
+│   ├── copilot-environment.md                       # Legacy Copilot agent environment notes
 │   │
 │   ├── api/
 │   │   ├── API_Documentation.md                     # API reference (Swagger/OpenAPI)
@@ -172,14 +175,10 @@ Provide a concise handoff summary including:
 │   │
 │   ├── development/
 │   │   ├── code-style.md                            # TypeScript/ESLint code style
-│   │   ├── codex-delegation.md                      # Sub-agent delegation guide
 │   │   ├── debugging.md                             # Debugging guide
 │   │   ├── git-workflow.md                          # Git workflow
 │   │   ├── linter-overrides.md                      # Authorised eslint-disable overrides
 │   │   └── workflow.md                              # Development workflow
-│   │
-│   ├── llm/
-│   │   └── architecture.md                          # LLM integration architecture
 │   │
 │   ├── modules/
 │   │   ├── app.md                                   # App module
@@ -208,14 +207,16 @@ Provide a concise handoff summary including:
 │       ├── E2E_GUIDE.md                             # E2E testing with Supertest
 │       └── PROD_TESTS_GUIDE.md                      # Production Docker image tests
 │
-└── release-notes/                                   # Release notes v0.1.x
+└── release-notes/                                   # Release notes
     ├── v0.1.6.md
     ├── v0.1.7.md
     ├── v0.1.8.md
     ├── v0.1.9.md
     ├── v0.1.10.md
     ├── v0.1.11.md
-    └── v0.1.12.md
+    ├── v0.1.12.md
+    ├── v0.2.0.md
+    └── v0.3.0.md
 ```
 
 ## OpenCode Configuration (.opencode/)

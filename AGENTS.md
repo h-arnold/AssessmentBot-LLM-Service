@@ -84,10 +84,8 @@ By following this pattern, the application remains decoupled from the specific l
 
 ## Agents and delegation
 
-Use the `scripts/codex-delegate.ts` CLI to delegate focused work to sub-agents.
-Prefer short, well-scoped tasks and provide clear acceptance criteria.
-Default sub-agent timeout is 10 minutes unless a task explicitly needs more or less time.
-Agent configuration files are defined in `.opencode/agents/`.
+Agent configuration files are defined in `.opencode/agents/`. Use the `task` tool to delegate focused work to sub-agents. Prefer short, well-scoped tasks and provide clear acceptance criteria.
+
 Refer to `docs/` for detailed guidance on code style, testing, environment configuration, and prompt templates:
 
 - Code style: `docs/development/code-style.md`
@@ -95,25 +93,16 @@ Refer to `docs/` for detailed guidance on code style, testing, environment confi
 - Environment configuration: `docs/configuration/environment.md`
 - Prompt system: `docs/prompts/README.md`
 
-- Implementation agent (`--role implementation`)
-  - Use for feature work, bug fixes, or refactors.
-  - Provide the desired behaviour, files to touch, and any constraints (for example, stick to existing NestJS patterns and avoid new dependencies).
-- Testing agent (`--role testing`)
-  - Use for validation plans, test execution, and coverage assessment.
-  - Provide the affected areas and which checks to prioritise (for example, `npm run test` or `npm run test:e2e`).
-- Review agent (`--role review`)
-  - Use for risk assessment and code review feedback.
-  - Provide the change summary and files to focus on.
-- Documentation agent (`--role documentation`)
-  - Use after non-trivial code changes to ensure docs stay accurate and current.
-  - Provide the relevant code changes, files that need doc updates, and target audience details.
-  - Expect concise, developer-focused updates with examples where helpful.
+Available sub-agent types (see `.opencode/agents/` for full instructions):
 
-Example usage:
-
-```bash
-npm run dev:delegate -- --role implementation --task "Add input validation to the assessment controller" --instructions "Prefer existing DTO patterns; update tests as needed."
-```
+| Sub-agent            | Use for                                       |
+| -------------------- | --------------------------------------------- |
+| `implementation`     | Feature work, bug fixes, refactors            |
+| `testing-specialist` | Test creation, debugging, coverage assessment |
+| `code-reviewer`      | Risk assessment and code review               |
+| `docs`               | Keeping documentation accurate and current    |
+| `de-sloppification`  | Removing AI-slop, duplication, complexity     |
+| `kif`                | Menial exploration and simple tasks           |
 
 ## Standard Workflow
 
@@ -125,25 +114,23 @@ Define the task that needs to be required. Identify the files, components, metho
 
 ### 2. Create failing tests
 
-Pass the detailed and defined task to the testing agent (`--role testing`) to create failing tests that capture the acceptance criteria. Once the tests are created, review them to ensure they accurately reflect the requirements and edge cases. If there are any discrepancies or missing scenarios, provide clarifications to the testing agent and have them update the tests accordingly.
+Pass the detailed and defined task to the testing-specialist agent to create failing tests that capture the acceptance criteria. Once the tests are created, review them to ensure they accurately reflect the requirements and edge cases. If there are any discrepancies or missing scenarios, provide clarifications and have them update the tests accordingly.
 
-### 2. Implementation
+### 3. Implementation
 
-Pass the detailed and defined task to the implementation agent (`--role implementation`), along with the failing tests created in the previous step. The implementation agent should focus on writing the minimum amount of code necessary to make the tests pass, adhering to the project's coding standards and principles outlined in this document. Once the implementation is complete, review the changes to ensure they meet the defined requirements and do not introduce any new issues. If everything looks good, proceed to the testing phase.
+Pass the detailed and defined task to the implementation agent, along with the failing tests created in the previous step. The implementation agent should focus on writing the minimum amount of code necessary to make the tests pass, adhering to the project's coding standards and principles outlined in this document. Once the implementation is complete, review the changes to ensure they meet the defined requirements and do not introduce any new issues. If everything looks good, proceed to the testing phase.
 
-### 3. Testing
+### 4. Testing
 
-Pass the summary of the implemented changes to the testing agent (`--role testing`) so that it can run tests and gaps in coverage. Validate that all tests pass and that the code meets the acceptance criteria. If any tests fail or if there are coverage gaps, provide feedback to the implementation agent for necessary fixes. Repeat this process until all tests pass and coverage is satisfactory.
+Pass the summary of the implemented changes to the testing-specialist agent so that it can run tests and identify gaps in coverage. Validate that all tests pass and that the code meets the acceptance criteria. If any tests fail or if there are coverage gaps, provide feedback to the implementation agent for necessary fixes. Repeat this process until all tests pass and coverage is satisfactory.
 
-### 4. Review
+### 5. Review
 
-Pass details of the changes to the review agent (`--role review`) for a thorough code review. The review agent should focus on identifying any security vulnerabilities, code quality issues, adherence to coding standards, and potential improvements. Review the feedback provided by the review agent and address any critical or high-priority issues. Once all concerns have been addressed, proceed to the documentation phase.
+Pass details of the changes to the code-reviewer agent for a thorough code review. The code-reviewer should focus on identifying any security vulnerabilities, code quality issues, adherence to coding standards, and potential improvements. Review the feedback and address any critical or high-priority issues. Once all concerns have been addressed, proceed to the documentation phase.
 
-### 5. Documentation
+### 6. Documentation
 
-Pass details of the changes to the documentation agent (`--role documentation`) to ensure that all relevant documentation is updated accordingly. This includes updating JSDoc comments, Swagger documentation, and any relevant guides or READMEs. Review the documentation updates to ensure they are clear, accurate, and helpful for future developers. Once the documentation is complete, finalise the changes and prepare for deployment or merging into the main codebase.
-
-Pass a summary of the implemented changes to the testing agent (`--role testing`) so that it can run tests and gaps in coverage.
+Pass details of the changes to the docs agent to ensure that all relevant documentation is updated accordingly. This includes updating JSDoc comments, Swagger documentation, and any relevant guides or READMEs. Review the documentation updates to ensure they are clear, accurate, and helpful for future developers. Once the documentation is complete, finalise the changes.
 
 ## Common commands
 

@@ -40,7 +40,7 @@ AssessmentBot-LLM-Service is a NestJS backend API service with the following mod
 
 **Language**: TypeScript (ES2024 target), compiled to CommonJS via NestJS build pipeline.
 **Validation**: Zod schemas for DTOs and environment variables.
-**Testing**: Jest with NestJS TestingModule for unit/integration tests (co-located `*.spec.ts`), Jest + Supertest for E2E tests (in `test/`).
+**Testing**: Vitest with NestJS TestingModule for unit/integration tests (co-located `*.spec.ts`), Vitest + Supertest for E2E tests (in `test/`).
 
 ## 2. Key Documentation References
 
@@ -223,7 +223,7 @@ Apply only the rows relevant to the module(s) under review.
 
 ### Tests
 
-- [ ] Tests use Jest and NestJS `TestingModule` for integration testing.
+- [ ] Tests use Vitest and NestJS `TestingModule` for integration testing.
 - [ ] E2E tests use Supertest against the NestJS application instance.
 - [ ] Tests assert behaviour, not implementation details.
 - [ ] No reliance on external services — external dependencies are mocked.

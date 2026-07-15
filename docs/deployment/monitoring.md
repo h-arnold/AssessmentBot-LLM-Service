@@ -10,19 +10,19 @@ The application includes several features out-of-the-box to help with monitoring
 
 ### Application Health Endpoint
 
-The application provides a health check endpoint at `/status`. A `GET` request to this endpoint will return a JSON response with the application's status. A `200 OK` status code indicates that the service is healthy.
+The application provides a health check endpoint at `/health`. A `GET` request to this endpoint will return a JSON response with the application's status. A `200 OK` status code indicates that the service is healthy.
 
 ```bash
 # Check application health
-curl http://localhost:3000/status
+curl http://localhost:3000/health
 
 # Expected response
-# { "status": "ok", ... }
+# { "status": "ok", "version": "...", "timestamp": "...", "systemInfo": { ... } }
 ```
 
 ### Docker Health Checks
 
-The production Docker container (`Docker/Dockerfile.prod`) includes a built-in `HEALTHCHECK` instruction. It uses the `scripts/health-check.js` script to periodically check the `/status` endpoint. This allows Docker to automatically detect and report if the application container becomes unhealthy.
+The production Docker container (`Docker/Dockerfile.prod`) includes a built-in `HEALTHCHECK` instruction. It uses the `scripts/health-check.js` script to periodically check the `/health` endpoint. This allows Docker to automatically detect and report if the application container becomes unhealthy.
 
 You can check the health status of a running container via the `docker ps` command or by inspecting the container.
 

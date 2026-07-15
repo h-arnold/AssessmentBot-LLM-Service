@@ -136,17 +136,33 @@ export class AssessorController {}
 ```typescript
 @Injectable()
 export class ZodValidationPipe implements PipeTransform {
-  constructor(private schema?: ZodTypeAny) {}
+  constructor(
+    private schema?: ZodType,
+    private readonly configService?: ConfigService,
+  ) {}
 
   transform(value: unknown, metadata: ArgumentMetadata): unknown {
     if (!this.schema) return value;
-    return this.schema.parse(value);
+    const result = this.schema.safeParse(value);
+    if (result.success) return result.data;
+    // In production, mask error details; in dev, return full Zod issues
+    const nodeEnvironment = this.configService?.get('NODE_ENV');
+    const errors =
+      nodeEnvironment === 'production'
+        ? [{ message: 'Invalid input' }]
+        : result.error.issues.map((issue) => ({
+            message: issue.message,
+            path: issue.path,
+          }));
+    throw new BadRequestException({ message: 'Validation failed', errors });
   }
 }
 
-// Usage
-@Body(new ZodValidationPipe(createAssessorDtoSchema))
-createAssessorDto: CreateAssessorDto,
+// Usage (requires ConfigService for production-aware masking)
+const validationPipe = new ZodValidationPipe(
+  createAssessorDtoSchema,
+  configService,
+);
 ```
 
 ### Observer Pattern

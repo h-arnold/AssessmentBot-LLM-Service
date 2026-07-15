@@ -91,7 +91,7 @@ Check that the application is accessible and running correctly.
 
 ```bash
 # Test health endpoint (should return HTTP 200)
-curl -I https://your-domain.com/status
+curl -I https://your-domain.com/health
 
 # Test an API endpoint with a valid key
 curl -H "Authorization: Bearer your_api_key" \

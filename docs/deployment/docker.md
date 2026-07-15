@@ -36,7 +36,7 @@ The production image uses a multi-stage build to create a minimal, secure runtim
 
 4.  **Access the application**:
     - API: `http://localhost:3000`
-    - Health check: `http://localhost:3000/status`
+    - Health check: `http://localhost:3000/health`
 
 ## Production Deployment
 
@@ -91,14 +91,14 @@ The Fail2ban configuration is located in `fail2ban/jail.local`. It is set up to 
 
 The production Docker image has a built-in health check that uses the `scripts/health-check.js` script to verify the application's status.
 
-The application also exposes a health check endpoint at `/status`.
+The application also exposes a health check endpoint at `/health`.
 
 ```bash
 # Check application health
-curl http://localhost:3000/status
+curl http://localhost:3000/health
 
 # Expected response
-# { "status": "ok", ... }
+# { "status": "ok", "version": "...", "timestamp": "...", "systemInfo": { ... } }
 ```
 
 ## Container Registry

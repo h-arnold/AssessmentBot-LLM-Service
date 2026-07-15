@@ -58,6 +58,12 @@ Consult these resources before and during review. Local docs contain project-spe
 - [docs/development/code-style.md](../../docs/development/code-style.md) - Code style guide
 - [docs/prompts/README.md](../../docs/prompts/README.md) - Prompt templates
 - [docs/modules/llm.md](../../docs/modules/llm.md) - LLM architecture and error handling
+- [docs/modules/prompt.md](../../docs/modules/prompt.md) - Prompt generation and templates
+- [docs/modules/guards.md](../../docs/modules/guards.md) - Auth guards and throttler guard
+- [docs/modules/utilities.md](../../docs/modules/utilities.md) - Shared utilities (file, JSON, crypto)
+- [docs/modules/common.md](../../docs/modules/common.md) - Common module (filters, JSON parser)
+- [docs/modules/status.md](../../docs/modules/status.md) - Health check endpoints
+- [docs/api/rate-limiting.md](../../docs/api/rate-limiting.md) - Rate limiting configuration
 - [docs/modules/assessor.md](../../docs/modules/assessor.md) - Assessor module docs
 - [docs/modules/auth.md](../../docs/modules/auth.md) - Auth module docs
 - [docs/modules/config.md](../../docs/modules/config.md) - Config module docs
@@ -95,7 +101,7 @@ You will fail the task unless you read _the entirety_ of the relevant context be
 
 - **Framework**: NestJS. Use `@Module`, `@Controller`, `@Injectable`, `@Guard` decorators. Follow NestJS module conventions.
 - **Modularity**: Each feature area is a self-contained NestJS module with its own module, controller, service, and DTO files.
-- **ESM to CJS**: Source files use ESM `import`/`export` syntax. The build pipeline compiles to CommonJS. Do not use `import.meta.url` — use `getCurrentDirname()` from `src/common/file-utils.ts`.
+- **ESM to CJS**: Source files use ESM `import`/`export` syntax. The build pipeline compiles to CommonJS. Do not use `import.meta.url` — use `getCurrentDirname()` from `src/common/file-utilities.ts`.
 - **Typedness**: Strict TypeScript mode. No `any` types. `explicit-function-return-type` is enforced at lint level.
 - **No `console.*`**: Strictly forbidden in source code. Use NestJS `Logger` from `@nestjs/common` for all logging.
 - **British English**: Required in all comments, documentation, and user-facing text.
@@ -122,7 +128,7 @@ You will fail the task unless you read _the entirety_ of the relevant context be
 - **Abstraction**: Use the abstract `LlmService` base class from `src/llm/llm.service.interface.ts`.
 - **Implementation**: `GeminiService` implements the LLM interface. Add new providers by extending `LlmService`.
 - **Error handling**: Use `ResourceExhaustedError` for quota/rate-limit scenarios. Retry with exponential backoff.
-- **Response parsing**: Use `jsonrepair` via `src/common/json-parser.util.ts` for robust JSON parsing from LLM responses.
+- **Response parsing**: Use `jsonrepair` via `src/common/json-parser.utility.ts` for robust JSON parsing from LLM responses.
 
 ### 4.6 Prompt System
 
@@ -211,12 +217,12 @@ Apply only the rows relevant to the module(s) under review.
 - [ ] Logging uses `Logger` from `@nestjs/common` (not `PinoLogger` or `console.*`).
 - [ ] No direct use of `@nestjs/config` outside the config module.
 - [ ] Auth guards applied with `@UseGuards(ApiKeyGuard)` on protected endpoints.
-- [ ] `getCurrentDirname()` from `src/common/file-utils.ts` used instead of `import.meta.url`.
+- [ ] `getCurrentDirname()` from `src/common/file-utilities.ts` used instead of `import.meta.url`.
 
 ### LLM & Prompt
 
 - [ ] LLM interactions use the abstract `LlmService` base class.
-- [ ] Response parsing uses `jsonrepair` via `src/common/json-parser.util.ts`.
+- [ ] Response parsing uses `jsonrepair` via `src/common/json-parser.utility.ts`.
 - [ ] Rate-limit/ quota errors use `ResourceExhaustedError` with appropriate retry handling.
 - [ ] Prompt templates follow the existing markdown template pattern in `src/prompt/templates/`.
 - [ ] New prompt types extend `PromptBase` and are registered in `PromptFactory`.
@@ -247,7 +253,7 @@ Structure all feedback as follows:
 >
 > Improvement (Coverage): New logic in `src/prompt/prompt.factory.ts` has no corresponding unit test. Coverage should be confirmed before merge.
 >
-> Nitpick: Variable `colour` in `src/common/log-redactor.util.ts` on line 14 is spelled correctly (British English) — good. However, the variable `sanitize` on line 22 should be `sanitise` per British English convention.
+> Nitpick: Variable `colour` in `src/common/utils/log-redactor.utility.ts` on line 14 is spelled correctly (British English) — good. However, the variable `sanitize` on line 22 should be `sanitise` per British English convention.
 
 ## 8. Completion
 

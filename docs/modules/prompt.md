@@ -6,6 +6,7 @@ The Prompt Module (`src/prompt/`) provides prompt generation and management serv
 
 ```typescript
 @Module({
+  imports: [ConfigModule],
   providers: [PromptFactory, Logger],
   exports: [PromptFactory],
 })

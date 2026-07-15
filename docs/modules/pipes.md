@@ -15,10 +15,11 @@ A pipe that validates incoming data against a Zod schema. Throws `BadRequestExce
 **Usage:**
 
 ```typescript
-@Body(new ZodValidationPipe(mySchema)) data: MyType
+// In a controller, the ConfigService must be passed for production mode
+const validationPipe = new ZodValidationPipe(mySchema, this.configService);
 ```
 
-Can be applied to individual parameters, entire methods, or globally.
+Can be applied to individual parameters, entire methods, or globally. Note that the `ConfigService` parameter is optional — when provided, it is used to check `NODE_ENV` and mask detailed error messages in production.
 
 ## ImageValidationPipe
 

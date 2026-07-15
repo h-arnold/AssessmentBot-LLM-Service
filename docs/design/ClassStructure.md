@@ -7,7 +7,6 @@ classDiagram
     class AssessorModule
     class AuthModule
     class ConfigModule
-    class SwaggerModule
     class LoggerModule
     class ThrottlerModule
     class CommonModule
@@ -32,7 +31,7 @@ classDiagram
     %% Common Utilities
     class HttpExceptionFilter
     class ZodValidationPipe
-    class JsonParserUtil
+    class JsonParserUtility
     class ImageValidationPipe
 
     %% Prompt Hierarchy
@@ -52,9 +51,6 @@ classDiagram
     AppModule <|-- ConfigModule
     AppModule <|-- LoggerModule
     AppModule <|-- ThrottlerModule
-    AppModule <|-- CommonModule
-    AppModule <|-- LLMModule
-    AppModule <|-- PromptModule
     AppModule <|-- StatusModule
 
     %% Assessor Relationships
@@ -74,13 +70,10 @@ classDiagram
 
     %% Common Module Relationships
     CommonModule --> HttpExceptionFilter
-    CommonModule --> ZodValidationPipe
-    CommonModule --> JsonParserUtil
-    CommonModule --> ImageValidationPipe
+    CommonModule --> JsonParserUtility
 
     %% Prompt Module Relationships
     PromptModule --> PromptFactory
-    PromptModule --> PromptBase
 
     %% LLM Module Relationships
     LLMModule --> LLMService
@@ -95,12 +88,10 @@ classDiagram
 
     %% Service Integration
     AssessorService --> LLMService
-    AssessorService --> JsonParserUtil
+    GeminiService --> JsonParserUtility
     AssessorService --> PromptFactory
 
     %% Usage Relationships
-    AssessorController --> ZodValidationPipe
     AssessorController --> ApiKeyGuard
-    AssessorController --> ImageValidationPipe
     AssessorService --> PromptBase
 ```

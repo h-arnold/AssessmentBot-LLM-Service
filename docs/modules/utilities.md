@@ -4,7 +4,7 @@ This module provides shared utility functions for file operations, JSON processi
 
 ## File Utilities
 
-**Location:** `src/common/file-utils.ts`
+**Location:** `src/common/file-utilities.ts`
 
 ### `getCurrentDirname(fallbackDir?)`
 
@@ -23,9 +23,9 @@ Throws `Error('Invalid markdown filename')` or `Error('Unauthorised file path')`
 
 ## JSON Processing
 
-### JsonParserUtil
+### JsonParserUtility
 
-**Location:** `src/common/json-parser.util.ts`
+**Location:** `src/common/json-parser.utility.ts`
 
 Injectable service for parsing and repairing JSON strings, designed for LLM responses that may contain malformed JSON.
 
@@ -41,7 +41,7 @@ Injectable service for parsing and repairing JSON strings, designed for LLM resp
 
 ### LogRedactor
 
-**Location:** `src/common/utils/log-redactor.util.ts`
+**Location:** `src/common/utils/log-redactor.utility.ts`
 
 Utility for sanitising HTTP request objects before logging. Currently redacts the `authorization` header, replacing its value with `'Bearer <redacted>'`.
 
@@ -50,6 +50,22 @@ Utility for sanitising HTTP request objects before logging. Currently redacts th
 ### `isSystemUserMessage()`
 
 Runtime type guard that validates an unknown value has the structure `{ system: string, user: string }`. Checks for a non-null object with `system` and `user` string properties.
+
+## Cryptography Utilities
+
+**Location:** `src/common/utils/crypto.utilities.ts`
+
+### `generateApiKey(prefix)`
+
+Generates a cryptographically random API key with the given prefix.
+
+```typescript
+import { generateApiKey } from '../common/utils/crypto.utilities.js';
+
+const key = generateApiKey('abt_'); // e.g. "abt_X7k9m2...32-base64url-chars"
+```
+
+The body is `randomBytes(24).toString('base64url')` = 192 bits of entropy, matching the validator in the config schema. The generator can be used via the CLI script `npm run generate:api-key`.
 
 ## Related Documentation
 

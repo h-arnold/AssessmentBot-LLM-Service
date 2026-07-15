@@ -20,7 +20,7 @@ The App Module configures `nestjs-pino` for structured logging with:
 
 The App Module establishes application-wide rate limiting through `@nestjs/throttler`:
 
-- A global `ThrottlerGuard` protects all endpoints unless explicitly overridden.
+- A global `ApiKeyThrottlerGuard` protects all endpoints — it keys rate-limiting by API key for authenticated requests, falling back to IP-based tracking for unauthenticated traffic.
 - Default limits are configured via `UNAUTHENTICATED_THROTTLER_LIMIT` and `AUTHENTICATED_THROTTLER_LIMIT` environment variables.
 - Controllers can override global settings using the `@Throttle()` decorator.
 
@@ -32,6 +32,7 @@ The App Module establishes application-wide rate limiting through `@nestjs/throt
 
 - **@nestjs/common** — Core NestJS functionality
 - **@nestjs/core** — Global guards and providers
+- **ApiKeyThrottlerGuard** — Custom throttler guard from `src/auth/api-key-throttler.guard.ts`
 - **@nestjs/throttler** — Rate limiting functionality
 - **nestjs-pino** — Structured logging
 - **http** — Node.js HTTP types for request/response handling

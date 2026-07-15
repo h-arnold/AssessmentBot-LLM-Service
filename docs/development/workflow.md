@@ -25,7 +25,7 @@ npm run start:dev      # Hot-reload on file changes (recommended)
 npm run start:debug    # Hot-reload + Node.js inspect mode (port 9229)
 ```
 
-The server starts on `http://localhost:3000` (configurable via `PORT`). Health check: `http://localhost:3000/status`.
+The server starts on `http://localhost:3000` (configurable via `PORT`). Health check: `http://localhost:3000/health`.
 
 ## Test Commands
 

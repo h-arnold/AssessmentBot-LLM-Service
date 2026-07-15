@@ -67,6 +67,8 @@ describe('ZodValidationPipe', () => {
   let pipe: ZodValidationPipe;
 
   beforeEach(() => {
+    // ConfigService is optional; omit for unit tests that don't need
+    // production-aware error masking
     pipe = new ZodValidationPipe(schema);
   });
 

@@ -2,6 +2,37 @@
 
 This module provides route protection and authentication mechanisms through custom NestJS guards. Guards ensure that only authorised requests can access protected endpoints.
 
+## ApiKeyThrottlerGuard
+
+**Location:** `src/auth/api-key-throttler.guard.ts`
+
+A custom rate-limiting guard that extends `ThrottlerGuard` to key rate-limiting by API key for authenticated requests, falling back to IP-based tracking for unauthenticated traffic.
+
+### Features
+
+- **API-key-based tracking**: Requests bearing a valid `Authorization: Bearer <token>` header are tracked using the token value itself, ensuring each API key has its own independent rate-limit counter.
+- **IP fallback**: Unauthenticated requests are tracked by client IP address (default `ThrottlerGuard` behaviour).
+- **Global registration**: Registered as a global `APP_GUARD` in `AppModule`, applying to all routes by default.
+
+### How It Works
+
+The guard overrides the `getTracker` method: when an `Authorization: Bearer` header is present, the Bearer token value is returned as the tracker string; otherwise, the client's IP address is used.
+
+### Usage
+
+The guard is registered globally in `AppModule` and does not need to be applied manually. Endpoint-specific overrides can be applied using `@Throttle()`:
+
+```typescript
+@Throttle(authenticatedThrottler)
+@Controller('v1/assessor')
+export class AssessorController {}
+```
+
+### Dependencies
+
+- **NestJS Common**: For `@Injectable` decorator
+- **@nestjs/throttler**: For the `ThrottlerGuard` base class
+
 ## ApiKeyGuard
 
 The `ApiKeyGuard` is a simple authentication guard that extends NestJS's `AuthGuard` with the 'bearer' strategy. It protects routes by validating API keys provided in the Authorization header using the Bearer token format.
@@ -149,6 +180,7 @@ describe('ApiKeyGuard', () => {
 - **ApiKeyStrategy**: Implements the actual validation logic
 - **ApiKeyService**: Manages API key storage and validation
 - **HttpExceptionFilter**: Handles authentication failure responses
+- **ApiKeyThrottlerGuard**: Custom rate-limiting guard for API-key-based throttling
 
 ## Best Practices
 

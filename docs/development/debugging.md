@@ -55,8 +55,8 @@ npm run test:e2e:live -- --verbose   # Live E2E tests (requires real GEMINI_API_
 The application exposes a health check endpoint for quick status verification:
 
 ```bash
-curl http://localhost:3000/status
+curl http://localhost:3000/health
 
 # Expected response:
-# { "status": "ok", "info": {}, "error": {}, "details": {} }
+# { "status": "ok", "version": "0.1.0", "timestamp": "...", "systemInfo": { ... } }
 ```

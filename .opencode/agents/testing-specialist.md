@@ -75,7 +75,7 @@ Before writing or modifying tests, you **MUST** conduct research:
 - **Key patterns**:
   - Use `TestingModule` from `@nestjs/testing` for creating test modules.
   - Mock external dependencies (LLM, file system, etc.) using `jest.fn()` or `jest.spyOn()`.
-  - Use `getCurrentDirname()` from `src/common/file-utils.ts` for test file path resolution.
+  - Use `getCurrentDirname()` from `src/common/file-utilities.ts` for test file path resolution.
   - Prefer behaviour-focused assertions over implementation details.
 
 ### E2E Tests

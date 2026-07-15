@@ -14,7 +14,7 @@ Centralised configuration management. Loads environment variables and validates 
 
 ### Common Module (`src/common/common.module.ts`)
 
-Shared utilities: `JsonParserUtil`, `ZodValidationPipe`, `ImageValidationPipe`, `HttpExceptionFilter`, `FileUtils`, `LogRedactor`, type guards.
+Shared utilities: `JsonParserUtility` (injectable), plus standalone utilities `ZodValidationPipe`, `ImageValidationPipe`, `HttpExceptionFilter`, file utilities (`file-utilities.ts`), `LogRedactor`, type guards, and `crypto.utilities`.
 
 ## Feature Modules
 

@@ -83,9 +83,8 @@ When `taskType` is `IMAGE`, specific validation rules apply to the image fields:
 
 These endpoints are for monitoring and testing the application status.
 
-| URL           | Method | Auth? | Description                                           |
-| ------------- | ------ | ----- | ----------------------------------------------------- |
-| `/`           | `GET`  | No    | Returns a simple "Hello World!" greeting.             |
-| `/health`     | `GET`  | No    | Returns application status, version, and timestamp.   |
-| `/check-auth` | `GET`  | Yes   | Verifies API key authentication is working correctly. |
-| `/test-error` | `GET`  | No    | Intentionally throws a 400 error for testing.         |
+| URL           | Method | Auth? | Description                                         |
+| ------------- | ------ | ----- | --------------------------------------------------- |
+| `/`           | `GET`  | No    | Returns a simple "Hello World!" greeting.           |
+| `/health`     | `GET`  | No    | Returns application status, version, and timestamp. |
+| `/test-error` | `GET`  | No    | Intentionally throws a 400 error for testing.       |

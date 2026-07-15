@@ -63,7 +63,7 @@ export class ResourceExhaustedError extends Error {
 
 - **@google/genai** — Google Gemini API client
 - **ConfigModule** — Environment configuration
-- **CommonModule** — Shared utilities (`JsonParserUtil`)
+- **CommonModule** — Shared utilities (`JsonParserUtility`)
 - **zod** — Response validation schemas
 - **jsonrepair** — JSON response repair
 

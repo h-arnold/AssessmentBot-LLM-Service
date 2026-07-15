@@ -47,8 +47,8 @@ sequenceDiagram
 4.  **Scheme Validation**: `ApiKeyStrategy` first performs a strict check on the `Authorization` header to ensure it starts with `Bearer ` (case-sensitive, with a trailing space). If not, it immediately throws an `UnauthorizedException` to reject malformed requests.
 5.  **Service Delegation**: If the scheme is valid, the strategy passes the extracted API key to the `ApiKeyService.validate()` method.
 6.  **Key Validation**: The `ApiKeyService` performs two validation steps:
-    a. **Format Validation**: It uses a Zod schema (`z.string().min(10).regex(/^[a-zA-Z0-9_-]+$/)`) to ensure the key meets the required format (at least 10 characters, alphanumeric with hyphens/underscores). This prevents unnecessary checks on malformed keys.
-    b. **Existence Check**: If the format is valid, it checks if the key is present in the list of `API_KEYS` loaded from the `ConfigService`.
+    a. **Format Validation**: It checks that the key starts with the configured `API_KEY_PREFIX` (default `abt_`) and validates that the body (after the prefix) is exactly 32 base64url characters using `z.base64url().length(32)`. This prevents unnecessary checks on malformed keys.
+    b. **Existence Check**: If the format is valid, it checks if the key is present in the set of valid `API_KEYS` loaded from the `ConfigService`.
 7.  **Outcome**:
     - If the key is invalid in either step, an `UnauthorizedException` is thrown.
     - If the key is valid, the service returns a `User` object (e.g., `{ apiKey: 'the-valid-key' }`).

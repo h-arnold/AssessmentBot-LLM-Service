@@ -269,7 +269,66 @@ describe('LLMService retry-loop (Section 2 contract)', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 8. Non-Error original → LlmServiceError with "Unknown error"
+  // 8a. waitBeforeRetry is not called on the final failing attempt
+  // -----------------------------------------------------------------------
+  it('calls waitBeforeRetry on each retryable failure but not on the final attempt', async () => {
+    const retryableError = new RateLimitError('too fast', 'test-provider');
+
+    service.sendInternalFn = vi.fn().mockRejectedValue(retryableError);
+    service.mapErrorFn = vi.fn().mockReturnValue(retryableError);
+
+    const waitSpy = vi
+      .spyOn(
+        ExposedLLMService.prototype as unknown as {
+          waitBeforeRetry: (...a: unknown[]) => Promise<void>;
+        },
+        'waitBeforeRetry',
+      )
+      .mockResolvedValue(undefined);
+
+    await expect(service.send(minimalPayload)).rejects.toThrow(retryableError);
+    // maxRetries=2 → 3 attempts; waitBeforeRetry runs on attempts 0 and 1 only.
+    expect(waitSpy).toHaveBeenCalledTimes(2);
+  });
+
+  // -----------------------------------------------------------------------
+  // 8b. describePayload emits singular text form
+  // -----------------------------------------------------------------------
+  it('describes a single-character text payload in the singular', async () => {
+    const logSpy = vi.spyOn(Logger.prototype, 'log');
+    service.sendInternalFn = vi.fn().mockResolvedValue(successResponse);
+    service.mapErrorFn = vi.fn();
+
+    await service.send({ system: 'sys', user: 'a' });
+
+    const dispatchedCall = logSpy.mock.calls.find((call) =>
+      String(call[0]).includes('Dispatching LLM request'),
+    );
+    expect(dispatchedCall).toBeDefined();
+    expect(String(dispatchedCall![0])).toContain(
+      'text prompt with 1 character',
+    );
+  });
+
+  it('describes a single-image payload in the singular', async () => {
+    const logSpy = vi.spyOn(Logger.prototype, 'log');
+    service.sendInternalFn = vi.fn().mockResolvedValue(successResponse);
+    service.mapErrorFn = vi.fn();
+
+    await service.send({
+      system: 'sys',
+      images: [{ mimeType: 'image/png', data: 'x' }],
+    });
+
+    const dispatchedCall = logSpy.mock.calls.find((call) =>
+      String(call[0]).includes('Dispatching LLM request'),
+    );
+    expect(dispatchedCall).toBeDefined();
+    expect(String(dispatchedCall![0])).toContain('image prompt with 1 image');
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. Non-Error original → LlmServiceError with "Unknown error"
   // -----------------------------------------------------------------------
   it.each([
     { label: 'plain object', original: { foo: 'bar' } as unknown },

@@ -8,7 +8,9 @@ import { Mock, MockInstance } from 'vitest';
 
 import { HttpExceptionFilter } from './http-exception.filter.js';
 import {
+  AuthenticationError,
   ContentFilteredError,
+  LlmServiceError,
   ProviderServerError,
   RateLimitError,
   ResourceExhaustedError,
@@ -254,6 +256,128 @@ describe('HttpExceptionFilter', () => {
 
     // In production, 5xx errors (status >= 500) are sanitised to
     // "Internal server error" by the filter's existing sanitisation gate.
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_GATEWAY);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.BAD_GATEWAY,
+      message: 'Internal server error',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.BAD_GATEWAY} - Internal server error`,
+      expect.any(String),
+    );
+  });
+
+  it('should sanitise 500 LlmServiceError message in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const llmServiceError = new LlmServiceError(
+      'Raw upstream boom details',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](llmServiceError, mockArgumentsHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Internal server error',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.INTERNAL_SERVER_ERROR} - Internal server error`,
+      expect.any(String),
+    );
+  });
+
+  it('should sanitise 502 AuthenticationError message in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const authenticationError = new AuthenticationError(
+      'Raw auth failure details',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](authenticationError, mockArgumentsHost);
+
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_GATEWAY);
     expectJsonErrorResponse(mockJson, {
       statusCode: HttpStatus.BAD_GATEWAY,
@@ -589,6 +713,49 @@ describe('HttpExceptionFilter', () => {
     expectJsonErrorResponse(mockJson, {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',
+      path: '/test',
+    });
+  });
+
+  it('should join an array message into a single string', () => {
+    const exception = new HttpException(
+      { message: ['a', 'b'], statusCode: 400 },
+      HttpStatus.BAD_REQUEST,
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+      getNext: vi.fn(),
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+
+    filter['catch'](exception, mockArgumentsHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.BAD_REQUEST,
+      message: 'a, b',
       path: '/test',
     });
   });

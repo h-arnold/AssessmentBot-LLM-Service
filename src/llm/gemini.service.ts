@@ -25,6 +25,7 @@ import {
   ResourceExhaustedError,
 } from '../common/errors/index.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
 type GeminiRequest = { model: string; config: GenerateContentConfig };
@@ -86,7 +87,7 @@ export class GeminiService extends LLMService {
           statusCode,
         },
         'Error communicating with or validating response from Gemini API',
-        this.isErrorObject(error) ? error.stack : undefined,
+        isErrorObject(error) ? error.stack : undefined,
       );
       if (error instanceof ZodError) {
         this.logger.error(
@@ -127,7 +128,7 @@ export class GeminiService extends LLMService {
     }
 
     const statusCode = this.extractStatusCode(error);
-    const message = this.isErrorObject(error) ? error.message : 'Unknown error';
+    const message = isErrorObject(error) ? error.message : 'Unknown error';
 
     // 1. ResourceExhaustedError
     if (this.isResourceExhausted(error, statusCode, message)) {
@@ -166,7 +167,7 @@ export class GeminiService extends LLMService {
 
     // 8. NetworkError — only when no extractable HTTP status
     if (
-      this.isErrorObject(error) &&
+      isErrorObject(error) &&
       /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i.test(
         message,
       )
@@ -238,7 +239,7 @@ export class GeminiService extends LLMService {
     message: string,
     error: unknown,
   ): T {
-    const originalError = this.isErrorObject(error) ? error : undefined;
+    const originalError = isErrorObject(error) ? error : undefined;
     return new ErrorClass(message, this.providerName, { originalError });
   }
 

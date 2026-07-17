@@ -9,6 +9,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import { Request, Response } from 'express';
 
 import { ConfigService } from '../config/config.service.js';
+import { isErrorObject } from './utils/type-guards.js';
 
 /**
  * Interface for Zod validation error details.
@@ -209,7 +210,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       this.logger.error(
         logContext,
         logMessage,
-        this.isErrorObject(exception) ? exception.stack : undefined,
+        isErrorObject(exception) ? exception.stack : undefined,
       );
     } else {
       // Handles 4xx and the specific PayloadTooLargeError case
@@ -268,9 +269,5 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     if ('x-api-key' in sanitised) sanitised['x-api-key'] = '[REDACTED]';
 
     return sanitised;
-  }
-
-  private isErrorObject(value: unknown): value is Error {
-    return value instanceof Error;
   }
 }

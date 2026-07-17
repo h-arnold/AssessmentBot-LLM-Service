@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 
 import { LlmResponse } from './types.js';
 import { LlmError, LlmServiceError } from '../common/errors/index.js';
+import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
 /**
@@ -136,10 +137,10 @@ export abstract class LLMService {
    * @returns A new `LlmServiceError` instance.
    */
   private wrapUnclassified(error: unknown): LlmServiceError {
-    const message = this.isErrorObject(error)
+    const message = isErrorObject(error)
       ? `LLM service error: ${error.message}`
       : 'LLM service error: Unknown error';
-    const originalError = this.isErrorObject(error) ? error : undefined;
+    const originalError = isErrorObject(error) ? error : undefined;
     return new LlmServiceError(message, this.providerName, { originalError });
   }
 
@@ -164,7 +165,7 @@ export abstract class LLMService {
     } catch (mappingError) {
       this.logger.error(
         `mapError() failed for provider ${this.providerName}`,
-        this.isErrorObject(mappingError) ? mappingError.stack : undefined,
+        isErrorObject(mappingError) ? mappingError.stack : undefined,
       );
       llmError = undefined;
     }
@@ -211,15 +212,12 @@ export abstract class LLMService {
     const delay = baseBackoffMs * Math.pow(2, attempt) + randomInt(0, 100);
 
     this.logger.warn(
-      `Rate limit encountered on attempt ${attempt + 1}/${maxRetries + 1}. ` +
-        `Retrying in ${delay}ms. Error: ${this.isErrorObject(error) ? error.message : 'Unknown error'}`,
+      `Retryable error (${error instanceof Error ? error.constructor.name : 'UnknownError'}) ` +
+        `on attempt ${attempt + 1}/${maxRetries + 1}. ` +
+        `Retrying in ${delay}ms.`,
     );
 
     await this.sleep(delay);
-  }
-
-  private getErrorStack(error: unknown): string | undefined {
-    return this.isErrorObject(error) ? error.stack : undefined;
   }
 
   /**
@@ -234,20 +232,6 @@ export abstract class LLMService {
    *   LlmResponse object.
    */
   protected abstract _sendInternal(payload: LlmPayload): Promise<LlmResponse>;
-
-  /**
-   * Checks if a value is an Error object.
-   * @param {unknown} error The value to check.
-   * @returns {error is Error} True if the value is an Error object.
-   */
-  protected isErrorObject(error: unknown): error is Error {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'message' in error &&
-      typeof (error as Record<string, unknown>).message === 'string'
-    );
-  }
 
   /**
    * Utility method to sleep for a specified duration.

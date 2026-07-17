@@ -185,10 +185,11 @@ caught `_sendInternal` error **only when it is an `Error` instance**. Non-
 `Error` originals (plain objects, strings, `null`, `undefined`) are stored as
 `undefined`.
 
-This is enforced via the preserved `LLMService.isErrorObject()` helper:
+This is enforced via the shared `isErrorObject` type guard at
+`src/common/utils/type-guards.ts` (imported into `LLMService`):
 
 ```typescript
-const originalError = this.isErrorObject(error) ? error : undefined;
+const originalError = isErrorObject(error) ? error : undefined;
 ```
 
 When the `LlmServiceError` fallback constructs its message for a non-`Error`

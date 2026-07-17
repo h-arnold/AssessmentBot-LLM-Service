@@ -7,7 +7,14 @@ import {
 import { Mock, MockInstance } from 'vitest';
 
 import { HttpExceptionFilter } from './http-exception.filter.js';
-import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
+import {
+  AuthenticationError,
+  ContentFilteredError,
+  LlmServiceError,
+  ProviderServerError,
+  RateLimitError,
+  ResourceExhaustedError,
+} from '../common/errors/index.js';
 
 /**
  * Creates a mock ConfigService for testing.
@@ -85,9 +92,10 @@ describe('HttpExceptionFilter', () => {
     expect(filter).toBeDefined();
   });
 
-  it('should handle ResourceExhaustedError and return 503', () => {
+  it('should handle 503 LlmError through generic HttpException branch in test environment', () => {
     const resourceExhaustedError = new ResourceExhaustedError(
       'Quota has been exceeded.',
+      'gemini',
     );
     const mockJson: Mock = vi.fn();
     const mockStatus: Mock = vi
@@ -120,6 +128,8 @@ describe('HttpExceptionFilter', () => {
 
     filter['catch'](resourceExhaustedError, mockArgumentsHost);
 
+    // The generic HttpException branch should pick up ResourceExhaustedError
+    // because it extends HttpException. The message is NOT sanitised in test env.
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
     expectJsonErrorResponse(mockJson, {
       statusCode: HttpStatus.SERVICE_UNAVAILABLE,
@@ -136,6 +146,376 @@ describe('HttpExceptionFilter', () => {
       },
       `HTTP ${HttpStatus.SERVICE_UNAVAILABLE} - Quota has been exceeded.`,
       expect.any(String),
+    );
+  });
+
+  it('should sanitise 503 LlmError message in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const resourceExhaustedError = new ResourceExhaustedError(
+      'Quota has been exceeded.',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](resourceExhaustedError, mockArgumentsHost);
+
+    // In production, 5xx errors (status >= 500) are sanitised to
+    // "Internal server error" by the filter's existing sanitisation gate.
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'Internal server error',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.SERVICE_UNAVAILABLE} - Internal server error`,
+      expect.any(String),
+    );
+  });
+
+  it('should sanitise 502 LlmError message in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const providerServerError = new ProviderServerError(
+      'Upstream 502 from Gemini',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](providerServerError, mockArgumentsHost);
+
+    // In production, 5xx errors (status >= 500) are sanitised to
+    // "Internal server error" by the filter's existing sanitisation gate.
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_GATEWAY);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.BAD_GATEWAY,
+      message: 'Internal server error',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.BAD_GATEWAY} - Internal server error`,
+      expect.any(String),
+    );
+  });
+
+  it('should sanitise 500 LlmServiceError message in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const llmServiceError = new LlmServiceError(
+      'Raw upstream boom details',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](llmServiceError, mockArgumentsHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Internal server error',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.INTERNAL_SERVER_ERROR} - Internal server error`,
+      expect.any(String),
+    );
+  });
+
+  it('should sanitise 502 AuthenticationError message in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const authenticationError = new AuthenticationError(
+      'Raw auth failure details',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](authenticationError, mockArgumentsHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_GATEWAY);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.BAD_GATEWAY,
+      message: 'Internal server error',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.BAD_GATEWAY} - Internal server error`,
+      expect.any(String),
+    );
+  });
+
+  it('should expose 400 LlmError message in production (not sanitised)', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const contentFilteredError = new ContentFilteredError(
+      'Content blocked by safety filters',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](contentFilteredError, mockArgumentsHost);
+
+    // In production, 4xx errors (status < 500) are NOT sanitised.
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.BAD_REQUEST,
+      message: 'Content blocked by safety filters',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.BAD_REQUEST} - Content blocked by safety filters`,
+    );
+  });
+
+  it('should expose 429 LlmError message in production (not sanitised)', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const rateLimitError = new RateLimitError(
+      'Rate limit exceeded by Gemini',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](rateLimitError, mockArgumentsHost);
+
+    // In production, 429 errors (status < 500) are NOT sanitised.
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.TOO_MANY_REQUESTS);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.TOO_MANY_REQUESTS,
+      message: 'Rate limit exceeded by Gemini',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.TOO_MANY_REQUESTS} - Rate limit exceeded by Gemini`,
     );
   });
 
@@ -333,6 +713,49 @@ describe('HttpExceptionFilter', () => {
     expectJsonErrorResponse(mockJson, {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',
+      path: '/test',
+    });
+  });
+
+  it('should join an array message into a single string', () => {
+    const exception = new HttpException(
+      { message: ['a', 'b'], statusCode: 400 },
+      HttpStatus.BAD_REQUEST,
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+      getNext: vi.fn(),
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+
+    filter['catch'](exception, mockArgumentsHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.BAD_REQUEST,
+      message: 'a, b',
       path: '/test',
     });
   });

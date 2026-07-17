@@ -9,7 +9,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import { Request, Response } from 'express';
 
 import { ConfigService } from '../config/config.service.js';
-import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
+import { isErrorObject } from './utils/type-guards.js';
 
 /**
  * Interface for Zod validation error details.
@@ -44,8 +44,14 @@ interface LogContext {
 
 /**
  * A comprehensive exception filter that catches all errors and formats them
- * into a standardised JSON response. It handles NestJS HttpExceptions,
+ * into a standardised JSON response. It handles NestJS HttpExceptions
+ * (including all `LlmError` subclasses via the generic `HttpException` branch),
  * specific Express errors, and any other unknown exceptions.
+ *
+ * All `LlmError` subclasses extend `HttpException` and carry their correct
+ * HTTP status and `retryable` flag. They flow through the generic
+ * `instanceof HttpException` branch — no explicit `LlmError` check is needed.
+ * See `docs/llm/error-handling.md` for the full error-class reference.
  */
 @Catch()
 export class HttpExceptionFilter extends BaseExceptionFilter {
@@ -70,12 +76,6 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     // Handle specific Express PayloadTooLargeError separately for clarity.
     if (this.isPayloadTooLargeError(exception)) {
       this.handlePayloadTooLargeError(request, response);
-      return;
-    }
-
-    // Handle custom ResourceExhaustedError to return 503.
-    if (exception instanceof ResourceExhaustedError) {
-      this.handleResourceExhaustedError(exception, request, response);
       return;
     }
 
@@ -122,25 +122,6 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     const message = 'Payload Too Large';
 
     this.logError(status, message, request, null); // No exception object needed here
-    this.sendResponse(response, status, message, request.url);
-  }
-
-  /**
-   * Handles the specific case of a ResourceExhaustedError.
-   * @param {ResourceExhaustedError} exception - The ResourceExhaustedError
-   *   instance.
-   * @param {Request} request - The incoming request object.
-   * @param {Response} response - The outgoing response object.
-   */
-  private handleResourceExhaustedError(
-    exception: ResourceExhaustedError,
-    request: Request,
-    response: Response,
-  ): void {
-    const status = HttpStatus.SERVICE_UNAVAILABLE;
-    const message = exception.message;
-
-    this.logError(status, message, request, exception);
     this.sendResponse(response, status, message, request.url);
   }
 
@@ -229,7 +210,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       this.logger.error(
         logContext,
         logMessage,
-        this.isErrorObject(exception) ? exception.stack : undefined,
+        isErrorObject(exception) ? exception.stack : undefined,
       );
     } else {
       // Handles 4xx and the specific PayloadTooLargeError case
@@ -288,9 +269,5 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     if ('x-api-key' in sanitised) sanitised['x-api-key'] = '[REDACTED]';
 
     return sanitised;
-  }
-
-  private isErrorObject(value: unknown): value is Error {
-    return value instanceof Error;
   }
 }

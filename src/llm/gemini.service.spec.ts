@@ -7,8 +7,19 @@ import {
   ImagePromptPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
-import { ResourceExhaustedError } from './resource-exhausted.error.js';
 import { LlmResponse } from './types.js';
+import {
+  AuthenticationError,
+  ContentFilteredError,
+  ContextLengthExceededError,
+  InvalidRequestError,
+  LlmError,
+  LlmServiceError,
+  NetworkError,
+  ProviderServerError,
+  RateLimitError,
+  ResourceExhaustedError,
+} from '../common/errors/index.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 
@@ -81,6 +92,14 @@ describe('GeminiService', () => {
     } as unknown as JsonParserUtility);
   });
 
+  const callMapError = (error: unknown): LlmError | undefined => {
+    return (
+      service as unknown as {
+        mapError: (error_: unknown) => LlmError | undefined;
+      }
+    ).mapError(error);
+  };
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
@@ -152,9 +171,9 @@ describe('GeminiService', () => {
       mockGenerateContent.mockRejectedValue(new Error('SDK Error'));
 
       const payload = createStringPayload();
-      await expect(service.send(payload)).rejects.toThrow(
-        'Failed to get a valid and structured response from the LLM.',
-      );
+      const sendPromise = service.send(payload);
+      await expect(sendPromise).rejects.toThrow(LlmServiceError);
+      await expect(sendPromise).rejects.toThrow('LLM service error: SDK Error');
     });
 
     it('should throw a ZodError for an invalid response structure', async () => {
@@ -176,8 +195,10 @@ describe('GeminiService', () => {
       });
 
       const payload = createStringPayload();
-      await expect(service.send(payload)).rejects.toThrow(
-        'Failed to get a valid and structured response from the LLM.',
+      const sendPromise = service.send(payload);
+      await expect(sendPromise).rejects.toThrow(LlmServiceError);
+      await expect(sendPromise).rejects.toThrow(
+        'LLM service error: Malformed or irreparable JSON string provided.',
       );
     });
 
@@ -205,11 +226,10 @@ describe('GeminiService', () => {
           statusCode: 500,
         }),
         'Error communicating with or validating response from Gemini API',
-        expect.any(String),
       );
     });
 
-    it('should not retry on non-429 errors', async () => {
+    it('should retry on 5xx server errors and throw ProviderServerError after exhausting retries', async () => {
       const serverError = new ApiError({
         message: 'Server error',
         status: 500,
@@ -217,12 +237,28 @@ describe('GeminiService', () => {
       mockGenerateContent.mockRejectedValue(serverError);
 
       const payload = createStringPayload();
-      await expect(service.send(payload)).rejects.toThrow(
-        'Failed to get a valid and structured response from the LLM',
-      );
+      await expect(service.send(payload)).rejects.toThrow(ProviderServerError);
 
-      // Should only be called once, no retries
-      expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+      // Now retryable: retries up to LLM_MAX_RETRIES (2) + 1 = 3 times
+      expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+    });
+
+    it('should wrap an unclassifiable error in LlmServiceError end-to-end', async () => {
+      const original = new Error('bogus upstream condition encountered');
+      mockGenerateContent.mockRejectedValue(original);
+
+      const payload = createStringPayload();
+      let thrown: unknown;
+      try {
+        await service.send(payload);
+      } catch (error: unknown) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(LlmServiceError);
+      expect((thrown as LlmServiceError).getStatus()).toBe(500);
+      expect((thrown as LlmServiceError).retryable).toBe(false);
+      expect((thrown as LlmServiceError).originalError).toBe(original);
     });
   });
 
@@ -368,6 +404,337 @@ describe('GeminiService', () => {
 
       expectValidResponse(result, 1);
       expect(mockGenerateContent).toHaveBeenCalledTimes(2); // Should retry
+    });
+  });
+
+  describe('mapError', () => {
+    describe('RateLimitError', () => {
+      it('should return RateLimitError for 429 status', () => {
+        const error = new ApiError({
+          message: 'Rate limit exceeded',
+          status: 429,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(RateLimitError);
+        expect(result!.getStatus()).toBe(429);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return RateLimitError for string status RATE_LIMIT_EXCEEDED', () => {
+        const result = callMapError({ status: 'RATE_LIMIT_EXCEEDED' });
+        expect(result).toBeInstanceOf(RateLimitError);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return RateLimitError for nested error.code of 429', () => {
+        const result = callMapError({ error: { code: '429' } });
+        expect(result).toBeInstanceOf(RateLimitError);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return RateLimitError for nested error.code RATE_LIMIT_EXCEEDED', () => {
+        const result = callMapError({ error: { code: 'RATE_LIMIT_EXCEEDED' } });
+        expect(result).toBeInstanceOf(RateLimitError);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return RateLimitError for a string status of "429"', () => {
+        const result = callMapError({ status: '429' });
+        expect(result).toBeInstanceOf(RateLimitError);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+    });
+
+    describe('ResourceExhaustedError', () => {
+      it('should return ResourceExhaustedError for 429 with RESOURCE_EXHAUSTED message', () => {
+        const error = new ApiError({
+          message: 'RESOURCE_EXHAUSTED: quota',
+          status: 429,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ResourceExhaustedError);
+        expect(result!.getStatus()).toBe(503);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return ResourceExhaustedError for string status RESOURCE_EXHAUSTED', () => {
+        const result = callMapError({ status: 'RESOURCE_EXHAUSTED' });
+        expect(result).toBeInstanceOf(ResourceExhaustedError);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should take priority over RateLimitError when both match', () => {
+        const error = new ApiError({
+          message: 'RESOURCE_EXHAUSTED',
+          status: 429,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ResourceExhaustedError);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return ResourceExhaustedError for nested error.status RESOURCE_EXHAUSTED', () => {
+        const result = callMapError({
+          error: { status: 'RESOURCE_EXHAUSTED' },
+        });
+        expect(result).toBeInstanceOf(ResourceExhaustedError);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+    });
+
+    describe('ProviderServerError', () => {
+      it('should return ProviderServerError for 500 status', () => {
+        const error = new ApiError({
+          message: 'Internal error',
+          status: 500,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ProviderServerError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return ProviderServerError for 503 status', () => {
+        const error = new ApiError({
+          message: 'Service unavailable',
+          status: 503,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ProviderServerError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+    });
+
+    describe('AuthenticationError', () => {
+      it('should return AuthenticationError for 401 status', () => {
+        const error = new ApiError({
+          message: 'Invalid API key',
+          status: 401,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(AuthenticationError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return AuthenticationError for 403 status', () => {
+        const error = new ApiError({
+          message: 'Forbidden',
+          status: 403,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(AuthenticationError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return AuthenticationError for a non-ApiError Error carrying status 401', () => {
+        const error = Object.assign(new Error('auth failed'), { status: 401 });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(AuthenticationError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+        expect(result!.originalError).toBe(error);
+      });
+    });
+
+    describe('ContentFilteredError', () => {
+      it('should return ContentFilteredError for 400 with safety message', () => {
+        const error = new ApiError({
+          message: 'Content blocked by safety filters',
+          status: 400,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ContentFilteredError);
+        expect(result!.getStatus()).toBe(400);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should take priority over ContextLengthExceededError when both match', () => {
+        const error = new ApiError({
+          message: 'content safety filter blocked: context length',
+          status: 400,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ContentFilteredError);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should match on safety-related 400 messages', () => {
+        const error = new ApiError({
+          message: 'safety filter triggered',
+          status: 400,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ContentFilteredError);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+    });
+
+    describe('ContextLengthExceededError', () => {
+      it('should return ContextLengthExceededError for 400 with context length message', () => {
+        const error = new ApiError({
+          message: 'context length exceeded',
+          status: 400,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ContextLengthExceededError);
+        expect(result!.getStatus()).toBe(400);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+    });
+
+    describe('InvalidRequestError', () => {
+      it('should return InvalidRequestError for generic 400', () => {
+        const error = new ApiError({
+          message: 'Invalid argument',
+          status: 400,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(InvalidRequestError);
+        expect(result!.getStatus()).toBe(400);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return InvalidRequestError for unrecognised 4xx (418)', () => {
+        const error = new ApiError({
+          message: "I'm a teapot",
+          status: 418,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(InvalidRequestError);
+        expect(result!.getStatus()).toBe(400);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return InvalidRequestError for unrecognised 4xx (422)', () => {
+        const error = new ApiError({
+          message: 'Unprocessable entity',
+          status: 422,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(InvalidRequestError);
+        expect(result!.getStatus()).toBe(400);
+        expect(result!.retryable).toBe(false);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should set originalError to undefined when the source error is a non-Error object', () => {
+        const result = callMapError({
+          status: 400,
+          message: 'Invalid argument',
+        });
+        expect(result).toBeInstanceOf(InvalidRequestError);
+        expect(result!.originalError).toBeUndefined();
+      });
+    });
+
+    describe('NetworkError', () => {
+      it('should return NetworkError for ECONNREFUSED error', () => {
+        const result = callMapError(new Error('connect ECONNREFUSED'));
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return NetworkError for ETIMEDOUT error', () => {
+        const result = callMapError(new Error('ETIMEDOUT'));
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return NetworkError for plain fetch failure with no status', () => {
+        const result = callMapError(new Error('fetch failed'));
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return NetworkError for ECONNRESET error', () => {
+        const result = callMapError(new Error('read ECONNRESET'));
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return NetworkError for ENOTFOUND error', () => {
+        const result = callMapError(
+          new Error('getaddrinfo ENOTFOUND api.gemini'),
+        );
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+
+      it('should return NetworkError for a generic network message', () => {
+        const result = callMapError(
+          new Error('network timeout while connecting'),
+        );
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('gemini');
+      });
+    });
+
+    describe('status code extraction', () => {
+      it('should extract status from a nested response.status shape', () => {
+        const result = callMapError({ response: { status: 503 } });
+        expect(result).toBeInstanceOf(ProviderServerError);
+        expect(result!.getStatus()).toBe(502);
+      });
+
+      it('should extract status from a nested error.error.status shape', () => {
+        const result = callMapError({
+          error: { status: 400, message: 'Invalid' },
+        });
+        expect(result).toBeInstanceOf(InvalidRequestError);
+        expect(result!.getStatus()).toBe(400);
+      });
+    });
+
+    describe('unrecognised errors return undefined', () => {
+      it('should return undefined for an unrecognised plain object with no status', () => {
+        const result = callMapError({ foo: 'bar' });
+        expect(result).toBeUndefined();
+      });
+
+      it('should return undefined for a string input', () => {
+        const result = callMapError('string error');
+        expect(result).toBeUndefined();
+      });
+
+      it('should return undefined for null input', () => {
+        const result = callMapError(null);
+        expect(result).toBeUndefined();
+      });
     });
   });
 });

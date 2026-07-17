@@ -7,6 +7,15 @@
  */
 
 /**
+ * Type guard to check if an unknown value is an `Error` instance.
+ * @param {unknown} value The value to check.
+ * @returns {value is Error} True if the value is an `Error` instance.
+ */
+export function isErrorObject(value: unknown): value is Error {
+  return value instanceof Error;
+}
+
+/**
  * Type guard to check if an unknown value has the structure of a system-user message.
  *
  * Validates that the provided value is an object containing both 'system' and 'user'

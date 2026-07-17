@@ -1,26 +1,42 @@
+import { HttpException, HttpStatus } from '@nestjs/common';
+import { describe, it, expect } from 'vitest';
+
+import { LlmError } from './llm-error.base.js';
 import { ResourceExhaustedError } from './resource-exhausted.error.js';
 
 describe('ResourceExhaustedError', () => {
-  it('should create an instance', () => {
+  it('should create an instance with correct HTTP status (503) and retryable flag', () => {
     const originalError = new Error('Original error');
-    const error = new ResourceExhaustedError('Test message', { originalError });
+    const error = new ResourceExhaustedError('Test message', 'test-provider', {
+      originalError,
+    });
 
     expect(error).toBeInstanceOf(ResourceExhaustedError);
-    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(LlmError);
+    expect(error).toBeInstanceOf(HttpException);
+    expect(error.getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(error.retryable).toBe(false);
     expect(error.message).toBe('Test message');
-    expect(error.name).toBe('ResourceExhaustedError');
+    expect(error.providerName).toBe('test-provider');
     expect(error.originalError).toBe(originalError);
   });
 
   it('should work without original error', () => {
-    const error = new ResourceExhaustedError('Test message');
+    const error = new ResourceExhaustedError('Test message', 'test-provider');
 
     expect(error).toBeInstanceOf(ResourceExhaustedError);
     expect(error.message).toBe('Test message');
     expect(error.originalError).toBeUndefined();
   });
 
-  it('should preserve original error with fetch error name and status for debugging', () => {
+  it('requires an explicit providerName argument (compile-time contract)', () => {
+    // @ts-expect-error providerName is a required positional argument
+    const error = new ResourceExhaustedError('Test message');
+
+    expect(error).toBeInstanceOf(ResourceExhaustedError);
+  });
+
+  it('should preserve original error with custom properties for debugging', () => {
     const originalError = new Error(
       'RESOURCE_EXHAUSTED: Free tier quota exceeded',
     );
@@ -33,6 +49,7 @@ describe('ResourceExhaustedError', () => {
 
     const resourceError = new ResourceExhaustedError(
       'API quota exhausted. Please try again later or upgrade your plan.',
+      'test-provider',
       { originalError },
     );
 
@@ -46,7 +63,7 @@ describe('ResourceExhaustedError', () => {
     // Tests that ResourceExhaustedError can be distinguished from other errors
     const errors = [
       new Error('Network error'),
-      new ResourceExhaustedError('Quota exceeded'),
+      new ResourceExhaustedError('Quota exceeded', 'test-provider'),
       new Error('Rate limit exceeded'),
     ];
 
@@ -59,7 +76,7 @@ describe('ResourceExhaustedError', () => {
 
   it('should work in try-catch blocks', () => {
     const throwResourceExhaustedError = (): never => {
-      throw new ResourceExhaustedError('API quota exhausted');
+      throw new ResourceExhaustedError('API quota exhausted', 'test-provider');
     };
 
     let caughtError: Error | null = null;
@@ -74,5 +91,11 @@ describe('ResourceExhaustedError', () => {
     const capturedError = caughtError as Error;
     expect(capturedError).toBeInstanceOf(ResourceExhaustedError);
     expect(capturedError.message).toBe('API quota exhausted');
+  });
+
+  it('should have retryable set to false', () => {
+    const error = new ResourceExhaustedError('Quota exceeded', 'test-provider');
+
+    expect(error.retryable).toBe(false);
   });
 });

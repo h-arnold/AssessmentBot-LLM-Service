@@ -42,6 +42,15 @@ export class GeminiService extends LLMService {
 
   protected readonly providerName = 'gemini';
 
+  private static readonly CONTENT_FILTERED_PATTERN = /safety|blocked|filter/i;
+  private static readonly CONTEXT_LENGTH_PATTERN = /context[ _]?length/i;
+  private static readonly NETWORK_PATTERN =
+    /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i;
+  private static readonly RESOURCE_EXHAUSTED_PATTERN =
+    /resource[ _]?exhausted|quota (exceeded|exhausted|has been exhausted)/i;
+  private static readonly RATE_LIMIT_PATTERN =
+    /rate[ _]?limit|too many requests/i;
+
   constructor(
     configService: ConfigService,
     private readonly jsonParserUtility: JsonParserUtility,
@@ -87,10 +96,9 @@ export class GeminiService extends LLMService {
           statusCode,
         },
         'Error communicating with or validating response from Gemini API',
-        isErrorObject(error) ? error.stack : undefined,
       );
       if (error instanceof ZodError) {
-        this.logger.error(
+        this.geminiLogger.debug(
           `Zod validation failed: ${JSON.stringify(error.issues)}`,
         );
         throw error;
@@ -142,22 +150,44 @@ export class GeminiService extends LLMService {
 
     // 3. AuthenticationError
     if (statusCode === 401 || statusCode === 403) {
-      return this.buildError(AuthenticationError, message, error);
+      return this.buildError(
+        AuthenticationError,
+        'Authentication with the LLM provider failed',
+        error,
+      );
     }
 
     // 4. ContentFilteredError
-    if (statusCode === 400 && /safety|blocked|filter/i.test(message)) {
-      return this.buildError(ContentFilteredError, message, error);
+    if (
+      statusCode === 400 &&
+      GeminiService.CONTENT_FILTERED_PATTERN.test(message)
+    ) {
+      return this.buildError(
+        ContentFilteredError,
+        'Request blocked by provider safety filters',
+        error,
+      );
     }
 
     // 5. ContextLengthExceededError
-    if (statusCode === 400 && /context[ _]?length/i.test(message)) {
-      return this.buildError(ContextLengthExceededError, message, error);
+    if (
+      statusCode === 400 &&
+      GeminiService.CONTEXT_LENGTH_PATTERN.test(message)
+    ) {
+      return this.buildError(
+        ContextLengthExceededError,
+        'Input exceeds the model context window',
+        error,
+      );
     }
 
     // 6. InvalidRequestError (generic 400 or any other unrecognised 4xx)
     if (statusCode !== undefined && statusCode >= 400 && statusCode < 500) {
-      return this.buildError(InvalidRequestError, message, error);
+      return this.buildError(
+        InvalidRequestError,
+        'The request was rejected by the provider as invalid',
+        error,
+      );
     }
 
     // 7. ProviderServerError
@@ -166,15 +196,8 @@ export class GeminiService extends LLMService {
     }
 
     // 8. NetworkError — only when no extractable HTTP status
-    if (
-      isErrorObject(error) &&
-      /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i.test(
-        message,
-      )
-    ) {
-      return new NetworkError(message, this.providerName, {
-        originalError: error,
-      });
+    if (isErrorObject(error) && GeminiService.NETWORK_PATTERN.test(message)) {
+      return this.buildError(NetworkError, message, error);
     }
 
     // 9. Undefined (unclassifiable)
@@ -196,9 +219,7 @@ export class GeminiService extends LLMService {
     return (
       this.hasStringStatus(error, 'resource_exhausted') ||
       (statusCode === 429 &&
-        /resource[ _]?exhausted|quota (exceeded|exhausted|has been exhausted)/i.test(
-          message,
-        ))
+        GeminiService.RESOURCE_EXHAUSTED_PATTERN.test(message))
     );
   }
 
@@ -218,7 +239,7 @@ export class GeminiService extends LLMService {
       this.hasStringStatus(error, 'rate_limit_exceeded') ||
       this.hasStringStatus(error, '429') ||
       statusCode === 429 ||
-      /rate[ _]?limit|too many requests/i.test(message)
+      GeminiService.RATE_LIMIT_PATTERN.test(message)
     );
   }
 
@@ -371,23 +392,24 @@ export class GeminiService extends LLMService {
   private mapImageParts(
     images: Array<{ mimeType: string; data?: string }>,
   ): Part[] {
-    return images
-      .map((img) => {
-        if (
-          typeof img === 'object' &&
-          'data' in img &&
-          typeof img.data === 'string' &&
-          typeof img.mimeType === 'string'
-        ) {
-          return {
+    return images.flatMap((img) => {
+      if (
+        typeof img === 'object' &&
+        'data' in img &&
+        typeof img.data === 'string' &&
+        typeof img.mimeType === 'string'
+      ) {
+        return [
+          {
             inlineData: {
               mimeType: img.mimeType,
               data: img.data,
             },
-          };
-        }
-      })
-      .filter(Boolean) as Part[];
+          },
+        ];
+      }
+      return [];
+    }) as Part[];
   }
 
   private logPayload(payload: LlmPayload, contents: (string | Part)[]): void {

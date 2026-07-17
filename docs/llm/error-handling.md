@@ -172,9 +172,23 @@ or `NetworkError`.
     production (`NODE_ENV === 'production'`). This applies to
     `ProviderServerError`, `AuthenticationError`, `NetworkError`,
     `ResourceExhaustedError`, and `LlmServiceError`.
-  - **4xx errors** (400, 429): messages are exposed **unsanitised** — they
-    convey actionable information to API consumers (e.g. which safety filter
-    blocked the content, or why the request was malformed).
+  - **4xx errors** (400, 429): the client-facing message is a **static,
+    brief, stable summary** (e.g. `'Request blocked by provider safety
+filters'`, `'Input exceeds the model context window'`, `'The request was
+rejected by the provider as invalid'`, `'Authentication with the LLM
+provider failed'`). The raw upstream error message is retained
+    **server-side only** in `originalError` and is never echoed to the
+    client, so prompt text or other PII in the upstream message cannot leak
+    to API consumers.
+
+### Non-production diagnostics exposure
+
+`LlmServiceError` (HTTP 500, the fallback for unclassifiable upstream errors)
+is sanitised to `"Internal server error"` when `NODE_ENV === 'production'`.
+In all other environments the raw message — which can include provider
+payload echoes and stack detail — is returned in the response body. This
+exposure is **intentional** and gated solely on `NODE_ENV`; non-production
+environments are assumed trusted. Do not add additional gating.
 
 ---
 

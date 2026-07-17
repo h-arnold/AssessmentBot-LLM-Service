@@ -294,31 +294,32 @@ export default tseslint.config(
   //
   // Root cause: the rule requires custom `Error` subclasses to declare `options`
   // as the SECOND constructor parameter (e.g. `constructor(message, options?)`),
-  // forwarding it to `super()`. This conflicts with the deliberate, SPEC-mandated
-  // constructor contract for the `LlmError` hierarchy (see SPEC.md "LlmError base
-  // class contract" and ACTION_PLAN.md Section 1). Every concrete `LlmError`
-  // subclass uses a POSITIONAL second argument:
+  // forwarding it to `super()`. This conflicts with the deliberate constructor
+  // contract for the `LlmError` hierarchy, documented in
+  // `docs/llm/error-handling.md` ("Adding a New LLM Provider"). Every concrete
+  // `LlmError` subclass uses a POSITIONAL second argument:
   //
   //   constructor(
   //     message: string,
-  //     providerName: string = 'unknown',
+  //     providerName: string,
   //     options?: { originalError?: Error; cause?: Error },
   //   )
   //
-  // The positional `providerName` is required so that providers can construct
-  // errors naturally (`new ResourceExhaustedError('msg', 'gemini', { originalError })`)
-  // and so the default `providerName === 'unknown'` keeps tests terse. The
+  // The positional `providerName` is a required argument so that providers can
+  // construct errors naturally
+  // (`new ResourceExhaustedError('msg', 'gemini', { originalError })`). The
   // abstract `LlmError` base itself (`constructor(httpStatus, message, retryable,
   // providerName, options?)`) lints clean under the rule, but the concrete
   // subclasses fail because their second parameter is named `providerName` rather
   // than `options`.
   //
-  // This is an established, product-driven reason: the SPEC contract is the
-  // source of truth for how these error classes are constructed and consumed, and
-  // the rule's `options`-second convention cannot be satisfied without abandoning
-  // the positional `providerName`. The lint gate remains enforced everywhere else;
-  // only this error-handling library is exempt. If the SPEC contract is ever
-  // revised to adopt the `options`-second shape, this override should be removed.
+  // This is an established, product-driven reason: the documented error-handling
+  // contract is the source of truth for how these error classes are constructed
+  // and consumed, and the rule's `options`-second convention cannot be satisfied
+  // without abandoning the positional `providerName`. The lint gate remains
+  // enforced everywhere else; only this error-handling library is exempt. If the
+  // documented contract is ever revised to adopt the `options`-second shape, this
+  // override should be removed.
   {
     files: ['src/common/errors/**/*.ts'],
     rules: {

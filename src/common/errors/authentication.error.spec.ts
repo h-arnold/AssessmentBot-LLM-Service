@@ -26,10 +26,11 @@ describe('AuthenticationError', () => {
     expect(error.originalError).toBe(originalError);
   });
 
-  it('should require an explicit providerName argument', () => {
+  it('requires an explicit providerName argument (compile-time contract)', () => {
+    // @ts-expect-error providerName is a required positional argument
     const error = new AuthenticationError('Invalid API key');
 
-    expect(error.providerName).toBeUndefined();
+    expect(error).toBeInstanceOf(AuthenticationError);
   });
 
   it('should have retryable set to false', () => {

@@ -246,8 +246,9 @@ Future providers may choose to throw instead; both behaviours are spec-compliant
 ## Worked Example: `GeminiService.mapError()`
 
 The canonical reference implementation is `src/llm/gemini.service.ts`, method
-`mapError()` (lines 123–181). Its priority order, documented in the JSDoc
-(lines 104–122), matches the classification rules above exactly:
+`GeminiService.mapError()` (search for `protected mapError`). Its priority
+order, documented in the method's JSDoc, matches the classification rules above
+exactly:
 
 1. `ResourceExhaustedError` — string status or 429 with quota message.
 2. `RateLimitError` — string status `RATE_LIMIT_EXCEEDED` / `429`, numeric 429.

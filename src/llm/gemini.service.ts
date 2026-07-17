@@ -125,8 +125,8 @@ export class GeminiService extends LLMService {
    * 5. ContextLengthExceededError — 400 with context-length message.
    * 6. InvalidRequestError — generic 400 or any other unrecognised 4xx.
    * 7. ProviderServerError — any 5xx.
-   * 8. NetworkError — Error objects with network-failure message and no
-   *    extractable HTTP status.
+   * 8. NetworkError — errors with a network-failure message and no
+   *    extractable HTTP status (both `Error` instances and plain objects).
    * 9. `undefined` — none of the above match.
    */
   protected mapError(error: unknown): LlmError | undefined {
@@ -136,16 +136,21 @@ export class GeminiService extends LLMService {
     }
 
     const statusCode = this.extractStatusCode(error);
-    const message = isErrorObject(error) ? error.message : 'Unknown error';
+    const message = this.extractMessage(error);
 
     // 1. ResourceExhaustedError
     if (this.isResourceExhausted(error, statusCode, message)) {
       return this.buildError(ResourceExhaustedError, message, error);
     }
 
-    // 2. RateLimitError
+    // 2. RateLimitError — static client-facing message per the 4xx message
+    //    policy; raw upstream text is retained server-side in `originalError`.
     if (this.isRateLimit(error, statusCode, message)) {
-      return this.buildError(RateLimitError, message, error);
+      return this.buildError(
+        RateLimitError,
+        'The LLM provider rate limit was exceeded',
+        error,
+      );
     }
 
     // 3. AuthenticationError
@@ -195,8 +200,10 @@ export class GeminiService extends LLMService {
       return this.buildError(ProviderServerError, message, error);
     }
 
-    // 8. NetworkError — only when no extractable HTTP status
-    if (isErrorObject(error) && GeminiService.NETWORK_PATTERN.test(message)) {
+    // 8. NetworkError — only when no extractable HTTP status. Matches both
+    //    `Error` instances and plain objects whose message matches a network
+    //    pattern (per the documented classification rules).
+    if (GeminiService.NETWORK_PATTERN.test(message)) {
       return this.buildError(NetworkError, message, error);
     }
 
@@ -251,6 +258,31 @@ export class GeminiService extends LLMService {
    *   when applicable).
    * @returns A new `LlmError` instance of the given class.
    */
+  /**
+   * Extracts a usable message string from a raw error.
+   *
+   * Reads `error.message` for `Error` instances and for plain objects that carry
+   * a string `message` property (some SDKs emit plain-object error shapes
+   * rather than `Error` subclasses). Falls back to `'Unknown error'` when no
+   * message is available.
+   * @param error - The raw error from `_sendInternal`.
+   * @returns The extracted message string.
+   */
+  private extractMessage(error: unknown): string {
+    if (isErrorObject(error)) {
+      return error.message;
+    }
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error &&
+      typeof (error as Record<string, unknown>).message === 'string'
+    ) {
+      return (error as Record<string, unknown>).message as string;
+    }
+    return 'Unknown error';
+  }
+
   private buildError<T extends LlmError>(
     ErrorClass: new (
       message: string,

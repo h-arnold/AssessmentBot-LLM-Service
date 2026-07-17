@@ -29,10 +29,11 @@ describe('ResourceExhaustedError', () => {
     expect(error.originalError).toBeUndefined();
   });
 
-  it('should require an explicit providerName argument', () => {
+  it('requires an explicit providerName argument (compile-time contract)', () => {
+    // @ts-expect-error providerName is a required positional argument
     const error = new ResourceExhaustedError('Test message');
 
-    expect(error.providerName).toBeUndefined();
+    expect(error).toBeInstanceOf(ResourceExhaustedError);
   });
 
   it('should preserve original error with custom properties for debugging', () => {

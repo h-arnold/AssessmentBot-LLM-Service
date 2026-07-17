@@ -31,12 +31,13 @@ describe('LlmServiceError', () => {
     expect(error.originalError).toBe(originalError);
   });
 
-  it('should require an explicit providerName argument', () => {
+  it('requires an explicit providerName argument (compile-time contract)', () => {
+    // @ts-expect-error providerName is a required positional argument
     const error = new LlmServiceError(
       'LLM service error: Something went wrong',
     );
 
-    expect(error.providerName).toBeUndefined();
+    expect(error).toBeInstanceOf(LlmServiceError);
   });
 
   it('should have retryable set to false', () => {

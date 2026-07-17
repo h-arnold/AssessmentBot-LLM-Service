@@ -31,12 +31,13 @@ describe('ContextLengthExceededError', () => {
     expect(error.originalError).toBe(originalError);
   });
 
-  it('should require an explicit providerName argument', () => {
+  it('requires an explicit providerName argument (compile-time contract)', () => {
+    // @ts-expect-error providerName is a required positional argument
     const error = new ContextLengthExceededError(
       'Input exceeds context window',
     );
 
-    expect(error.providerName).toBeUndefined();
+    expect(error).toBeInstanceOf(ContextLengthExceededError);
   });
 
   it('should have retryable set to false', () => {

@@ -31,10 +31,11 @@ describe('ContentFilteredError', () => {
     expect(error.originalError).toBe(originalError);
   });
 
-  it('should require an explicit providerName argument', () => {
+  it('requires an explicit providerName argument (compile-time contract)', () => {
+    // @ts-expect-error providerName is a required positional argument
     const error = new ContentFilteredError('Content blocked');
 
-    expect(error.providerName).toBeUndefined();
+    expect(error).toBeInstanceOf(ContentFilteredError);
   });
 
   it('should have retryable set to false', () => {

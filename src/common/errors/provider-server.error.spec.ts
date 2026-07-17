@@ -26,10 +26,11 @@ describe('ProviderServerError', () => {
     expect(error.originalError).toBe(originalError);
   });
 
-  it('should require an explicit providerName argument', () => {
+  it('requires an explicit providerName argument (compile-time contract)', () => {
+    // @ts-expect-error providerName is a required positional argument
     const error = new ProviderServerError('Upstream server error');
 
-    expect(error.providerName).toBeUndefined();
+    expect(error).toBeInstanceOf(ProviderServerError);
   });
 
   it('should have retryable set to true', () => {

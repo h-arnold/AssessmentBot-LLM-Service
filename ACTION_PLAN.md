@@ -321,9 +321,9 @@ The existing `llm.service.interface.spec.ts` is **substantially rewritten**. The
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** describe actual changes made when done.
-- **Deviations from plan:** note any departures.
-- **Follow-up implications for later sections:** Section 3 (GeminiService) implements the abstract members declared here. The test subclass from this section must not conflict with Section 3's implementation.
+- **Implementation notes:** Added `protected abstract readonly providerName: string` and `protected abstract mapError(error: unknown): LlmError | undefined` to `LLMService`. Refactored `send()` to: (1) re-throw `ZodError` directly with no `mapError()` call and no retry; (2) call `this.mapError(error)`, branching on `llmError.retryable` to retry or throw; (3) wrap the original `_sendInternal` error in `LlmServiceError` (HTTP 500, retryable=false, `this.providerName`, `originalError` narrowed via `isErrorObject`) when `mapError()` returns `undefined` or throws (mapping error logged separately). Extracted a `handleAttemptError()` helper and a `wrapUnclassified()` helper to keep `send()` within the `sonarjs/cognitive-complexity: 15` limit. Removed the seven deprecated private helpers (`handleSendError`, `throwTerminalSendError`, `buildUnexpectedErrorMessage`, `isRateLimitError`, `isResourceExhaustedError`, `extractErrorStatusCode`, `matchesStringStatus`). Preserved `sendAttempt`, `waitBeforeRetry`, `sleep`, `describePayload`, `isErrorObject`, `getErrorStack`. `waitBeforeRetry`'s warn-log wording kept verbatim (SPEC product decision #6).
+- **Deviations from plan:** The plan sketched the retry branching inline in `send()`; to satisfy the `sonarjs/cognitive-complexity` lint gate, the branching was extracted into a `handleAttemptError()` private helper (logic identical to the plan, no behaviour change). No other deviations. `npm run build` and full `npm test` are intentionally red until Section 3 implements `GeminiService.providerName`/`mapError()` (expected, per plan note).
+- **Follow-up implications for later sections:** Section 3 (GeminiService) implements the abstract members declared here. The test subclass from this section must not conflict with Section 3's implementation. Note: `getErrorStack` is now unused by `LLMService` but preserved per SPEC "preserved" list (and remains available for logging); flagged for possible future cleanup.
 
 ---
 

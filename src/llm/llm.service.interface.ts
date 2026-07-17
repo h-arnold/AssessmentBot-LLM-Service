@@ -86,8 +86,8 @@ export abstract class LLMService {
    * @throws {ZodError} If payload validation fails.
    */
   async send(payload: LlmPayload): Promise<LlmResponse> {
-    const maxRetries = this.configService.get('LLM_MAX_RETRIES');
-    const baseBackoffMs = this.configService.get('LLM_BACKOFF_BASE_MS');
+    const maxRetries = Number(this.configService.get('LLM_MAX_RETRIES'));
+    const baseBackoffMs = Number(this.configService.get('LLM_BACKOFF_BASE_MS'));
     const payloadSummary = this.describePayload(payload);
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {

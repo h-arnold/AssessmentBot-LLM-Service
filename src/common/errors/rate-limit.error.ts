@@ -12,7 +12,7 @@ import { LlmError } from './llm-error.base.js';
 export class RateLimitError extends LlmError {
   constructor(
     message: string,
-    providerName: string = 'unknown',
+    providerName: string,
     options?: { originalError?: Error; cause?: Error },
   ) {
     super(HttpStatus.TOO_MANY_REQUESTS, message, true, providerName, options);

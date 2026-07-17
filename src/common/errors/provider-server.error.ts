@@ -13,7 +13,7 @@ import { LlmError } from './llm-error.base.js';
 export class ProviderServerError extends LlmError {
   constructor(
     message: string,
-    providerName: string = 'unknown',
+    providerName: string,
     options?: { originalError?: Error; cause?: Error },
   ) {
     super(HttpStatus.BAD_GATEWAY, message, true, providerName, options);

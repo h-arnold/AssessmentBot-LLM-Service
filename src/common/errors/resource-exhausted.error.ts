@@ -13,7 +13,7 @@ import { LlmError } from './llm-error.base.js';
 export class ResourceExhaustedError extends LlmError {
   constructor(
     message: string,
-    providerName: string = 'unknown',
+    providerName: string,
     options?: { originalError?: Error; cause?: Error },
   ) {
     super(

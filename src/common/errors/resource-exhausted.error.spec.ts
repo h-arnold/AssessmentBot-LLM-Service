@@ -29,10 +29,10 @@ describe('ResourceExhaustedError', () => {
     expect(error.originalError).toBeUndefined();
   });
 
-  it('should default providerName to unknown for single-arg constructor calls', () => {
+  it('should require an explicit providerName argument', () => {
     const error = new ResourceExhaustedError('Test message');
 
-    expect(error.providerName).toBe('unknown');
+    expect(error.providerName).toBeUndefined();
   });
 
   it('should preserve original error with custom properties for debugging', () => {

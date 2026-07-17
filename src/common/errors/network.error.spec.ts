@@ -26,10 +26,10 @@ describe('NetworkError', () => {
     expect(error.originalError).toBe(originalError);
   });
 
-  it('should default providerName to unknown', () => {
+  it('should require an explicit providerName argument', () => {
     const error = new NetworkError('connect ECONNREFUSED');
 
-    expect(error.providerName).toBe('unknown');
+    expect(error.providerName).toBeUndefined();
   });
 
   it('should have retryable set to true', () => {

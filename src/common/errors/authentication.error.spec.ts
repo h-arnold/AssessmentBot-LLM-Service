@@ -26,10 +26,10 @@ describe('AuthenticationError', () => {
     expect(error.originalError).toBe(originalError);
   });
 
-  it('should default providerName to unknown', () => {
+  it('should require an explicit providerName argument', () => {
     const error = new AuthenticationError('Invalid API key');
 
-    expect(error.providerName).toBe('unknown');
+    expect(error.providerName).toBeUndefined();
   });
 
   it('should have retryable set to false', () => {

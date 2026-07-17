@@ -78,6 +78,18 @@ export abstract class LLMService {
    * errors where the mapped `LlmError` instance has `retryable === true`.
    * Non-retryable errors are thrown immediately without retry.
    * `ZodError` bypasses `mapError()` and is re-thrown directly.
+   *
+   * ### Error flow:
+   * - `ZodError` is re-thrown without calling `mapError()` and without retry.
+   * - For all other errors, `mapError()` is called. If it returns an `LlmError`
+   *   with `retryable === true`, the method retries with exponential backoff up
+   *   to `LLM_MAX_RETRIES` attempts; non-retryable errors are thrown immediately.
+   * - If `mapError()` returns `undefined` or throws, the base class wraps the
+   *   **original** `_sendInternal` error in an `LlmServiceError` (retryable=false,
+   *   HTTP 500) and throws it without retrying.
+   * - The `originalError` property on the resulting `LlmError` stores only `Error`
+   *   instances (per product decision #12). Non-`Error` originals produce
+   *   `originalError: undefined` with the message `"LLM service error: Unknown error"`.
    * @param {LlmPayload} payload The content to be sent to the LLM.
    * @returns {Promise<LlmResponse>} A Promise that resolves to a validated
    *   LlmResponse object.

@@ -381,10 +381,12 @@ Code Reviewer mandatory docs:
 
 - Helper: `extractStatusCode(error: unknown): number | undefined`
   - Decision: `keep local` — private to `GeminiService`
+  - Status: **Implemented** (Section 3)
   - Owning module/path: `src/llm/gemini.service.ts`
   - Call-site rationale: Extracts numeric HTTP status from Gemini SDK error shapes (`status`, `statusCode`, `code`, `response.status`, `error.status`, `error.code`). Renamed from the base class's `extractErrorStatusCode` to distinguish it as Gemini-specific. Not generalised to base class since future providers may have different shapes.
 - Helper: `hasStringStatus(error: unknown, value: string): boolean`
   - Decision: `keep local` — private to `GeminiService`
+  - Status: **Implemented** (Section 3)
   - Owning module/path: `src/llm/gemini.service.ts`
   - Call-site rationale: Checks for specific string status values (`'RESOURCE_EXHAUSTED'`, `'RATE_LIMIT_EXCEEDED'`) in Gemini's gRPC-style error objects, including nested `error.status`/`error.code` fields. Renamed from the base class's `matchesStringStatus` to distinguish it as Gemini-specific.
 
@@ -598,8 +600,8 @@ Code Reviewer mandatory docs:
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** describe documentation updates made.
-- **Deviations from plan:** note any additional documentation needs discovered.
+- **Implementation notes:** Completed the Section 5 documentation and rollout pass (de-sloppification pass skipped at user request). JSDoc on all nine error classes (T1), `LLMService.send()` (T2), and `GeminiService.mapError()` (T3) was verified complete from prior sections. `docs/modules/llm.md` stale `ResourceExhaustedError extends Error` snippet was rewritten to reference the new `LlmError`-based hierarchy and `docs/llm/error-handling.md`. `docs/llm/error-handling.md` was filled out with the full reference table, provider-addition guide, classification priority rules, the 5xx-retryable behaviour-change callout (decision #10), error-message exposure policy, `originalError` narrowing (decision #12), the `mapError()` non-object guard framing, testing conventions, and a worked example. `AGENTS.md` already references `docs/llm/error-handling.md`. The `HttpExceptionFilter` class-level JSDoc was updated to note it handles all `LlmError` subclasses via the generic `HttpException` branch. `release-notes/v0.4.0.md` was created with the 5xx-retryable upgrade note (HTTP 502, not 500). Section 3 shared-helper entries (`extractStatusCode`, `hasStringStatus`) reconciled to **Implemented**.
+- **Deviations from plan:** The De-Sloppification pass (Section 5.1 per the workflow) was skipped per explicit user instruction; no cleanups were folded in. All other Section 5 acceptance criteria (#1–#10) met. Regression gate re-verified after docs: `npm test` 329 passed, lint clean, lint:british clean.
 
 ---
 

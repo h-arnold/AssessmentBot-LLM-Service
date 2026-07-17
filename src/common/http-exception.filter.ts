@@ -43,8 +43,14 @@ interface LogContext {
 
 /**
  * A comprehensive exception filter that catches all errors and formats them
- * into a standardised JSON response. It handles NestJS HttpExceptions,
+ * into a standardised JSON response. It handles NestJS HttpExceptions
+ * (including all `LlmError` subclasses via the generic `HttpException` branch),
  * specific Express errors, and any other unknown exceptions.
+ *
+ * All `LlmError` subclasses extend `HttpException` and carry their correct
+ * HTTP status and `retryable` flag. They flow through the generic
+ * `instanceof HttpException` branch — no explicit `LlmError` check is needed.
+ * See `docs/llm/error-handling.md` for the full error-class reference.
  */
 @Catch()
 export class HttpExceptionFilter extends BaseExceptionFilter {

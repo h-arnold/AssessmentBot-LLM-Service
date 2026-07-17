@@ -36,28 +36,33 @@ The service selects the model based on payload type:
 
 The distinction is made via `isImagePromptPayload()`: if the payload has an `images` array, the multimodal model is chosen. Both models use `thinkingConfig: { thinkingBudget: 0 }` to disable additional thinking budget per Gemini guidance.
 
-### ResourceExhaustedError
+### Centralised LLM Error Handling
 
-**Location:** `src/llm/resource-exhausted.error.ts`
+All LLM-domain error classes now reside in `src/common/errors/` as a shared library,
+extending the abstract `LlmError` (which itself extends `HttpException`). The barrel
+`src/common/errors/index.ts` re-exports all nine subclasses for static import.
 
-Custom error class for API quota exhaustion scenarios:
+**`ResourceExhaustedError`** has migrated from `src/llm/resource-exhausted.error.ts` to
+`src/common/errors/resource-exhausted.error.ts`. It now extends `LlmError` (not `Error`)
+with a hardcoded HTTP 503 and `retryable = false`.
 
-```typescript
-export class ResourceExhaustedError extends Error {
-  constructor(
-    message: string,
-    public readonly originalError?: unknown,
-  ) { ... }
-}
-```
+**Full error-classification table:**
 
-**Error classification:**
+| Error class                  | HTTP status | Retryable | Usage                                                           |
+| ---------------------------- | ----------- | --------- | --------------------------------------------------------------- |
+| `RateLimitError`             | 429         | Yes       | Upstream LLM rate-limited the request.                          |
+| `ResourceExhaustedError`     | 503         | No        | LLM API quota exhausted.                                        |
+| `ProviderServerError`        | 502         | Yes       | Upstream LLM returned a 5xx server error.                       |
+| `NetworkError`               | 502         | Yes       | Network-level failure (no HTTP status available).               |
+| `AuthenticationError`        | 502         | No        | Upstream authentication/credential failure.                     |
+| `ContentFilteredError`       | 400         | No        | Request blocked by the provider's safety filters.               |
+| `ContextLengthExceededError` | 400         | No        | Input exceeds the model's context window.                       |
+| `InvalidRequestError`        | 400         | No        | Provider rejected the request as malformed — catch-all for 4xx. |
+| `LlmServiceError`            | 500         | No        | Fallback for unclassifiable provider errors.                    |
 
-| Condition                          | Pattern                                                            | Behaviour                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| Resource exhausted (non-retryable) | HTTP 429 + `"resource_exhausted"` or `"quota exceeded"` in message | Immediately throws `ResourceExhaustedError`                                |
-| Rate limit (retryable)             | HTTP 429 without quota patterns                                    | Exponential backoff (`base * 2^attempt + jitter`), up to `LLM_MAX_RETRIES` |
-| Validation failure                 | Zod parse failure on response                                      | Immediate `BadRequestException`                                            |
+For detailed documentation on the error hierarchy, mapping contracts, classification
+priority rules, and how to add a new provider, see the dedicated guide:
+**[`docs/llm/error-handling.md`](../llm/error-handling.md)**.
 
 ## Dependencies
 

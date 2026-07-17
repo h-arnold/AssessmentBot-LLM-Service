@@ -7,8 +7,8 @@ import {
   ImagePromptPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
-import { ResourceExhaustedError } from './resource-exhausted.error.js';
 import { LlmResponse } from './types.js';
+import { ResourceExhaustedError } from '../common/errors/index.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 

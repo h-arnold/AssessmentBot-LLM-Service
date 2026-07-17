@@ -3,8 +3,8 @@ import { randomInt } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
-import { ResourceExhaustedError } from './resource-exhausted.error.js';
 import { LlmResponse } from './types.js';
+import { ResourceExhaustedError } from '../common/errors/index.js';
 import { ConfigService } from '../config/config.service.js';
 
 /**
@@ -121,7 +121,8 @@ export abstract class LLMService {
       );
       throw new ResourceExhaustedError(
         'API quota exhausted. Please try again later or upgrade your plan.',
-        { originalError: error },
+        'unknown',
+        { originalError: this.isErrorObject(error) ? error : undefined },
       );
     }
 

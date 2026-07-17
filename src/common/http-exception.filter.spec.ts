@@ -7,7 +7,7 @@ import {
 import { Mock, MockInstance } from 'vitest';
 
 import { HttpExceptionFilter } from './http-exception.filter.js';
-import { ResourceExhaustedError } from '../llm/resource-exhausted.error.js';
+import { ResourceExhaustedError } from '../common/errors/index.js';
 
 /**
  * Creates a mock ConfigService for testing.
@@ -85,9 +85,10 @@ describe('HttpExceptionFilter', () => {
     expect(filter).toBeDefined();
   });
 
-  it('should handle ResourceExhaustedError and return 503', () => {
+  it('should handle 503 LlmError through generic HttpException branch in test environment', () => {
     const resourceExhaustedError = new ResourceExhaustedError(
       'Quota has been exceeded.',
+      'gemini',
     );
     const mockJson: Mock = vi.fn();
     const mockStatus: Mock = vi
@@ -120,6 +121,8 @@ describe('HttpExceptionFilter', () => {
 
     filter['catch'](resourceExhaustedError, mockArgumentsHost);
 
+    // The generic HttpException branch should pick up ResourceExhaustedError
+    // because it extends HttpException. The message is NOT sanitised in test env.
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
     expectJsonErrorResponse(mockJson, {
       statusCode: HttpStatus.SERVICE_UNAVAILABLE,
@@ -135,6 +138,69 @@ describe('HttpExceptionFilter', () => {
         userAgent: 'jest',
       },
       `HTTP ${HttpStatus.SERVICE_UNAVAILABLE} - Quota has been exceeded.`,
+      expect.any(String),
+    );
+  });
+
+  it('should sanitise 503 LlmError message in production', () => {
+    const productionFilter = new HttpExceptionFilter(
+      new Logger(),
+      createMockConfigService(
+        'production',
+      ) as unknown as import('../config/config.service.js').ConfigService,
+    );
+    const resourceExhaustedError = new ResourceExhaustedError(
+      'Quota has been exceeded.',
+      'gemini',
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    productionFilter['catch'](resourceExhaustedError, mockArgumentsHost);
+
+    // In production, 5xx errors (status >= 500) are sanitised to
+    // "Internal server error" by the filter's existing sanitisation gate.
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+    expectJsonErrorResponse(mockJson, {
+      statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'Internal server error',
+      path: '/test',
+    });
+    expect(loggerSpy).toHaveBeenCalledWith(
+      {
+        method: 'POST',
+        path: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+        userAgent: 'jest',
+      },
+      `HTTP ${HttpStatus.SERVICE_UNAVAILABLE} - Internal server error`,
       expect.any(String),
     );
   });

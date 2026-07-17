@@ -219,9 +219,9 @@ None — all classes in this section are new; the `ResourceExhaustedError` migra
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** describe actual changes made when done.
-- **Deviations from plan:** note any departures from the original section design.
-- **Follow-up implications for later sections:** All subsequent sections depend on these error classes being importable from `src/common/errors/index.js`.
+- **Implementation notes:** Created `src/common/errors/` with `llm-error.base.ts` (abstract `LlmError extends HttpException`, `super(message, httpStatus, { cause: options?.cause })`), nine concrete error classes, and a barrel `index.ts`. Migrated `ResourceExhaustedError` (re-parented under `LlmError`, 503, retryable=false, `(message, providerName='unknown', options?)` signature). Rewrote the single `new ResourceExhaustedError(...)` literal in `LLMService.handleSendError()` to `new ResourceExhaustedError(msg, 'unknown', { originalError: this.isErrorObject(error) ? error : undefined })` and repointed the import to the barrel. Deleted the old `src/llm/resource-exhausted.error.ts` and its spec. Removed the explicit `instanceof ResourceExhaustedError` branch and `handleResourceExhaustedError` method from `HttpExceptionFilter`, repointing its import. Repointed `gemini.service.spec.ts`'s import. Created `docs/llm/error-handling.md` skeleton.
+- **Deviations from plan:** The SPEC-mandated positional `providerName` constructor (`constructor(message, providerName='unknown', options?)`) conflicts with the `unicorn/custom-error-definition` ESLint rule (which requires `options` as the second parameter). Per explicit user authorisation, a scoped, documented override disabling `unicorn/custom-error-definition` for `src/common/errors/**/*.ts` was added to `eslint.config.js`. This is the only deviation and is intentional and recorded. No other deviations.
+- **Follow-up implications for later sections:** All subsequent sections depend on these error classes being importable from `src/common/errors/index.js`. Section 2 will add `providerName`/`mapError()` abstract members to `LLMService` and remove the preserved private helpers (incl. `handleSendError` + the migrated `ResourceExhaustedError` literal, deleted together).
 
 ---
 

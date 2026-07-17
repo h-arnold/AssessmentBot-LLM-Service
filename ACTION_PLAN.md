@@ -519,8 +519,9 @@ Testing Specialist mandatory docs:
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** summarise what was done during regression phase.
-- **Deviations from plan:** note any additional work discovered or done.
+- **Implementation notes:** Ran the full regression + contract-hardening pass (Section 4 acceptance criteria #1–#9). Added three new production-sanitisation regression tests to `http-exception.filter.spec.ts` (Section 4 tests #12–#14): 502 `ProviderServerError` sanitised to "Internal server error" in production; 400 `ContentFilteredError` and 429 `RateLimitError` exposed unsanitised in production. The 503 `ResourceExhaustedError` sanitisation tests (#10–#11) were added in Section 1. Full regression results: unit suite **329 passed** (baseline 271, +58 net-new tests, zero regressions), E2E mocked suite **49 passed / 1 todo** (7 files, no regressions), `npm run build` clean, `npm run lint` clean, `npm run lint:british` clean. No unexpected console warnings; the E2E app-lifecycle child-process exit trace is a pre-existing teardown log, not a failure.
+- **Deviations from plan:** None of substance. The regression-checker CLI referenced by the skill (`npm run regression-checker`) is not present in this repo state (no `scripts/builder/dist/regression-checker/`, no `regression.config.json`, no npm script), so the Baseline/Regression Gate was satisfied via the repository's own validation commands (build + lint + full `npm test` + `npm run test:e2e`) captured in `.ts-regression-checker/reports/baseline/baseline.txt`. All Section 4 acceptance criteria met.
+- **Follow-up implications for later sections:** Section 5 (documentation) is the final pass; no code behaviour remains. The E2E gap noted in the plan (mocked E2E does not exercise a provider-thrown `LlmError` through the live filter chain) is recorded as a known follow-up — an integration-level test dispatching an `LlmError` through the live `APP_FILTER` chain is recommended but optional.
 
 ---
 

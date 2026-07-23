@@ -2,14 +2,18 @@ import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
 
+import { GeminiService } from './gemini.service.js';
 import { LlmModule } from './llm.module.js';
 import { LLM_SERVICE_TOKEN } from './llm.service.interface.js';
+import { MistralService } from './mistral.service.js';
+import { RoutingLLMService } from './routing-llm.service.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigModule } from '../config/config.module.js';
 import { ConfigService } from '../config/config.service.js';
 
 const defaults = {
   GEMINI_API_KEY: 'test-key',
+  MISTRAL_API_KEY: 'dummy-key-for-testing',
   NODE_ENV: 'test',
   PORT: '3000',
   API_KEYS: 'test-api-key',
@@ -18,6 +22,10 @@ const defaults = {
   LOG_LEVEL: 'debug',
   LLM_BACKOFF_BASE_MS: '1000',
   LLM_MAX_RETRIES: '3',
+  DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+  DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash',
+  TEXT_REASONING_EFFORT: 'low',
+  IMAGE_REASONING_EFFORT: 'high',
 };
 
 const mockConfigService = {
@@ -67,7 +75,7 @@ describe('LlmModule', () => {
     expect(module).toBeDefined();
   });
 
-  it('should provide the LLMService', async () => {
+  it('should provide the LLMService (RoutingLLMService)', async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         LlmModule,
@@ -92,5 +100,58 @@ describe('LlmModule', () => {
     expect(configService).toBeDefined();
     const llmService = module.get(LLM_SERVICE_TOKEN);
     expect(llmService).toBeDefined();
+    expect(llmService).toBeInstanceOf(RoutingLLMService);
+  });
+
+  it('should provide GeminiService', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      imports: [
+        LlmModule,
+        LoggerModule.forRootAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => ({
+            pinoHttp: {
+              level: configService.get('LOG_LEVEL'),
+            },
+          }),
+        }),
+      ],
+      providers: [Logger],
+    })
+      .overrideProvider(ConfigService)
+      .useValue(mockConfigService)
+      .overrideProvider(JsonParserUtility)
+      .useValue(mockJsonParserUtility)
+      .compile();
+    const geminiService = module.get(GeminiService);
+    expect(geminiService).toBeDefined();
+    expect(geminiService).toBeInstanceOf(GeminiService);
+  });
+
+  it('should provide MistralService', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      imports: [
+        LlmModule,
+        LoggerModule.forRootAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => ({
+            pinoHttp: {
+              level: configService.get('LOG_LEVEL'),
+            },
+          }),
+        }),
+      ],
+      providers: [Logger],
+    })
+      .overrideProvider(ConfigService)
+      .useValue(mockConfigService)
+      .overrideProvider(JsonParserUtility)
+      .useValue(mockJsonParserUtility)
+      .compile();
+    const mistralService = module.get(MistralService);
+    expect(mistralService).toBeDefined();
+    expect(mistralService).toBeInstanceOf(MistralService);
   });
 });

@@ -12,6 +12,7 @@ import {
   ILlmService,
   LLM_SERVICE_TOKEN,
 } from '../../llm/llm.service.interface.js';
+import { MistralService } from '../../llm/mistral.service.js';
 import { LlmResponse } from '../../llm/types.js';
 import { Prompt } from '../../prompt/prompt.base.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
@@ -42,6 +43,9 @@ const getMockEnvironmentValue = (key: string): string | string[] => {
     case 'GEMINI_API_KEY':
       value = process.env.GEMINI_API_KEY ?? '';
       break;
+    case 'MISTRAL_API_KEY':
+      value = process.env.MISTRAL_API_KEY ?? 'test-key';
+      break;
     case 'NODE_ENV':
       value = process.env.NODE_ENV ?? '';
       break;
@@ -62,6 +66,18 @@ const getMockEnvironmentValue = (key: string): string | string[] => {
       break;
     case 'LOG_LEVEL':
       value = process.env.LOG_LEVEL ?? '';
+      break;
+    case 'DEFAULT_TEXT_TABLE_MODEL':
+      value = 'gemini-2.5-flash-lite';
+      break;
+    case 'DEFAULT_IMAGE_MODEL':
+      value = 'gemini-2.5-flash';
+      break;
+    case 'TEXT_REASONING_EFFORT':
+      value = 'low';
+      break;
+    case 'IMAGE_REASONING_EFFORT':
+      value = 'high';
       break;
     default:
       value = '';
@@ -126,6 +142,8 @@ describe('AssessorService', () => {
       .overrideProvider(PromptFactory)
       .useValue(mockPromptFactory)
       .overrideProvider(GeminiService)
+      .useValue({ send: vi.fn() })
+      .overrideProvider(MistralService)
       .useValue({ send: vi.fn() })
       .overrideProvider(JsonParserUtility)
       .useValue(mockJsonParserUtility)

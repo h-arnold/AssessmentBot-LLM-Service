@@ -475,9 +475,9 @@ C. **Routing logic:** 5. Text payload routes to `GeminiService` when `DEFAULT_TE
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer)_
-- **Deviations from plan:** _(filled if any)_
-- **Follow-up implications:** This completes the routing architecture. The `LLMService` class token is no longer exported from `LlmModule`; any module that previously injected `LLMService` must now use `LLM_SERVICE_TOKEN`. Section 6 updates GeminiService for the new payload fields and refactors its `mapError()` onto the shared helper. Section 8 adds the Mistral mocked E2E tests.
+- **Implementation notes:** Section 5 GREEN phase complete (Refactor remaining). Created `src/llm/routing-llm.service.ts` — `RoutingLLMService implements ILlmService` (dispatcher, does NOT extend `LLMService`). Constructor validates both `DEFAULT_TEXT_TABLE_MODEL` and `DEFAULT_IMAGE_MODEL` via `validateModelName()`, collecting errors into a single aggregated `Error`. Constructor does **not** read/check `GEMINI_API_KEY`/`MISTRAL_API_KEY` (Zod's responsibility). `send()` reads model/effort from `ConfigService` at send time, authoritatively overwrites `payload.model`/`payload.reasoningEffort`, resolves provider via `resolveProvider()`, and delegates. Updated `llm.module.ts` — `GeminiService` + `MistralService` as class providers, `LLM_SERVICE_TOKEN` via `useClass: RoutingLLMService`, exports `LLM_SERVICE_TOKEN` only. Updated `assessor.service.spec.ts` (adds `MistralService` override, new env vars in mock), `assessor.module.spec.ts` (adds `MISTRAL_API_KEY` + four new model/effort vars to mock), `llm.module.spec.ts` (verifies `LLM_SERVICE_TOKEN` resolves to `RoutingLLMService`, tests `GeminiService`/`MistralService` injectability, new env vars in mock). All section checks pass: routing-llm.service 14/14, llm.module 4/4, assessor/ 23/23, full LLM suite 182/182, `npm test` 456/456, build/lint/lint:british clean. Refactor phase: no code-quality issues found — implementation is minimal, well-documented, no duplication.
+- **Deviations from plan:** None.
+- **Follow-up implications:** This completes the routing architecture. The `LLMService` class token is no longer exported from `LlmModule`; any module that previously injected `LLMService` must now use `LLM_SERVICE_TOKEN`. Section 6 was already committed before Section 5 (commit `8790573` — GeminiService optional payload fields and shared error-mapper adoption). Section 8 adds the Mistral mocked E2E tests.
 
 ---
 

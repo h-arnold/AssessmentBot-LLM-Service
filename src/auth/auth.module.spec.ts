@@ -13,6 +13,7 @@ describe('AuthModule', () => {
 
   beforeAll(() => {
     process.env.GEMINI_API_KEY = 'test-key';
+    process.env.MISTRAL_API_KEY = 'test-key';
     process.env.NODE_ENV = 'test';
     process.env.PORT = '3000';
     process.env.API_KEYS = 'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';

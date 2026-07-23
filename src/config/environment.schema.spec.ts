@@ -8,6 +8,7 @@ const validBody = randomBytes(24).toString('base64url');
 
 const validEnvironment = {
   GEMINI_API_KEY: 'dummy-key-for-testing',
+  MISTRAL_API_KEY: 'dummy-key-for-testing',
 };
 
 describe('Environment schema', () => {
@@ -105,6 +106,59 @@ describe('Environment schema', () => {
           ...validEnvironment,
           API_KEY_PREFIX: 'custom_',
           API_KEYS: `abt_${otherBody}`,
+        }),
+      ).toThrow(z.ZodError);
+    });
+  });
+
+  describe('Mistral environment variables', () => {
+    it('should validate a config object with all five new variables present', () => {
+      const result = configSchema.parse({
+        ...validEnvironment,
+        MISTRAL_API_KEY: 'explicit-mistral-key',
+        DEFAULT_TEXT_TABLE_MODEL: 'custom-text-model',
+        DEFAULT_IMAGE_MODEL: 'custom-image-model',
+        TEXT_REASONING_EFFORT: 'max',
+        IMAGE_REASONING_EFFORT: 'off',
+      });
+      expect(result.MISTRAL_API_KEY).toBe('explicit-mistral-key');
+      expect(result.DEFAULT_TEXT_TABLE_MODEL).toBe('custom-text-model');
+      expect(result.DEFAULT_IMAGE_MODEL).toBe('custom-image-model');
+      expect(result.TEXT_REASONING_EFFORT).toBe('max');
+      expect(result.IMAGE_REASONING_EFFORT).toBe('off');
+    });
+
+    it('should reject TEXT_REASONING_EFFORT with invalid value', () => {
+      expect(() =>
+        configSchema.parse({
+          ...validEnvironment,
+          TEXT_REASONING_EFFORT: 'nonsense',
+        }),
+      ).toThrow(z.ZodError);
+    });
+
+    it('should reject IMAGE_REASONING_EFFORT with invalid value', () => {
+      expect(() =>
+        configSchema.parse({
+          ...validEnvironment,
+          IMAGE_REASONING_EFFORT: 'nonsense',
+        }),
+      ).toThrow(z.ZodError);
+    });
+
+    it('should apply defaults for omitted model and effort variables', () => {
+      const result = configSchema.parse(validEnvironment);
+      expect(result.DEFAULT_TEXT_TABLE_MODEL).toBe('mistral-small-latest');
+      expect(result.DEFAULT_IMAGE_MODEL).toBe('mistral-small-latest');
+      expect(result.TEXT_REASONING_EFFORT).toBe('low');
+      expect(result.IMAGE_REASONING_EFFORT).toBe('high');
+    });
+
+    it('should reject a config with empty MISTRAL_API_KEY', () => {
+      expect(() =>
+        configSchema.parse({
+          ...validEnvironment,
+          MISTRAL_API_KEY: '',
         }),
       ).toThrow(z.ZodError);
     });

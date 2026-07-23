@@ -95,6 +95,7 @@ export async function startApp(
     PORT: '3001',
     LOG_FILE: logFilePath,
     GEMINI_API_KEY: 'dummy-key-for-testing', // Default dummy key
+    MISTRAL_API_KEY: 'dummy-key-for-testing', // Default dummy key
     API_KEYS: `${generatedKey1},${generatedKey2}`,
     THROTTLER_TTL: '36000000',
     UNAUTHENTICATED_THROTTLER_LIMIT: '9',

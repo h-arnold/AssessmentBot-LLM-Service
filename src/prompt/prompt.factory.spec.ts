@@ -15,6 +15,10 @@ import {
 describe('PromptFactory', () => {
   let factory: PromptFactory;
 
+  beforeAll(() => {
+    process.env.MISTRAL_API_KEY = 'test-key';
+  });
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule],

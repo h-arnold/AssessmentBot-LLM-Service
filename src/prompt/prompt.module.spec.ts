@@ -5,6 +5,10 @@ import { PromptFactory } from './prompt.factory.js';
 import { PromptModule } from './prompt.module.js';
 
 describe('PromptModule', () => {
+  beforeAll(() => {
+    process.env.MISTRAL_API_KEY = 'test-key';
+  });
+
   it('should compile the module', async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [PromptModule],

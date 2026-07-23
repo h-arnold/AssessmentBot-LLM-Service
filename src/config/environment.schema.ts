@@ -32,6 +32,11 @@ export const DEFAULT_API_KEY_PREFIX = 'abt_';
  * @property {number} MAX_IMAGE_UPLOAD_SIZE_MB - The maximum size for image uploads in megabytes.
  * @property {string[]} ALLOWED_IMAGE_MIME_TYPES - A comma-separated list of allowed image MIME types, transformed into an array.
  * @property {string} GEMINI_API_KEY - The API key for the Google Gemini service.
+ * @property {string} MISTRAL_API_KEY - The API key for the Mistral AI service.
+ * @property {string} DEFAULT_TEXT_TABLE_MODEL - The model used for text/table assessment tasks (default: 'mistral-small-latest').
+ * @property {string} DEFAULT_IMAGE_MODEL - The model used for image assessment tasks (default: 'mistral-small-latest').
+ * @property {string} TEXT_REASONING_EFFORT - The abstract reasoning effort for text/table tasks; one of 'off', 'low', 'high', 'max' (default: 'low').
+ * @property {string} IMAGE_REASONING_EFFORT - The abstract reasoning effort for image tasks; one of 'off', 'low', 'high', 'max' (default: 'high').
  * @property {string} LOG_LEVEL - The logging level for the application.
  * @property {number} THROTTLER_TTL - The time-to-live (in milliseconds) for rate-limiting windows.
  * @property {number} UNAUTHENTICATED_THROTTLER_LIMIT - The maximum number of requests for unauthenticated routes within the TTL window.
@@ -61,6 +66,11 @@ export const configObjectSchema = z.object({
     .default('image/png')
     .transform((value) => value.split(',').map((s) => s.trim())),
   GEMINI_API_KEY: z.string().min(1),
+  MISTRAL_API_KEY: z.string().min(1),
+  DEFAULT_TEXT_TABLE_MODEL: z.string().default('mistral-small-latest'),
+  DEFAULT_IMAGE_MODEL: z.string().default('mistral-small-latest'),
+  TEXT_REASONING_EFFORT: z.enum(['off', 'low', 'high', 'max']).default('low'),
+  IMAGE_REASONING_EFFORT: z.enum(['off', 'low', 'high', 'max']).default('high'),
   LOG_LEVEL: z
     .enum(['info', 'error', 'warn', 'debug', 'verbose', 'fatal'])
     .default('info'),

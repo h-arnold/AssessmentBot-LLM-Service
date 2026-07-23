@@ -282,6 +282,7 @@ export default tseslint.config(
       'src/prompt/prompt.factory.spec.ts',
       'vitest.setup.ts',
       'test/assessor-live.e2e-spec.ts',
+      'test/mistral-live.e2e-spec.ts',
       'test/assessor.e2e-spec.ts',
       'test/auth.e2e-spec.ts',
     ],

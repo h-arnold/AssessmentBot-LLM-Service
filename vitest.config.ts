@@ -42,7 +42,10 @@ export default defineConfig({
         test: {
           name: 'e2e-live',
           root: '.',
-          include: ['test/assessor-live.e2e-spec.ts'],
+          include: [
+            'test/assessor-live.e2e-spec.ts',
+            'test/mistral-live.e2e-spec.ts',
+          ],
           setupFiles: ['./vitest.setup.ts'],
           globals: true,
           testTimeout: 30000,

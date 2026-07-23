@@ -108,10 +108,12 @@ const MISTRAL_PROBES: LlmErrorMapperProbes = {
  * validating responses from the Mistral API.
  *
  * ### Reasoning-effort mapping (abstract level → Mistral native):
- * - `'off'` → omitted from request
- * - `'low'` → `'low'`
- * - `'high'` → `'medium'`
- * - `'max'` → `'xhigh'`.
+ * `mistral-small-latest` only accepts the `none` and `high` reasoning-effort
+ * values, so the abstract levels are collapsed accordingly:
+ * - `'off'` → `'none'` (reasoning disabled)
+ * - `'low'` → `'none'`
+ * - `'high'` → `'high'`
+ * - `'max'` → `'high'`.
  */
 @Injectable()
 export class MistralService extends LLMService {
@@ -315,19 +317,22 @@ export class MistralService extends LLMService {
    * Maps an abstract {@link ReasoningEffort} level to the Mistral SDK's
    * native reasoning-effort string value.
    * @param effort - The abstract reasoning-effort level.
-   * @returns The Mistral-native value, or `undefined` for `'off'` (which is
-   *   omitted from the request entirely).
+   * @returns The Mistral-native value. `mistral-small-latest` only accepts
+   *   `none` and `high`, so both `'off'` and `'low'` map to `'none'`, and
+   *   `'high'` and `'max'` map to `'high'`.
    */
   private mapReasoningEffort(effort: ReasoningEffort): string | undefined {
     switch (effort) {
       case 'off':
-        return undefined;
       case 'low':
-        return 'low';
+        // `mistral-small-latest` only accepts the `none` and `high` reasoning
+        // effort values. `low` (the text/table default) is collapsed to `none`,
+        // which the provider treats as reasoning disabled.
+        return 'none';
       case 'high':
-        return 'medium';
       case 'max':
-        return 'xhigh';
+        // `max` maps to the highest effort the model supports (`high`).
+        return 'high';
     }
   }
 

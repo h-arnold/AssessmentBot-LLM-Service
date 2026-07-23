@@ -227,10 +227,16 @@ export class GeminiService extends LLMService {
     // See `mapThinkingBudget` for the mapping and v1-limitation note.
     const thinkingBudget = this.mapThinkingBudget(payload.reasoningEffort);
 
+    // Only attach `thinkingConfig` when a non-zero thinking budget is
+    // requested. Some Gemini models (e.g. the `gemini-flash-latest` stable
+    // alias) reject the `thinkingConfig` field outright with a 400
+    // INVALID_ARGUMENT, so omitting it for the default/disabled case keeps
+    // those models working. Models that support thinking (the 2.5 series)
+    // continue to receive the budget as before.
     const config: GenerateContentConfig = {
       systemInstruction,
       temperature,
-      thinkingConfig: { thinkingBudget },
+      ...(thinkingBudget > 0 && { thinkingConfig: { thinkingBudget } }),
     };
     return { model: modelName, config };
   }

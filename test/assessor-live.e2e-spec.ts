@@ -42,8 +42,8 @@ describe('AssessorController (e2e-live)', () => {
 
   beforeAll(async () => {
     app = await startApp(logFilePath, {
-      DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
-      DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash',
+      DEFAULT_TEXT_TABLE_MODEL: 'gemini-flash-latest',
+      DEFAULT_IMAGE_MODEL: 'gemini-flash-latest',
     });
 
     // Load test data asynchronously
@@ -108,8 +108,8 @@ describe('AssessorController (e2e-live)', () => {
     const response = await request(app.appUrl)
       .post('/v1/assessor')
       .set('Authorization', `Bearer ${app.apiKey}`)
-      .send(mappedPayload)
-      .expect(201);
+      .send(mappedPayload);
+    expect(response.status).toBe(201);
 
     expect(response.body).toBeDefined();
     expect(response.body).toHaveProperty('completeness');
@@ -131,8 +131,8 @@ describe('AssessorController (e2e-live)', () => {
     const response = await request(app.appUrl)
       .post('/v1/assessor')
       .set('Authorization', `Bearer ${app.apiKey}`)
-      .send(imagePayload)
-      .expect(201);
+      .send(imagePayload);
+    expect(response.status).toBe(201);
 
     expect(response.body).toBeDefined();
     expect(response.body).toHaveProperty('completeness');

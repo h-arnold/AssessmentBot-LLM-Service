@@ -43,8 +43,8 @@ describe('AssessorController (e2e)', () => {
 
   beforeAll(async () => {
     app = await startApp(logFilePath, {
-      DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
-      DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash',
+      DEFAULT_TEXT_TABLE_MODEL: 'gemini-flash-latest',
+      DEFAULT_IMAGE_MODEL: 'gemini-flash-latest',
     });
   });
 

@@ -41,6 +41,7 @@ export interface ModelEntry {
  */
 export const SUPPORTED_MODELS: readonly ModelEntry[] = [
   // Gemini models
+  { provider: 'gemini', prefix: 'gemini-flash-latest' },
   { provider: 'gemini', prefix: 'gemini-2.5-flash' },
   { provider: 'gemini', prefix: 'gemini-2.0-flash' },
   // Mistral models

@@ -267,7 +267,7 @@ describe('MistralService', () => {
       );
     });
 
-    it('should map reasoningEffort low to low', async () => {
+    it('should map reasoningEffort low to none', async () => {
       mockComplete.mockResolvedValue(createValidResponse(1));
 
       const payload = {
@@ -277,11 +277,11 @@ describe('MistralService', () => {
       await service.send(payload);
 
       expect(mockComplete).toHaveBeenCalledWith(
-        expect.objectContaining({ reasoningEffort: 'low' }),
+        expect.objectContaining({ reasoningEffort: 'none' }),
       );
     });
 
-    it('should map reasoningEffort high to medium', async () => {
+    it('should map reasoningEffort high to high', async () => {
       mockComplete.mockResolvedValue(createValidResponse(1));
 
       const payload = {
@@ -291,11 +291,11 @@ describe('MistralService', () => {
       await service.send(payload);
 
       expect(mockComplete).toHaveBeenCalledWith(
-        expect.objectContaining({ reasoningEffort: 'medium' }),
+        expect.objectContaining({ reasoningEffort: 'high' }),
       );
     });
 
-    it('should map reasoningEffort max to xhigh', async () => {
+    it('should map reasoningEffort max to high', async () => {
       mockComplete.mockResolvedValue(createValidResponse(1));
 
       const payload = {
@@ -305,7 +305,7 @@ describe('MistralService', () => {
       await service.send(payload);
 
       expect(mockComplete).toHaveBeenCalledWith(
-        expect.objectContaining({ reasoningEffort: 'xhigh' }),
+        expect.objectContaining({ reasoningEffort: 'high' }),
       );
     });
 

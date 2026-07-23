@@ -845,9 +845,52 @@ Run all validation commands. Document any test failures and their resolution. In
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer)_
-- **Deviations from plan:** _(filled if any)_
-- **Follow-up implications:** Feature complete.
+- **Implementation notes:**
+  - `docs/llm/error-handling.md`:
+    - Overview now lists Mistral as an implemented provider (alongside Gemini).
+    - "Adding a New LLM Provider" step 3 rewritten from "write private
+      `extractStatusCode` helpers" to "supply provider-specific probes to the
+      shared `classifyLlmError` helper" — describes the `LlmErrorMapperProbes`
+      interface and the delegation pattern, and warns about the
+      `InvalidRequestError` name-collision (Mistral's `isHttpClientError`
+      deliberately excludes it).
+    - "Worked Example: `GeminiService.mapError()`" replaced by "Worked Example:
+      the shared `classifyLlmError` helper (canonical pattern)" — describes the
+      shared cascade, the `LlmErrorMapperProbes` shape, and confirms that
+      `GeminiService` (`GEMINI_PROBES`) and `MistralService` (`MISTRAL_PROBES`)
+      are the only consumers; neither re-implements the orchestration helpers.
+    - New "Mistral Provider" subsection documents: SDK error shapes
+      (`MistralError.statusCode`, `error.body`, `HTTPClientError` subclass
+      `name`s), `MISTRAL_PROBES` configuration, the shared classification
+      priority, and the testing conventions (SDK-specific coverage in
+      `mistral.service.spec.ts`; shared behaviour in `llm-error-mapper.spec.ts`
+      via synthetic probes).
+    - "mapError() Non-Object Guard Framing" updated to note that **both**
+      `GeminiService.mapError()` and `MistralService.mapError()` return
+      `undefined` for non-object inputs (no longer Gemini-only).
+  - `docs/configuration/environment.md`:
+    - `GEMINI_API_KEY` and the new `MISTRAL_API_KEY` entries clarified: both are
+      independently required for the models they route to; the two providers are
+      routed by model-id prefix, and neither key is a fallback for the other.
+    - New LLM Configuration entries for all five variables with Zod types,
+      defaults, and accepted enum values, plus a note that model-id prefix
+      selects the provider and the reasoning-effort enum maps to
+      provider-native values.
+    - Example `.env` block updated to show both keys and the five new vars.
+  - `release-notes/v0.3.0.md` created: documents the Mistral provider,
+    model-name routing, the five new env vars (both keys independently
+    required), the shared error-mapper refactor, reasoning-effort support, and
+    the validation status (unit + mocked e2e green; live e2e gated on keys).
+  - British English confirmed across the edited docs (`behaviour`, `customised`,
+    etc.); `npm run lint` (0/0), `npm run build` clean.
+- **Deviations from plan:** None. Criterion 5 (reconcile planned shared-helper
+  entries placed in `Not implemented` status in Sections 3 and 6) — the
+  canonical doc now describes the shared helper as `implemented`; any
+  `Not implemented` annotations in the earlier section notes were reconciled by
+  Section 3/4/6 landing and are reflected here.
+- **Follow-up implications:** Feature complete. Before merge, run
+  `npm run test:e2e:live` in an environment with both API keys present to
+  confirm the live suites (Section 9) pass.
 
 ---
 

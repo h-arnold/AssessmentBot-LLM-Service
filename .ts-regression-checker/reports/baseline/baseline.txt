@@ -1,0 +1,30 @@
+# Regression Baseline — feature/centralized-llm-error-handling
+
+**Established:** 2026-07-16
+**Branch:** feature/centralized-llm-error-handling
+**Commit:** 7f580f3
+
+> Note: The `regression-checker` npm script / build artefact referenced by the
+> skill is NOT present in this repo state (no `.ts-regression-checker/regression.config.json`,
+> no `scripts/builder/dist/regression-checker/`, no `regression-checker` npm script).
+> Baseline was therefore established manually using the repository's own validation
+> commands, per the Baseline Gate intent.
+
+## Baseline results
+
+| Check            | Command                          | Result                          |
+| ---------------- | -------------------------------- | ------------------------------- |
+| Build            | `npm run build`                  | ✅ Clean (no errors)            |
+| Lint             | `npm run lint`                   | ✅ No violations                |
+| British English  | `npm run lint:british`           | ✅ Compliant                    |
+| Unit tests       | `npm test`                       | ✅ 271 passed (40 files)        |
+
+## Known pre-existing technical debt
+
+None identified at baseline. All 271 tests green.
+
+## Section gate record
+
+| Section | Phase            | Tests | Lint | Build | Regressions |
+| ------- | ---------------- | ----- | ---- | ----- | ----------- |
+| (base)  | baseline         | 271   | ✅   | ✅    | none        |

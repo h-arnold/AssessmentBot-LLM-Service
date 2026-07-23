@@ -1,7 +1,7 @@
 ---
 description: Reviews code for quality, standards adherence, and defects using project-specific checklists
 mode: all
-model: opencode/hy3-free
+model: openrouter/tencent/hy3
 steps: 100
 ---
 

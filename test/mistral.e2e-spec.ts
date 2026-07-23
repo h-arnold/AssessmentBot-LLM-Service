@@ -92,9 +92,15 @@ describe('MistralAssessor (e2e)', () => {
     expect(response.body).toHaveProperty('completeness');
     expect(response.body).toHaveProperty('accuracy');
     expect(response.body).toHaveProperty('spag');
-    // Assert that the Mistral mock path was exercised
+    // Assert that the Mistral mock path was exercised. The captured
+    // `mistralTextResponse` keeps the `"Mistral mocked"` marker in its
+    // completeness reasoning so we can prove the Mistral provider (not the
+    // Gemini fallback) served the response; accuracy and spag carry realistic
+    // reasoning text instead.
     expect(response.body.completeness.reasoning).toContain('Mistral mocked');
-    expect(response.body.accuracy.reasoning).toContain('Mistral mocked');
-    expect(response.body.spag.reasoning).toContain('Mistral mocked');
+    expect(typeof response.body.accuracy.reasoning).toBe('string');
+    expect(response.body.accuracy).toHaveProperty('score');
+    expect(typeof response.body.spag.reasoning).toBe('string');
+    expect(response.body.spag).toHaveProperty('score');
   });
 });

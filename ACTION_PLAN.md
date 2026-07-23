@@ -388,9 +388,9 @@ F. **Error logging:** 33. Logs error context on `_sendInternal` failure (model, 
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer)_
-- **Deviations from plan:** _(filled if any)_
-- **Follow-up implications:** `MistralService` is needed by `RoutingLLMService` (Section 5). Its `mapError()` delegates to the shared helper from Section 3; no per-provider helper code is needed.
+- **Implementation notes:** TDD red → green. RED: `src/llm/mistral.service.spec.ts` created with 39 tests (groups A–F; 41 assertions-level cases reported by vitest). GREEN: `src/llm/mistral.service.ts` created — `providerName = 'mistral'`; constructor with defensive `MISTRAL_API_KEY` check and `new Mistral({ apiKey })`; `_sendInternal` builds system+user messages (text string / ImageURLChunk data-URI array), `temperature ?? 0`, reasoning-effort mapping (off→omitted, low→low, high→medium, max→xhigh), `safePrompt: false` + `responseFormat: { type: 'json_object' }` recommended defaults, response extraction → JsonParserUtility → LlmResponseSchema; `mapError()` is a thin adapter delegating to `classifyLlmError()` with the Mistral probe config (`hasStringStatus: () => false`; `isHttpClientError` excludes the `'InvalidRequestError'` name per the SPEC collision warning). 41/41 green; `src/llm/` 158/158; full suite 432/432; mocked E2E 49 passed; build/lint/lint:british clean. Code review: PASS.
+- **Deviations from plan:** None.
+- **Follow-up implications:** `MistralService` is needed by `RoutingLLMService` (Section 5). Reviewer follow-ups for Section 6: (a) `normaliseStatusCode` is duplicated between MistralService and GeminiService — the Section 6 refactor should hoist status-code probing shared logic if natural; (b) provider error logging fires only on SDK-call failure, not parse/validation failure — matches test F but noted for parity consideration.
 
 ---
 

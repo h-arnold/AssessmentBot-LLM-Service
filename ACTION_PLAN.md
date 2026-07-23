@@ -303,9 +303,9 @@ The tests use **synthetic probe inputs** (plain objects with fake `statusCode`/`
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer)_
-- **Deviations from plan:** _(filled if any)_
-- **Follow-up implications:** Sections 4 and 6 consume this helper. Existing `gemini.service.spec.ts` `mapError` tests serve as integration regression for the helper once Section 6 delegates `GeminiService.mapError()` to it.
+- **Implementation notes:** TDD red → green. RED: `src/llm/llm-error-mapper.spec.ts` created with all 24 synthetic-probe test cases (ERR_MODULE_NOT_FOUND). GREEN: `src/llm/llm-error-mapper.ts` created — exports `LlmErrorMapperProbes` (per SPEC, `isHttpClientError` optional defaulting to false) and `classifyLlmError()` with the full priority cascade and both tie-breaks; module-local helpers `extractMessage` (probes `error.message` AND `error.body` for Mistral parity), `buildError`, `isResourceExhausted`, `isRateLimit`. Imports only `LlmError` subclasses + `isErrorObject` (no provider/NestJS coupling). A lint-clean-up pass on the spec file followed (JSDoc tags, variable renames, `.includes()` refactors — no test cases or assertions changed). 24/24 green; `src/llm/` 117/117; full suite 391/391; build/lint/lint:british clean. Code review: PASS.
+- **Deviations from plan:** None. (Note: helper `extractMessage` also considers `error.body` for `Error` instances — broader than Gemini's original message-only extraction; intentional for Mistral parity, reviewer-confirmed no Gemini regression risk.)
+- **Follow-up implications:** Sections 4 and 6 consume this helper. Existing `gemini.service.spec.ts` `mapError` tests serve as integration regression for the helper once Section 6 delegates `GeminiService.mapError()` to it. Reviewer forward note for Section 6: confirm `gemini.service.spec.ts` has no exact-message assertions relying on message-only extraction (none expected).
 
 ---
 

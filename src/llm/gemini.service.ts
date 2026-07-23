@@ -7,28 +7,96 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import {
+  classifyLlmError,
+  type LlmErrorMapperProbes,
+  normaliseStatusCode,
+} from './llm-error-mapper.js';
+import {
   ImagePromptPayload,
   LLMService,
   LlmPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
-import {
-  AuthenticationError,
-  ContentFilteredError,
-  ContextLengthExceededError,
-  InvalidRequestError,
-  LlmError,
-  NetworkError,
-  ProviderServerError,
-  RateLimitError,
-  ResourceExhaustedError,
-} from '../common/errors/index.js';
+import { type LlmError } from '../common/errors/index.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
-import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
 type GeminiRequest = { model: string; config: GenerateContentConfig };
+
+// ---------------------------------------------------------------------------
+// Gemini-specific probe configuration for the shared classifyLlmError helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-provider probe configuration for Gemini, supplied to the shared
+ * {@link classifyLlmError} cascade.
+ *
+ * - `extractStatusCode` probes `error.status`, `error.statusCode`, `error.code`,
+ *   `error.response.status`, `error.error.status`, and `error.error.code` with
+ *   string-to-number coercion — replicating the exact current behaviour.
+ * - `hasStringStatus` checks `error.status`, `error.code`, `error.error.status`,
+ *   and `error.error.code` for case-insensitive string matches (e.g.
+ *   `RESOURCE_EXHAUSTED`, `RATE_LIMIT_EXCEEDED`, `'429'`).
+ * - No `isHttpClientError` — Gemini has no HTTPClientError concept.
+ */
+const GEMINI_PROBES: LlmErrorMapperProbes = {
+  providerName: 'gemini',
+
+  extractStatusCode: (error: unknown): number | undefined => {
+    if (typeof error !== 'object' || error === null) return undefined;
+    const error_ = error as Record<string, unknown>;
+
+    // Direct numeric or string-coercible properties
+    const directStatus = normaliseStatusCode(error_.status);
+    if (directStatus !== undefined) return directStatus;
+    const directStatusCode = normaliseStatusCode(error_.statusCode);
+    if (directStatusCode !== undefined) return directStatusCode;
+    const directCode = normaliseStatusCode(error_.code);
+    if (directCode !== undefined) return directCode;
+
+    // Nested response.status
+    if (typeof error_.response === 'object' && error_.response !== null) {
+      const response = error_.response as Record<string, unknown>;
+      const responseStatus = normaliseStatusCode(response.status);
+      if (responseStatus !== undefined) return responseStatus;
+    }
+
+    // Nested error.status / error.code
+    if (typeof error_.error === 'object' && error_.error !== null) {
+      const nestedError = error_.error as Record<string, unknown>;
+      const nestedStatus = normaliseStatusCode(nestedError.status);
+      if (nestedStatus !== undefined) return nestedStatus;
+      const nestedCode = normaliseStatusCode(nestedError.code);
+      if (nestedCode !== undefined) return nestedCode;
+    }
+
+    return undefined;
+  },
+
+  hasStringStatus: (error: unknown, value: string): boolean => {
+    if (typeof error !== 'object' || error === null) return false;
+    const error_ = error as Record<string, unknown>;
+    const lowerValue = value.toLowerCase();
+
+    const check = (v: unknown): boolean =>
+      typeof v === 'string' && v.toLowerCase() === lowerValue;
+
+    if (check(error_.status)) return true;
+    if (check(error_.code)) return true;
+
+    if (typeof error_.error === 'object' && error_.error !== null) {
+      const nestedError = error_.error as Record<string, unknown>;
+      if (check(nestedError.status)) return true;
+      if (check(nestedError.code)) return true;
+    }
+
+    return false;
+  },
+
+  networkPattern:
+    /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i,
+};
 
 /**
  * A service for interacting with the Google Gemini LLM via the maintained
@@ -41,15 +109,6 @@ export class GeminiService extends LLMService {
   private readonly geminiLogger = new Logger(GeminiService.name);
 
   protected readonly providerName = 'gemini';
-
-  private static readonly CONTENT_FILTERED_PATTERN = /safety|blocked|filter/i;
-  private static readonly CONTEXT_LENGTH_PATTERN = /context[ _]?length/i;
-  private static readonly NETWORK_PATTERN =
-    /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i;
-  private static readonly RESOURCE_EXHAUSTED_PATTERN =
-    /resource[ _]?exhausted|quota (exceeded|exhausted|has been exhausted)/i;
-  private static readonly RATE_LIMIT_PATTERN =
-    /rate[ _]?limit|too many requests/i;
 
   constructor(
     configService: ConfigService,
@@ -130,255 +189,14 @@ export class GeminiService extends LLMService {
    * 9. `undefined` — none of the above match.
    */
   protected mapError(error: unknown): LlmError | undefined {
-    // Non-object and falsy inputs (null, undefined, string, number) → undefined
-    if (!error || typeof error !== 'object') {
-      return undefined;
-    }
-
-    const statusCode = this.extractStatusCode(error);
-    const message = this.extractMessage(error);
-
-    // 1. ResourceExhaustedError
-    if (this.isResourceExhausted(error, statusCode, message)) {
-      return this.buildError(ResourceExhaustedError, message, error);
-    }
-
-    // 2. RateLimitError — static client-facing message per the 4xx message
-    //    policy; raw upstream text is retained server-side in `originalError`.
-    if (this.isRateLimit(error, statusCode, message)) {
-      return this.buildError(
-        RateLimitError,
-        'The LLM provider rate limit was exceeded',
-        error,
-      );
-    }
-
-    // 3. AuthenticationError
-    if (statusCode === 401 || statusCode === 403) {
-      return this.buildError(
-        AuthenticationError,
-        'Authentication with the LLM provider failed',
-        error,
-      );
-    }
-
-    // 4. ContentFilteredError
-    if (
-      statusCode === 400 &&
-      GeminiService.CONTENT_FILTERED_PATTERN.test(message)
-    ) {
-      return this.buildError(
-        ContentFilteredError,
-        'Request blocked by provider safety filters',
-        error,
-      );
-    }
-
-    // 5. ContextLengthExceededError
-    if (
-      statusCode === 400 &&
-      GeminiService.CONTEXT_LENGTH_PATTERN.test(message)
-    ) {
-      return this.buildError(
-        ContextLengthExceededError,
-        'Input exceeds the model context window',
-        error,
-      );
-    }
-
-    // 6. InvalidRequestError (generic 400 or any other unrecognised 4xx)
-    if (statusCode !== undefined && statusCode >= 400 && statusCode < 500) {
-      return this.buildError(
-        InvalidRequestError,
-        'The request was rejected by the provider as invalid',
-        error,
-      );
-    }
-
-    // 7. ProviderServerError
-    if (statusCode !== undefined && statusCode >= 500) {
-      return this.buildError(ProviderServerError, message, error);
-    }
-
-    // 8. NetworkError — only when no extractable HTTP status. Matches both
-    //    `Error` instances and plain objects whose message matches a network
-    //    pattern (per the documented classification rules).
-    if (GeminiService.NETWORK_PATTERN.test(message)) {
-      return this.buildError(NetworkError, message, error);
-    }
-
-    // 9. Undefined (unclassifiable)
-    return undefined;
+    return classifyLlmError(GEMINI_PROBES, error);
   }
 
-  /**
-   * Checks whether the error matches a `ResourceExhaustedError` pattern.
-   * @param error - The raw error from `_sendInternal`.
-   * @param statusCode - The extracted numeric status code, if any.
-   * @param message - The error message string.
-   * @returns `true` if the error matches the resource-exhausted classification.
-   */
-  private isResourceExhausted(
-    error: unknown,
-    statusCode: number | undefined,
-    message: string,
-  ): boolean {
-    return (
-      this.hasStringStatus(error, 'resource_exhausted') ||
-      (statusCode === 429 &&
-        GeminiService.RESOURCE_EXHAUSTED_PATTERN.test(message))
-    );
-  }
-
-  /**
-   * Checks whether the error matches a `RateLimitError` pattern.
-   * @param error - The raw error from `_sendInternal`.
-   * @param statusCode - The extracted numeric status code, if any.
-   * @param message - The error message string.
-   * @returns `true` if the error matches the rate-limit classification.
-   */
-  private isRateLimit(
-    error: unknown,
-    statusCode: number | undefined,
-    message: string,
-  ): boolean {
-    return (
-      this.hasStringStatus(error, 'rate_limit_exceeded') ||
-      this.hasStringStatus(error, '429') ||
-      statusCode === 429 ||
-      GeminiService.RATE_LIMIT_PATTERN.test(message)
-    );
-  }
-
-  /**
-   * Constructs an `LlmError` instance with `this.providerName`.
-   * @param ErrorClass - The LlmError subclass constructor.
-   * @param message - The error message.
-   * @param error - The original error (narrowed to `Error` for `originalError`
-   *   when applicable).
-   * @returns A new `LlmError` instance of the given class.
-   */
-  /**
-   * Extracts a usable message string from a raw error.
-   *
-   * Reads `error.message` for `Error` instances and for plain objects that carry
-   * a string `message` property (some SDKs emit plain-object error shapes
-   * rather than `Error` subclasses). Falls back to `'Unknown error'` when no
-   * message is available.
-   * @param error - The raw error from `_sendInternal`.
-   * @returns The extracted message string.
-   */
-  private extractMessage(error: unknown): string {
-    if (isErrorObject(error)) {
-      return error.message;
-    }
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'message' in error &&
-      typeof (error as Record<string, unknown>).message === 'string'
-    ) {
-      return (error as Record<string, unknown>).message as string;
-    }
-    return 'Unknown error';
-  }
-
-  private buildError<T extends LlmError>(
-    ErrorClass: new (
-      message: string,
-      providerName: string,
-      options?: { originalError?: Error; cause?: Error },
-    ) => T,
-    message: string,
-    error: unknown,
-  ): T {
-    const originalError = isErrorObject(error) ? error : undefined;
-    return new ErrorClass(message, this.providerName, { originalError });
-  }
-
-  /**
-   * Extracts a numeric HTTP status code from various Gemini SDK error shapes.
-   * @param error - The error object to inspect.
-   * @returns The numeric status code, or `undefined` if none found.
-   * @remarks Recognised shapes: `error.status`, `error.statusCode`,
-   *   `error.code` (direct numeric or string-coercible),
-   *   `error.response.status`, `error.error.status`, `error.error.code`.
-   *   String values like `'429'` are coerced to numbers.
-   */
-  private extractStatusCode(error: unknown): number | undefined {
-    if (typeof error !== 'object' || error === null) return undefined;
-    const error_ = error as Record<string, unknown>;
-
-    // Direct numeric or string-coercible properties
-    const directStatus = this.normaliseStatusCode(error_.status);
-    if (directStatus !== undefined) return directStatus;
-    const directStatusCode = this.normaliseStatusCode(error_.statusCode);
-    if (directStatusCode !== undefined) return directStatusCode;
-    const directCode = this.normaliseStatusCode(error_.code);
-    if (directCode !== undefined) return directCode;
-
-    // Nested response.status
-    if (typeof error_.response === 'object' && error_.response !== null) {
-      const response = error_.response as Record<string, unknown>;
-      const responseStatus = this.normaliseStatusCode(response.status);
-      if (responseStatus !== undefined) return responseStatus;
-    }
-
-    // Nested error.status / error.code
-    if (typeof error_.error === 'object' && error_.error !== null) {
-      const nestedError = error_.error as Record<string, unknown>;
-      const nestedStatus = this.normaliseStatusCode(nestedError.status);
-      if (nestedStatus !== undefined) return nestedStatus;
-      const nestedCode = this.normaliseStatusCode(nestedError.code);
-      if (nestedCode !== undefined) return nestedCode;
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Coerces a raw value to a numeric status code if possible.
-   * @param value - The raw value (number or string-coercible).
-   * @returns The numeric status code, or `undefined` if the value is neither a
-   *   number nor a string-coercible number.
-   */
-  private normaliseStatusCode(value: unknown): number | undefined {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const n = Number(value);
-      if (!Number.isNaN(n)) return n;
-    }
-    return undefined;
-  }
-
-  /**
-   * Checks whether an error object has a specific string status or code value
-   * (case-insensitive) at the top level or nested under `error`.
-   * @param error - The error object to inspect.
-   * @param value - The value to search for (case-insensitive).
-   * @returns `true` if any of `error.status`, `error.code`,
-   *   `error.error.status`, or `error.error.code` match `value`
-   *   case-insensitively.
-   */
-  private hasStringStatus(error: unknown, value: string): boolean {
-    if (typeof error !== 'object' || error === null) return false;
-    const error_ = error as Record<string, unknown>;
-    const lowerValue = value.toLowerCase();
-
-    const check = (v: unknown): boolean =>
-      typeof v === 'string' && v.toLowerCase() === lowerValue;
-
-    if (check(error_.status)) return true;
-    if (check(error_.code)) return true;
-
-    if (typeof error_.error === 'object' && error_.error !== null) {
-      const nestedError = error_.error as Record<string, unknown>;
-      if (check(nestedError.status)) return true;
-      if (check(nestedError.code)) return true;
-    }
-
-    return false;
-  }
+  // The private helpers `isResourceExhausted`, `isRateLimit`, `extractMessage`,
+  // `buildError`, `extractStatusCode`, `normaliseStatusCode`, and
+  // `hasStringStatus` have been extracted into the shared `classifyLlmError`
+  // helper in `llm-error-mapper.ts`. See `GEMINI_PROBES` above for the
+  // Gemini-specific probe configuration.
 
   private isImagePromptPayload(
     payload: LlmPayload,
@@ -393,20 +211,49 @@ export class GeminiService extends LLMService {
   }
 
   private buildModelParams(payload: LlmPayload): GeminiRequest {
-    const modelName = this.isImagePromptPayload(payload)
-      ? 'gemini-2.5-flash'
-      : 'gemini-2.5-flash-lite';
+    // Use payload.model if present; otherwise fall back to the current
+    // hardcoded selection based on payload type.
+    const modelName =
+      payload.model ??
+      (this.isImagePromptPayload(payload)
+        ? 'gemini-2.5-flash'
+        : 'gemini-2.5-flash-lite');
 
     const systemInstruction = payload.system;
     const temperature =
       typeof payload.temperature === 'number' ? payload.temperature : 0;
 
+    // Map abstract reasoning-effort level to Gemini's thinkingBudget.
+    // See `mapThinkingBudget` for the mapping and v1-limitation note.
+    const thinkingBudget = this.mapThinkingBudget(payload.reasoningEffort);
+
     const config: GenerateContentConfig = {
       systemInstruction,
       temperature,
-      thinkingConfig: { thinkingBudget: 0 },
+      thinkingConfig: { thinkingBudget },
     };
     return { model: modelName, config };
+  }
+
+  /**
+   * Maps an abstract reasoning-effort level to a Gemini thinking budget.
+   *
+   * Note: `'off'` and `'low'` both map to 0, making them indistinguishable at
+   * the request level. This is a known v1 limitation — Gemini has no native
+   * low-effort equivalent, so `'low'` deliberately preserves the existing
+   * default (0).
+   * @param effort - The abstract reasoning-effort level (or undefined).
+   * @returns The Gemini thinking budget in tokens.
+   */
+  private mapThinkingBudget(effort: string | undefined): number {
+    switch (effort) {
+      case 'high':
+        return 1024;
+      case 'max':
+        return 8192;
+      default:
+        return 0;
+    }
   }
 
   private buildContents(payload: LlmPayload): (string | Part)[] {

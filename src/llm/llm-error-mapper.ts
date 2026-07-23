@@ -64,6 +64,25 @@ export interface LlmErrorMapperProbes {
 }
 
 // ---------------------------------------------------------------------------
+// Shared status-code normalisation utility
+// ---------------------------------------------------------------------------
+
+/**
+ * Coerces a raw value to a numeric status code if possible.
+ * @param value - The raw value (number or string-coercible).
+ * @returns The numeric status code, or `undefined` if the value is neither a
+ *   number nor a string-coercible number.
+ */
+export function normaliseStatusCode(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const n = Number(value);
+    if (!Number.isNaN(n)) return n;
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Module-level pattern constants (extracted from GeminiService)
 // ---------------------------------------------------------------------------
 

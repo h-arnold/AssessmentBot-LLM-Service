@@ -166,6 +166,177 @@ describe('GeminiService', () => {
     });
   });
 
+  describe('optional model and reasoningEffort payload fields', () => {
+    it('should use payload.model override for text payloads', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        model: 'gemini-2.5-flash',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should default to gemini-2.5-flash-lite when payload.model is absent (regression)', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload = createStringPayload('test prompt');
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should use payload.model override for image payloads', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        ...createImagePayload(),
+        model: 'gemini-2.0-flash',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.0-flash',
+        contents: [
+          { inlineData: { mimeType: 'image/png', data: 'test-data' } },
+        ],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 3);
+    });
+
+    it('should map reasoningEffort "off" to thinkingBudget 0', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'off',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "low" to thinkingBudget 0', async () => {
+      // Note: 'low' maps to 0, deliberately indistinguishable from 'off' at
+      // the request level. This is a known v1 limitation — the router
+      // correctly passes the abstract level 'low'; the 0-mapping is
+      // GeminiService's responsibility because Gemini has no native
+      // low-effort equivalent.
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'low',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "high" to thinkingBudget 1024', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'high',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 1024 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "max" to thinkingBudget 8192', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'max',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 8192 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should default thinkingBudget to 0 when reasoningEffort is absent (regression)', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload = createStringPayload('test prompt');
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+  });
+
   describe('error handling', () => {
     it('should throw an error if the SDK fails', async () => {
       mockGenerateContent.mockRejectedValue(new Error('SDK Error'));

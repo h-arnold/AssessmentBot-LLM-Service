@@ -566,8 +566,8 @@ Code Reviewer mandatory docs:
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer)_
-- **Deviations from plan:** _(filled if any)_
+- **Implementation notes:** TDD red → green. RED: 8 new tests added to `gemini.service.spec.ts` ("optional model and reasoningEffort payload fields" block) — 4 red (text/image model override, high→1024, max→8192), 4 green-by-coincidence regressions (defaults; off/low→0). GREEN: `buildModelParams` reads `payload.model ?? <hardcoded default>` and `mapThinkingBudget(payload.reasoningEffort)` (off/low→0 with a documented v1-limitation comment, high→1024, max→8192, absent→0). `mapError()` is now a one-line delegation to `classifyLlmError(GEMINI_PROBES, error)`; the six private helpers and five pattern constants were deleted from `GeminiService`. The Section 4 reviewer's `normaliseStatusCode` duplication was resolved by exporting it from `llm-error-mapper.ts` and importing it in both providers' probe configs (behaviour-preserving). Existing `mapError` describe block passed UNCHANGED (behaviour-preserving refactor confirmed). Gemini suite 63/63; `src/llm/` 166/166; full suite 440/440; build/lint/lint:british clean. Code review: PASS (cosmetic describe re-indent applied post-review).
+- **Deviations from plan:** `normaliseStatusCode` shared probe utility exported from `llm-error-mapper.ts` and consumed by both providers — a minor sanctioned extension beyond the strict Section 6 text, resolving the Section 4 review's DRY finding.
 - **Follow-up implications:** None — GeminiService is now compatible with the routing layer and shares its error-mapping cascade with MistralService.
 
 ---

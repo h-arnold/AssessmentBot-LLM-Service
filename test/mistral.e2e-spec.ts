@@ -1,50 +1,27 @@
-import * as fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { getCurrentDirname } from 'src/common/file-utilities';
 import request from 'supertest';
 
 import {
-  startApp,
-  stopApp,
   AppInstance,
   delay,
+  startApp,
+  stopApp,
 } from './utils/app-lifecycle.js';
 
-// Helper function to load a file and convert it to a data URI
-const loadFileAsDataURI = async (filePath: string): Promise<string> => {
-  const fileBuffer = await fs.readFile(filePath);
-  const mimeType =
-    path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
-};
-
-interface TaskData {
-  taskType: string;
-  referenceTask: string;
-  emptyTask: string;
-  studentTask: string;
-}
-
-describe('AssessorController (e2e)', () => {
+describe('MistralAssessor (e2e)', () => {
   let app: AppInstance;
   const logFilePath = path.join(
     getCurrentDirname(),
     'logs',
-    'assessor.e2e-spec.log',
+    'mistral.e2e-spec.log',
   );
-
-  let textTask: TaskData = {
-    taskType: 'TEXT',
-    referenceTask: '',
-    emptyTask: '',
-    studentTask: '',
-  };
 
   beforeAll(async () => {
     app = await startApp(logFilePath, {
-      DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
-      DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash',
+      DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
+      DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
     });
   });
 
@@ -56,7 +33,12 @@ describe('AssessorController (e2e)', () => {
     it('/v1/assessor (POST) should return 401 Unauthorised when no API key is provided', async () => {
       const response = await request(app.appUrl)
         .post('/v1/assessor')
-        .send(textTask)
+        .send({
+          taskType: 'TEXT',
+          reference: 'test',
+          template: 'test',
+          studentResponse: 'test',
+        })
         .expect(401);
       expect(response.body.message).toBe('Unauthorized');
     });
@@ -65,13 +47,23 @@ describe('AssessorController (e2e)', () => {
       const response = await request(app.appUrl)
         .post('/v1/assessor')
         .set('Authorization', 'Bearer invalid-key')
-        .send(textTask)
+        .send({
+          taskType: 'TEXT',
+          reference: 'test',
+          template: 'test',
+          studentResponse: 'test',
+        })
         .expect(401);
       expect(response.body.message).toBe('Invalid API key');
     });
 
     it('/v1/assessor (POST) should return 400 Bad Request for invalid DTO', async () => {
-      const invalidPayload = { ...textTask, taskType: 'INVALID' };
+      const invalidPayload = {
+        taskType: 'INVALID',
+        reference: 'test',
+        template: 'test',
+        studentResponse: 'test',
+      };
       const response = await request(app.appUrl)
         .post('/v1/assessor')
         .set('Authorization', `Bearer ${app.apiKey}`)
@@ -100,5 +92,9 @@ describe('AssessorController (e2e)', () => {
     expect(response.body).toHaveProperty('completeness');
     expect(response.body).toHaveProperty('accuracy');
     expect(response.body).toHaveProperty('spag');
+    // Assert that the Mistral mock path was exercised
+    expect(response.body.completeness.reasoning).toContain('Mistral mocked');
+    expect(response.body.accuracy.reasoning).toContain('Mistral mocked');
+    expect(response.body.spag.reasoning).toContain('Mistral mocked');
   });
 });

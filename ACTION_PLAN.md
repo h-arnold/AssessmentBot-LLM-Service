@@ -204,8 +204,8 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer)_
-- **Deviations from plan:** _(filled if any)_
+- **Implementation notes:** TDD red → green. RED: `src/llm/model-registry.spec.ts` created with 16 behaviour-focused tests (all required cases plus `SUPPORTED_MODELS` structure checks, case-sensitivity, and longer-prefix-variant matching); failed with `ERR_MODULE_NOT_FOUND`. GREEN: `src/llm/model-registry.ts` created exactly per SPEC — `ProviderId`, `ModelEntry`, ordered readonly `SUPPORTED_MODELS` (2 Gemini + 3 Mistral prefixes), `resolveProvider()` (case-sensitive first-match `startsWith`, descriptive error listing supported prefixes), `validateModelName()` (delegates to `resolveProvider`, KISS/DRY). No project imports (no circular deps). All 16 tests green; `src/llm/` suite 93/93; build/lint/lint:british clean. Code review: PASS (nitpicks only, no action required).
+- **Deviations from plan:** None.
 - **Follow-up implications:** `RoutingLLMService` (Section 5) depends on `validateModelName()` and `resolveProvider()`.
 
 ---

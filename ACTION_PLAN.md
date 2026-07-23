@@ -792,9 +792,20 @@ Run all validation commands. Document any test failures and their resolution. In
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer; include the Section 7 audit site list with ticks, and the Section 9 evidence that `vitest.config.ts` `e2e-live` runs both live files)_
-- **Deviations from plan:** _(filled if any)_
-- **Follow-up implications:** Section 11 (documentation) is the final pass.
+- **Implementation notes:**
+  - **Section 7 audit — `ConfigService`/env mock sites ticked:** Two `LlmModule`-consuming unit-test sites exist, both audited and confirmed to supply a non-empty `MISTRAL_API_KEY` and the four new model/effort vars where the router/provider constructors read them:
+    1. `src/llm/llm.module.spec.ts` — `defaults` object (lines 14–29) supplies `MISTRAL_API_KEY: 'dummy-key-for-testing'`, `DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite'`, `DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash'`, `TEXT_REASONING_EFFORT: 'low'`, `IMAGE_REASONING_EFFORT: 'high'`. This covers all four `TestingModule`/`overrideProvider(ConfigService)` instances in the file (lines 57, 81, 109, 135). ✅
+    2. `src/v1/assessor/assessor.service.spec.ts` — `getMockEnvironmentValue` (lines 37–78+) returns `MISTRAL_API_KEY: process.env.MISTRAL_API_KEY ?? 'test-key'`, and `DEFAULT_TEXT_TABLE_MODEL`/`DEFAULT_IMAGE_MODEL`/`TEXT_REASONING_EFFORT`/`IMAGE_REASONING_EFFORT` (lines 70–78). The router's `send`-time reads of the four model/effort vars are therefore non-empty whenever the real `RoutingLLMService` is exercised; in the assessor unit tests the `LLM_SERVICE_TOKEN` is overridden by a mock, so the router's `send` is not invoked, but the values are present regardless. ✅
+       No other `LlmModule` import sites were found (grep for `LlmModule` across `*.spec.ts` returned only these two files). The `test/utils/app-lifecycle.ts` `defaultTestValues` already carries `MISTRAL_API_KEY: 'dummy-key-for-testing'` (Section 7), covering the E2E child-process environment.
+  - **Full regression evidence (this section's section checks):**
+    - `npm test` → **456 passed (54 files)**. No regressions in any Gemini/Mistral/Router/error-mapper unit spec.
+    - `npm run test:e2e` (mocked, `E2E_MOCK_LLM=true`) → **8 files, 53 passed + 1 todo**. Includes the Gemini-pinned `assessor.e2e-spec.ts` and the new `mistral.e2e-spec.ts`; both pass. The single "todo" is a pre-existing skipped assertion, not a failure. The one logged `App process exited early` line is the deliberate negative test in `start-app.e2e-spec.ts` (`rejects when the test entrypoint exits immediately`) — expected.
+    - `npm run test:e2e:live` → **NOT executed**: requires live `GEMINI_API_KEY` + `MISTRAL_API_KEY` in `.test.env` and network egress, unavailable in this environment. The `vitest.config.ts` `e2e-live` `include` is the explicit two-element array (Section 9) so both live files WILL run when the suite is executed in a keyed environment. CI/reviewer follow-up: run live before merge.
+  - **Section 9 evidence:** `vitest.config.ts` `e2e-live` `include` = `['test/assessor-live.e2e-spec.ts','test/mistral-live.e2e-spec.ts']`; `npm run build` + `npm run lint` + `npm run lint:british` all clean.
+  - **Shared error-mapper adoption (criterion 10):** Verified. Neither `GeminiService` nor `MistralService` re-implements the orchestration helpers (`extractStatusCode`/`hasStringStatus`/`isResourceExhausted`/`isRateLimit`/`buildError`/`extractMessage`). Those live only in `src/llm/llm-error-mapper.ts`. The grep matches in the provider files are _provider-specific probe functions_ (e.g. `gemini.service.ts:46`, `mistral.service.ts:56`) that are passed **into** `classifyLlmError(...)` — exactly the documented Section 3/4/6 design (the shared helper does the classification; providers supply only their SDK-specific probes). `mapError()` on both providers delegates to `classifyLlmError` with those probes.
+  - Quality gates: `npm run lint` (0 errors/0 warnings), `npm run lint:british` (verified), `npm run build` (successful) — all green.
+- **Deviations from plan:** None material. The `assessor-live.e2e-spec.ts` Gemini pin was applied in Section 8 rather than Section 9 (see Section 8 notes) — earlier, not different.
+- **Follow-up implications:** Section 11 (documentation) is the final pass. Live E2E (criterion 3) remains a manual/CI gate requiring API keys.
 
 ---
 

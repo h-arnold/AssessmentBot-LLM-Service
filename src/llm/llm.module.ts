@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { GeminiService } from './gemini.service.js';
-import { LLMService } from './llm.service.interface.js';
+import { LLM_SERVICE_TOKEN } from './llm.service.interface.js';
 import { CommonModule } from '../common/common.module.js';
 import { ConfigModule } from '../config/config.module.js';
 
@@ -17,21 +17,22 @@ import { ConfigModule } from '../config/config.module.js';
  *
  * **providers:**
  * - `GeminiService`: A service implementation for LLM-related operations.
- * - `{ provide: LLMService, useClass: GeminiService }`: Maps the `LLMService` token
- *   to the `GeminiService` implementation for dependency injection.
+ * - `{ provide: LLM_SERVICE_TOKEN, useClass: GeminiService }`: Maps the string token
+ *   `LLM_SERVICE_TOKEN` to `GeminiService`. This is temporary — it will be replaced
+ *   by the routing dispatcher in a later change.
  *
  * **exports:**
- * - `LLMService`: Makes the `LLMService` available for other modules.
+ * - `LLM_SERVICE_TOKEN`: Makes the string token available for other modules.
  */
 @Module({
   imports: [ConfigModule, CommonModule],
   providers: [
     GeminiService,
     {
-      provide: LLMService,
+      provide: LLM_SERVICE_TOKEN,
       useClass: GeminiService,
     },
   ],
-  exports: [LLMService],
+  exports: [LLM_SERVICE_TOKEN],
 })
 export class LlmModule {}

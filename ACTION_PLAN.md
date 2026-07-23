@@ -150,8 +150,8 @@ For each section below:
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _(filled by implementer)_
-- **Deviations from plan:** _(filled if any)_
+- **Implementation notes:** Completed via TDD (red → green → review). RED: `assessor.service.spec.ts` and `llm.module.spec.ts` updated to the new `ILlmService`/`LLM_SERVICE_TOKEN` symbols (5 failing tests, all due to the missing symbols). GREEN: `llm.service.interface.ts` gained `ReasoningEffort`, `ILlmService`, `LLM_SERVICE_TOKEN = 'LLM_SERVICE'`, optional `model`/`reasoningEffort` payload fields, and `LLMService implements ILlmService`; `llm.module.ts` rewired to `{ provide: LLM_SERVICE_TOKEN, useClass: GeminiService }` (legacy `LLMService` class-token provider/export removed); `assessor.service.ts` injects `@Inject(LLM_SERVICE_TOKEN) llmService: ILlmService` (type-only import for `ILlmService` due to `isolatedModules` + decorator metadata). All section checks pass: unit suite green (50 files / 346 tests), build, lint, lint:british clean. Code review: PASS (no critical/improvement findings).
+- **Deviations from plan:** None.
 - **Follow-up implications:** The temporary `LLM_SERVICE_TOKEN → GeminiService` mapping is replaced in Section 5 when `RoutingLLMService` is introduced. Section 5 includes explicit steps to update `assessor.service.spec.ts` and `llm.module.spec.ts` to match the new wiring. The Section 1 test overrides are not expected to survive Section 5 unchanged.
 
 ---

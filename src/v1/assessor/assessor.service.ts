@@ -1,7 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { CreateAssessorDto } from './dto/create-assessor.dto.js';
-import { LLMService, LlmPayload } from '../../llm/llm.service.interface.js';
+import type { ILlmService } from '../../llm/llm.service.interface.js';
+import {
+  LLM_SERVICE_TOKEN,
+  LlmPayload,
+} from '../../llm/llm.service.interface.js';
 import { LlmResponse } from '../../llm/types.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
 
@@ -17,13 +21,13 @@ export class AssessorService {
   private readonly logger = new Logger(AssessorService.name);
   /**
    * Constructs an instance of AssessorService.
-   * @param {LLMService} llmService - The service responsible for interacting
+   * @param {ILlmService} llmService - The service responsible for interacting
    *   with the LLM.
    * @param {PromptFactory} promptFactory - The factory responsible for
    *   generating prompts for the LLM.
    */
   constructor(
-    private readonly llmService: LLMService,
+    @Inject(LLM_SERVICE_TOKEN) private readonly llmService: ILlmService,
     private readonly promptFactory: PromptFactory,
   ) {}
 

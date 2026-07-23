@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
 
 import { LlmModule } from './llm.module.js';
-import { LLMService } from './llm.service.interface.js';
+import { LLM_SERVICE_TOKEN } from './llm.service.interface.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigModule } from '../config/config.module.js';
 import { ConfigService } from '../config/config.service.js';
@@ -90,7 +90,7 @@ describe('LlmModule', () => {
       .compile();
     const configService = module.get(ConfigService);
     expect(configService).toBeDefined();
-    const llmService = module.get(LLMService);
+    const llmService = module.get(LLM_SERVICE_TOKEN);
     expect(llmService).toBeDefined();
   });
 });

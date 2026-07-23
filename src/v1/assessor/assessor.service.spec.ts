@@ -8,7 +8,10 @@ import { JsonParserUtility } from '../../common/json-parser.utility.js';
 import { ConfigModule, ConfigService } from '../../config/index.js';
 import { GeminiService } from '../../llm/gemini.service.js';
 import { LlmModule } from '../../llm/llm.module.js';
-import { LLMService } from '../../llm/llm.service.interface.js';
+import {
+  ILlmService,
+  LLM_SERVICE_TOKEN,
+} from '../../llm/llm.service.interface.js';
 import { LlmResponse } from '../../llm/types.js';
 import { Prompt } from '../../prompt/prompt.base.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
@@ -68,7 +71,7 @@ const getMockEnvironmentValue = (key: string): string | string[] => {
 
 describe('AssessorService', () => {
   let service: AssessorService;
-  let llmService: LLMService;
+  let llmService: ILlmService;
   let promptFactory: PromptFactory;
   let mockLlmService: { send: Mock<(input: unknown) => Promise<LlmResponse>> };
   let mockPromptFactory: {
@@ -117,7 +120,7 @@ describe('AssessorService', () => {
         { provide: ConfigService, useValue: mockConfigService },
       ],
     })
-      .overrideProvider(LLMService)
+      .overrideProvider(LLM_SERVICE_TOKEN)
       .useValue(mockLlmService)
       .overrideProvider(PromptFactory)
       .useValue(mockPromptFactory)
@@ -128,7 +131,7 @@ describe('AssessorService', () => {
       .compile();
 
     service = module.get<AssessorService>(AssessorService);
-    llmService = module.get<LLMService>(LLMService);
+    llmService = module.get<ILlmService>(LLM_SERVICE_TOKEN);
     promptFactory = module.get<PromptFactory>(PromptFactory);
   });
 

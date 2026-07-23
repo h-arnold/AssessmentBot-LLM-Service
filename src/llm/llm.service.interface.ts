@@ -9,6 +9,27 @@ import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
 /**
+ * Abstract reasoning-effort level. Each provider maps these to its native parameter.
+ * - 'off':  No reasoning — fastest, deterministic.
+ * - 'low':  Minimal reasoning.
+ * - 'high': Significant reasoning.
+ * - 'max':  Maximum reasoning (may be expensive/slow).
+ */
+export type ReasoningEffort = 'off' | 'low' | 'high' | 'max';
+
+/**
+ * Shared contract for any service capable of sending prompts to an LLM.
+ * Implemented by both the abstract {@link LLMService} provider base class
+ * and the {@link RoutingLLMService} dispatcher.
+ */
+export interface ILlmService {
+  send(payload: LlmPayload): Promise<LlmResponse>;
+}
+
+/** String token for injecting the LLM service dispatcher. */
+export const LLM_SERVICE_TOKEN = 'LLM_SERVICE';
+
+/**
  * Represents the payload for a simple text-based prompt.
  */
 export type StringPromptPayload = {
@@ -18,6 +39,10 @@ export type StringPromptPayload = {
   user: string;
   /** Optional temperature for sampling (default: 0). */
   temperature?: number;
+  /** Optional model override; provider falls back to its own default if absent. */
+  model?: string;
+  /** Optional reasoning-effort level; provider maps to its native parameter. */
+  reasoningEffort?: ReasoningEffort;
 };
 
 /**
@@ -30,6 +55,10 @@ export type ImagePromptPayload = {
   images: Array<{ mimeType: string; data?: string }>;
   /** Optional temperature for sampling (default: 0). */
   temperature?: number;
+  /** Optional model override; provider falls back to its own default if absent. */
+  model?: string;
+  /** Optional reasoning-effort level; provider maps to its native parameter. */
+  reasoningEffort?: ReasoningEffort;
 };
 
 /**
@@ -45,7 +74,7 @@ export type LlmPayload = ImagePromptPayload | StringPromptPayload;
  * `_sendInternal` and `mapError`.
  */
 @Injectable()
-export abstract class LLMService {
+export abstract class LLMService implements ILlmService {
   protected readonly logger = new Logger(LLMService.name);
 
   constructor(protected readonly configService: ConfigService) {}

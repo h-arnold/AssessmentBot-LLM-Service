@@ -318,17 +318,19 @@ export class MistralService extends LLMService {
     }
     if (Array.isArray(rawContent)) {
       // Safely concatenate text chunks from the ContentChunk array
-      return rawContent
-        .filter(
-          (chunk) =>
-            typeof chunk === 'object' &&
-            chunk != null &&
-            'type' in chunk &&
-            (chunk as Record<string, unknown>).type === 'text' &&
-            typeof (chunk as Record<string, unknown>).text === 'string',
-        )
-        .map((chunk) => (chunk as Record<string, unknown>).text as string)
-        .join('');
+      let result = '';
+      for (const chunk of rawContent) {
+        if (
+          typeof chunk === 'object' &&
+          chunk != null &&
+          'type' in chunk &&
+          (chunk as Record<string, unknown>).type === 'text' &&
+          typeof (chunk as Record<string, unknown>).text === 'string'
+        ) {
+          result += (chunk as Record<string, unknown>).text;
+        }
+      }
+      return result;
     }
     return '';
   }

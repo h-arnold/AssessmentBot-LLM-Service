@@ -122,8 +122,8 @@ export abstract class LLMService implements ILlmService {
    * - The `originalError` property on the resulting `LlmError` stores only `Error`
    *   instances (per product decision #12). Non-`Error` originals produce
    *   `originalError: undefined` with the message `"LLM service error: Unknown error"`.
-   * @param {LlmPayload} payload The content to be sent to the LLM.
-   * @returns {Promise<LlmResponse>} A Promise that resolves to a validated
+   * @param payload The content to be sent to the LLM.
+   * @returns A Promise that resolves to a validated
    *   LlmResponse object.
    * @throws {LlmError} Various `LlmError` subclasses depending on the error
    *   condition.
@@ -261,9 +261,9 @@ export abstract class LLMService implements ILlmService {
    *
    * This method should not include retry logic, as that is handled by the base
    * class.
-   * @param {LlmPayload} payload The LlmPayload to be sent to the specific LLM
+   * @param payload The LlmPayload to be sent to the specific LLM
    *   provider.
-   * @returns {Promise<LlmResponse>} A Promise that resolves to a validated
+   * @returns A Promise that resolves to a validated
    *   LlmResponse object.
    */
   protected abstract _sendInternal(payload: LlmPayload): Promise<LlmResponse>;

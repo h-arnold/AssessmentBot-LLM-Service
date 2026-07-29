@@ -6,6 +6,18 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ApiKeyService } from './api-key.service.js';
 import { ConfigService, Config } from '../config/config.service.js';
 
+/**
+ * Logger narrowed to the mock shape returned by {@link configureMockLogger},
+ * exposing `mock` on each method for assertions.
+ */
+type MockLogger = {
+  log: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  debug: ReturnType<typeof vi.fn>;
+  verbose: ReturnType<typeof vi.fn>;
+};
+
 const PREFIX = 'abt_';
 
 // Generate two valid configured keys deterministically at module scope.
@@ -86,7 +98,7 @@ function configureMockLogger(): {
 
 describe('ApiKeyService', () => {
   let service: ApiKeyService;
-  let logger: Logger;
+  let logger: MockLogger;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -104,7 +116,7 @@ describe('ApiKeyService', () => {
     }).compile();
 
     service = module.get<ApiKeyService>(ApiKeyService);
-    logger = module.get<Logger>(Logger);
+    logger = module.get<Logger>(Logger) as unknown as MockLogger;
   });
 
   // ---- 1. Accept valid prefixed configured key ----
@@ -253,7 +265,7 @@ describe('ApiKeyService', () => {
       }).compile();
 
       service = module.get<ApiKeyService>(ApiKeyService);
-      logger = module.get<Logger>(Logger);
+      logger = module.get<Logger>(Logger) as unknown as MockLogger;
     });
 
     it('should warn when no API keys are configured', () => {

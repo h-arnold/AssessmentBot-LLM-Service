@@ -10,21 +10,7 @@ import {
   AppInstance,
   delay,
 } from './utils/app-lifecycle.js';
-
-// Helper function to load a file and convert it to a data URI
-const loadFileAsDataURI = async (filePath: string): Promise<string> => {
-  const fileBuffer = await fs.readFile(filePath);
-  const mimeType =
-    path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
-};
-
-interface TaskData {
-  taskType: string;
-  referenceTask: string;
-  emptyTask: string;
-  studentTask: string;
-}
+import { loadFileAsDataURI, TaskData } from './utils/e2e-helpers.js';
 
 describe('AssessorController (e2e-live-mistral)', () => {
   let app: AppInstance;
@@ -85,8 +71,8 @@ describe('AssessorController (e2e-live-mistral)', () => {
     const response = await request(app.appUrl)
       .post('/v1/assessor')
       .set('Authorization', `Bearer ${app.apiKey}`)
-      .send(mappedPayload)
-      .expect(201);
+      .send(mappedPayload);
+    expect(response.status).toBe(201);
 
     expect(response.body).toBeDefined();
     expect(response.body).toHaveProperty('completeness');
@@ -108,8 +94,8 @@ describe('AssessorController (e2e-live-mistral)', () => {
     const response = await request(app.appUrl)
       .post('/v1/assessor')
       .set('Authorization', `Bearer ${app.apiKey}`)
-      .send(mappedPayload)
-      .expect(201);
+      .send(mappedPayload);
+    expect(response.status).toBe(201);
 
     expect(response.body).toBeDefined();
     expect(response.body).toHaveProperty('completeness');
@@ -131,8 +117,8 @@ describe('AssessorController (e2e-live-mistral)', () => {
     const response = await request(app.appUrl)
       .post('/v1/assessor')
       .set('Authorization', `Bearer ${app.apiKey}`)
-      .send(imagePayload)
-      .expect(201);
+      .send(imagePayload);
+    expect(response.status).toBe(201);
 
     expect(response.body).toBeDefined();
     expect(response.body).toHaveProperty('completeness');

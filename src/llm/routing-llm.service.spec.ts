@@ -55,6 +55,25 @@ const createMockGemini = (): MockProvider => ({ send: vi.fn() });
 
 const createMockMistral = (): MockProvider => ({ send: vi.fn() });
 
+/**
+ * Factory that creates a RoutingLLMService with typed mocks, centralising
+ * the triple `as unknown as XYZService` casts in one place.
+ * @param config  - Mock config (defaults to a config with valid models).
+ * @param gemini  - Mock Gemini provider (defaults to a fresh mock).
+ * @param mistral - Mock Mistral provider (defaults to a fresh mock).
+ * @returns A RoutingLLMService backed by the supplied mocks.
+ */
+const createRoutingService = (
+  config: MockConfigService = createMockConfig(),
+  gemini: MockProvider = createMockGemini(),
+  mistral: MockProvider = createMockMistral(),
+): RoutingLLMService =>
+  new RoutingLLMService(
+    config as unknown as ConfigService,
+    gemini as unknown as GeminiService,
+    mistral as unknown as MistralService,
+  );
+
 describe('RoutingLLMService', () => {
   describe('constructor validation', () => {
     it('throws when DEFAULT_TEXT_TABLE_MODEL is unrecognised; message contains the model name and supported prefixes', () => {
@@ -62,36 +81,17 @@ describe('RoutingLLMService', () => {
         DEFAULT_TEXT_TABLE_MODEL: 'gpt-4o',
       });
 
-      expect(
-        () =>
-          new RoutingLLMService(
-            mockConfig as unknown as ConfigService,
-            createMockGemini() as unknown as GeminiService,
-            createMockMistral() as unknown as MistralService,
-          ),
-      ).toThrow(/gpt-4o/);
+      expect(() => createRoutingService(mockConfig)).toThrow(/gpt-4o/);
 
-      expect(
-        () =>
-          new RoutingLLMService(
-            mockConfig as unknown as ConfigService,
-            createMockGemini() as unknown as GeminiService,
-            createMockMistral() as unknown as MistralService,
-          ),
-      ).toThrow(SUPPORTED_MODELS[0].prefix);
+      expect(() => createRoutingService(mockConfig)).toThrow(
+        SUPPORTED_MODELS[0].prefix,
+      );
     });
 
     it('throws when DEFAULT_IMAGE_MODEL is unrecognised', () => {
       const mockConfig = createMockConfig({ DEFAULT_IMAGE_MODEL: 'claude-3' });
 
-      expect(
-        () =>
-          new RoutingLLMService(
-            mockConfig as unknown as ConfigService,
-            createMockGemini() as unknown as GeminiService,
-            createMockMistral() as unknown as MistralService,
-          ),
-      ).toThrow(/claude-3/);
+      expect(() => createRoutingService(mockConfig)).toThrow(/claude-3/);
     });
 
     it('throws a single aggregated error mentioning both names when both models are unrecognised', () => {
@@ -102,11 +102,7 @@ describe('RoutingLLMService', () => {
 
       let error: Error | undefined;
       try {
-        new RoutingLLMService(
-          mockConfig as unknown as ConfigService,
-          createMockGemini() as unknown as GeminiService,
-          createMockMistral() as unknown as MistralService,
-        );
+        createRoutingService(mockConfig);
       } catch (error_) {
         error = error_ as Error;
       }
@@ -118,42 +114,33 @@ describe('RoutingLLMService', () => {
 
     it('does not throw when both models are valid, regardless of provider combination', () => {
       // Gemini for text, Gemini for image
-      expect(
-        () =>
-          new RoutingLLMService(
-            createMockConfig({
-              DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
-              DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash',
-            }) as unknown as ConfigService,
-            createMockGemini() as unknown as GeminiService,
-            createMockMistral() as unknown as MistralService,
-          ),
+      expect(() =>
+        createRoutingService(
+          createMockConfig({
+            DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+            DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash',
+          }),
+        ),
       ).not.toThrow();
 
       // Mistral for text, Mistral for image
-      expect(
-        () =>
-          new RoutingLLMService(
-            createMockConfig({
-              DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
-              DEFAULT_IMAGE_MODEL: 'pixtral-12b',
-            }) as unknown as ConfigService,
-            createMockGemini() as unknown as GeminiService,
-            createMockMistral() as unknown as MistralService,
-          ),
+      expect(() =>
+        createRoutingService(
+          createMockConfig({
+            DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
+            DEFAULT_IMAGE_MODEL: 'pixtral-12b',
+          }),
+        ),
       ).not.toThrow();
 
       // Gemini for text, Mistral for image (mixed)
-      expect(
-        () =>
-          new RoutingLLMService(
-            createMockConfig({
-              DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
-              DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
-            }) as unknown as ConfigService,
-            createMockGemini() as unknown as GeminiService,
-            createMockMistral() as unknown as MistralService,
-          ),
+      expect(() =>
+        createRoutingService(
+          createMockConfig({
+            DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+            DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
+          }),
+        ),
       ).not.toThrow();
     });
   });
@@ -173,11 +160,7 @@ describe('RoutingLLMService', () => {
       });
       mockGemini.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({ system: 's', user: 'u' });
 
@@ -191,11 +174,7 @@ describe('RoutingLLMService', () => {
       });
       mockMistral.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({ system: 's', user: 'u' });
 
@@ -209,11 +188,7 @@ describe('RoutingLLMService', () => {
       });
       mockGemini.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({
         system: 's',
@@ -230,11 +205,7 @@ describe('RoutingLLMService', () => {
       });
       mockMistral.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({
         system: 's',
@@ -253,11 +224,7 @@ describe('RoutingLLMService', () => {
       mockGemini.send.mockResolvedValue(createMockLlmResponse());
       mockMistral.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({ system: 's1', user: 'u1' });
       expect(mockGemini.send).toHaveBeenCalledTimes(1);
@@ -276,11 +243,7 @@ describe('RoutingLLMService', () => {
       });
       mockGemini.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({ system: 's', user: 'u' });
 
@@ -297,10 +260,10 @@ describe('RoutingLLMService', () => {
       mockMistral.send.mockResolvedValue(createMockLlmResponse());
 
       // Text payload should carry TEXT_REASONING_EFFORT
-      const serviceText = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
+      const serviceText = createRoutingService(
+        mockConfig,
+        mockGemini,
+        mockMistral,
       );
       await serviceText.send({ system: 's', user: 'u' });
 
@@ -313,10 +276,10 @@ describe('RoutingLLMService', () => {
         TEXT_REASONING_EFFORT: 'max',
         IMAGE_REASONING_EFFORT: 'off',
       });
-      const serviceImage = new RoutingLLMService(
-        configImage as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
+      const serviceImage = createRoutingService(
+        configImage,
+        mockGemini,
+        mockMistral,
       );
       await serviceImage.send({
         system: 's',
@@ -333,11 +296,7 @@ describe('RoutingLLMService', () => {
       });
       mockGemini.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({
         system: 's',
@@ -354,11 +313,7 @@ describe('RoutingLLMService', () => {
       const mockConfig = createMockConfig({ TEXT_REASONING_EFFORT: 'high' });
       mockGemini.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       await service.send({
         system: 's',
@@ -376,11 +331,7 @@ describe('RoutingLLMService', () => {
       const expected = createMockLlmResponse();
       mockGemini.send.mockResolvedValue(expected);
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       const result = await service.send({ system: 's', user: 'u' });
 
@@ -394,11 +345,7 @@ describe('RoutingLLMService', () => {
       });
       mockGemini.send.mockResolvedValue(createMockLlmResponse());
 
-      const service = new RoutingLLMService(
-        mockConfig as unknown as ConfigService,
-        mockGemini as unknown as GeminiService,
-        mockMistral as unknown as MistralService,
-      );
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
 
       const original: LlmPayload = {
         system: 's',

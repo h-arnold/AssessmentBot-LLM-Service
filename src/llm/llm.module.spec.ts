@@ -50,52 +50,41 @@ const mockJsonParserUtility = {
   }),
 };
 
+/**
+ * Creates and compiles a NestJS TestingModule with LlmModule imported,
+ * using the module-level mockConfigService and mockJsonParserUtility.
+ * @returns A compiled TestingModule instance.
+ */
+const buildModule = async (): Promise<TestingModule> =>
+  Test.createTestingModule({
+    imports: [
+      LlmModule,
+      LoggerModule.forRootAsync({
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => ({
+          pinoHttp: {
+            level: configService.get('LOG_LEVEL'),
+          },
+        }),
+      }),
+    ],
+    providers: [Logger],
+  })
+    .overrideProvider(ConfigService)
+    .useValue(mockConfigService)
+    .overrideProvider(JsonParserUtility)
+    .useValue(mockJsonParserUtility)
+    .compile();
+
 describe('LlmModule', () => {
   it('should compile the module', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        LlmModule,
-        LoggerModule.forRootAsync({
-          imports: [ConfigModule],
-          inject: [ConfigService],
-          useFactory: (configService: ConfigService) => ({
-            pinoHttp: {
-              level: configService.get('LOG_LEVEL'),
-            },
-          }),
-        }),
-      ],
-      providers: [Logger],
-    })
-      .overrideProvider(ConfigService)
-      .useValue(mockConfigService)
-      .overrideProvider(JsonParserUtility)
-      .useValue(mockJsonParserUtility)
-      .compile();
+    const module: TestingModule = await buildModule();
     expect(module).toBeDefined();
   });
 
   it('should provide the LLMService (RoutingLLMService)', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        LlmModule,
-        LoggerModule.forRootAsync({
-          imports: [ConfigModule],
-          inject: [ConfigService],
-          useFactory: (configService: ConfigService) => ({
-            pinoHttp: {
-              level: configService.get('LOG_LEVEL'),
-            },
-          }),
-        }),
-      ],
-      providers: [Logger],
-    })
-      .overrideProvider(ConfigService)
-      .useValue(mockConfigService)
-      .overrideProvider(JsonParserUtility)
-      .useValue(mockJsonParserUtility)
-      .compile();
+    const module: TestingModule = await buildModule();
     const configService = module.get(ConfigService);
     expect(configService).toBeDefined();
     const llmService = module.get(LLM_SERVICE_TOKEN);
@@ -104,52 +93,14 @@ describe('LlmModule', () => {
   });
 
   it('should provide GeminiService', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        LlmModule,
-        LoggerModule.forRootAsync({
-          imports: [ConfigModule],
-          inject: [ConfigService],
-          useFactory: (configService: ConfigService) => ({
-            pinoHttp: {
-              level: configService.get('LOG_LEVEL'),
-            },
-          }),
-        }),
-      ],
-      providers: [Logger],
-    })
-      .overrideProvider(ConfigService)
-      .useValue(mockConfigService)
-      .overrideProvider(JsonParserUtility)
-      .useValue(mockJsonParserUtility)
-      .compile();
+    const module: TestingModule = await buildModule();
     const geminiService = module.get(GeminiService);
     expect(geminiService).toBeDefined();
     expect(geminiService).toBeInstanceOf(GeminiService);
   });
 
   it('should provide MistralService', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        LlmModule,
-        LoggerModule.forRootAsync({
-          imports: [ConfigModule],
-          inject: [ConfigService],
-          useFactory: (configService: ConfigService) => ({
-            pinoHttp: {
-              level: configService.get('LOG_LEVEL'),
-            },
-          }),
-        }),
-      ],
-      providers: [Logger],
-    })
-      .overrideProvider(ConfigService)
-      .useValue(mockConfigService)
-      .overrideProvider(JsonParserUtility)
-      .useValue(mockJsonParserUtility)
-      .compile();
+    const module: TestingModule = await buildModule();
     const mistralService = module.get(MistralService);
     expect(mistralService).toBeDefined();
     expect(mistralService).toBeInstanceOf(MistralService);

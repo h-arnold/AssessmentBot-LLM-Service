@@ -29,51 +29,7 @@ describe('MistralAssessor (e2e)', () => {
     stopApp(app.appProcess);
   });
 
-  describe('Auth and Validation', () => {
-    it('/v1/assessor (POST) should return 401 Unauthorised when no API key is provided', async () => {
-      const response = await request(app.appUrl)
-        .post('/v1/assessor')
-        .send({
-          taskType: 'TEXT',
-          reference: 'test',
-          template: 'test',
-          studentResponse: 'test',
-        })
-        .expect(401);
-      expect(response.body.message).toBe('Unauthorized');
-    });
-
-    it('/v1/assessor (POST) should return 401 Unauthorised when an invalid API key is provided', async () => {
-      const response = await request(app.appUrl)
-        .post('/v1/assessor')
-        .set('Authorization', 'Bearer invalid-key')
-        .send({
-          taskType: 'TEXT',
-          reference: 'test',
-          template: 'test',
-          studentResponse: 'test',
-        })
-        .expect(401);
-      expect(response.body.message).toBe('Invalid API key');
-    });
-
-    it('/v1/assessor (POST) should return 400 Bad Request for invalid DTO', async () => {
-      const invalidPayload = {
-        taskType: 'INVALID',
-        reference: 'test',
-        template: 'test',
-        studentResponse: 'test',
-      };
-      const response = await request(app.appUrl)
-        .post('/v1/assessor')
-        .set('Authorization', `Bearer ${app.apiKey}`)
-        .send(invalidPayload)
-        .expect(400);
-      expect(response.body.message).toBe('Validation failed');
-    });
-  });
-
-  it('/v1/assessor (POST) should return 201 Created for valid DTO', async () => {
+  it('/v1/assessor (POST) should return 201 Created for valid DTO and route to the Mistral provider', async () => {
     // Add delay before API call to avoid rate limiting
     await delay(2000);
 

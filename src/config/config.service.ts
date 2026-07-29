@@ -14,7 +14,7 @@ export type { Config } from './environment.schema.js';
  * @description
  * This service is the single source of truth for all **runtime** environment configuration in the application.
  * It is responsible for loading environment variables from `.env` files and `process.env`, validating them against
- * the centralized `configSchema`, and making them available to the rest of the application through a clean, injectable service.
+ * the centralised `configSchema`, and making them available to the rest of the application through a clean, injectable service.
  * @remarks
  * **Architectural Reasoning:**
  * - **Centralisation:** All configuration access is channelled through this service, preventing configuration sprawl
@@ -53,7 +53,7 @@ export class ConfigService {
       loadedEnvironment = dotenv.parse(fs.readFileSync(environmentFilePath));
     }
 
-    // Merge loaded .env variables with process.env, prioritizing process.env
+    // Merge loaded .env variables with process.env, prioritising process.env
     const combinedEnvironment = { ...loadedEnvironment, ...process.env };
 
     // Validate environment variables against the schema

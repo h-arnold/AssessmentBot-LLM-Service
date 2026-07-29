@@ -29,6 +29,11 @@ AMERICAN_WORDS=(
   "sanitize"
   "catalog"
   "gray"
+  "serialized"
+  "capitalized"
+  "organization"
+  "optimization"
+  "artifact"
 )
 
 # Corresponding British spellings
@@ -54,6 +59,11 @@ BRITISH_WORDS=(
   "sanitise"
   "catalogue"
   "grey"
+  "serialised"
+  "capitalised"
+  "organisation"
+  "optimisation"
+  "artefact"
 )
 
 # Build regex pattern with word boundaries
@@ -96,7 +106,7 @@ else
   FOUND_ISSUES=false
   for file in "$@"; do
     # Only check TypeScript and JavaScript files
-    if [[ "$file" == *.ts || "$file" == *.js ]]; then
+    if [[ "$file" == *.ts || "$file" == *.js || "$file" == *.mjs || "$file" == *.md || "$file" == *.env* ]]; then
       if [ -f "$file" ] && grep -E "($PATTERN)" "$file"; then
         FOUND_ISSUES=true
       fi

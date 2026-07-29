@@ -106,7 +106,8 @@
   "lint-staged": {
     "*.ts": "eslint --fix",
     "*.{js,ts,json,md}": "prettier --write",
-    "*.{ts,js}": "./scripts/check-british-english.sh"
+    "*.{ts,js,mjs,md}": "./scripts/check-british-english.sh",
+    "*.env*": "./scripts/check-british-english.sh"
   },
   "repository": {
     "type": "git",

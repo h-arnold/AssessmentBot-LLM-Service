@@ -4,7 +4,7 @@ This document provides instructions for running tests against a production-like 
 
 ## Overview
 
-Production image tests are a special category of end-to-end (E2E) tests that validate the final artifact our CI/CD pipeline produces. Unlike standard E2E tests that run against a development server, these tests build and run a production Docker container using `Docker/Dockerfile.prod`.
+Production image tests are a special category of end-to-end (E2E) tests that validate the final artefact our CI/CD pipeline produces. Unlike standard E2E tests that run against a development server, these tests build and run a production Docker container using `Docker/Dockerfile.prod`.
 
 The primary goals of these tests are to:
 

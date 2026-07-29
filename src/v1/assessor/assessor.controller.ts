@@ -55,7 +55,7 @@ export class AssessorController {
    *
    * This endpoint serves as the primary entry point for assessment requests.
    * It performs comprehensive validation including schema validation via Zod
-   * and specialized image validation for IMAGE task types. The method then
+   * and specialised image validation for IMAGE task types. The method then
    * delegates to the AssessorService to orchestrate the assessment process.
    *
    * **Image Task Validation:**

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    ".opencode/plugins/task-files.ts"
+  ],
+  "lsp": true,
+  "small_model": "opencode/north-mini-code-free",
+  "agent": {
+    "explore": {
+      "model": "opencode/north-mini-code-free"
+    },
+    "code-reviewer": {
+      "description": "Reviews code for quality, standards adherence, and defects",
+      "mode": "subagent",
+      "reasoningEffort": "high"
+    }
+  }
+}

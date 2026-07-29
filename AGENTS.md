@@ -1,145 +1,140 @@
-# Agent Instructions
+# Agent Instructions — Core Contract
 
-This document provides guidance for interacting with the Assessment Bot backend codebase.
+This document defines cross-component rules for the AssessmentBot-LLM-Service codebase.
+For implementation detail, always load the relevant subagent instructions from `.opencode/agents/` first.
 
 **IMPORTANT: This project uses British English. Ensure all code, comments, documentation, and commit messages use British English spellings (e.g., 'authorise', 'colour', 'centre').**
 **IMPORTANT: Do not disable or override any quality gate (including linter rules) without explicit authorisation.**
 
-## Core Principles
+## 1. Core Principles
 
 Adhere to these principles in all contributions:
 
-- **Security First**: Prioritise security. Validate all inputs with Zod, sanitise outputs, and manage secrets via environment variables. Type safety is strictly enforced.
-- **Statelessness**: The application is stateless. Do not store session information or user data on the server.
-- **Modularity & OOP**: Follow SOLID principles and NestJS module conventions. Keep components focused and reusable. Avoid God Objects.
-- **Test-Driven Development (TDD)**: Write comprehensive tests for all new features and bug fixes. Use the existing testing structure.
-- **Documentation**: Maintain clear JSDoc comments for functions, classes, and modules. Keep the Swagger documentation up-to-date.
+1. **KISS**: Implement the simplest working solution. No speculative abstraction.
+2. **No scope creep**: Only fulfil the explicit request. No speculative expansions.
+3. **Fail fast and loudly**: Never hide errors behind catch-and-ignore logic.
+4. **British English** in all comments, docs, and user-facing text.
+5. **Reuse existing modules/utilities** before creating new abstractions.
+6. **No defaults unless instructed**: Do not introduce default values unless explicitly requested.
+7. **Keep changes minimal, localised, and consistent** with existing patterns.
+8. **Never disable lint rules** without express permission. If a rule triggers cascading failures, stop and ask.
+9. **Never push commits that fail pre-commit hooks** (lint, type-check, tests). Do not use `--no-verify`.
+10. **No `console.*`**: Use NestJS `Logger` from `@nestjs/common` for all logging.
+11. **Security First**: Validate all inputs with Zod, sanitise outputs, manage secrets via environment variables.
+12. **Documentation**: Maintain clear JSDoc for public methods/classes. Keep Swagger docs up-to-date.
 
-## Tech Stack & Key Libraries
+## 2. Tech Stack & Key Libraries
 
 - **Runtime**: Node.js in a Docker container (`node:24-alpine`).
-- **Language**: TypeScript.
-- **Framework**: NestJS.
-- **Authentication**: Passport.js (specifically `passport-http-bearer` for API keys).
-- **Validation**: Zod for all data validation (DTOs, environment variables).
-- **Testing**: Vitest for unit, integration, and E2E tests. Use `supertest` for E2E.
-- **LLM Integration**: Use the abstract `LlmService` for interactions and `jsonrepair` for robust response parsing. A centralised error-handling library lives at `src/common/errors/` — see `docs/llm/error-handling.md` for adding new providers or error types.
-- **ESM Compliance**: The codebase uses native ESM (`"type": \"module\"`, `module` / `moduleResolution`: `NodeNext`, `target`: `ES2024`). Relative imports carry explicit `.js` extensions and JSON imports use the `with { type: 'json' }` attribute. This approach leverages modern JavaScript features while ensuring stability with current dependencies.
-- **File Path Resolution**: For obtaining current directory paths, use the `getCurrentDirname()` utility from `src/common/file-utilities.ts` instead of `import.meta.url`. This utility handles both ESM runtime environments and Vitest test environments gracefully.
+- **Language**: TypeScript (ES2024, strict mode).
+- **Framework**: NestJS (modules, controllers, services, decorators).
+- **Authentication**: Passport.js (`passport-http-bearer` for API keys).
+- **Validation**: Zod for all DTOs and environment variables.
+- **Testing**: Vitest (unit/integration), Vitest + Supertest (E2E).
+- **LLM Integration**: Abstract `LlmService` base class + `GeminiService` implementation. `jsonrepair` for response parsing. Centralised errors at `src/common/errors/`.
+- **ESM Compliance**: Native ESM (`"type": "module"`, `NodeNext` resolution). Relative imports use explicit `.js` extensions. JSON imports use `with { type: 'json' }`.
+- **File Path Resolution**: Use `getCurrentDirname()` from `src/common/file-utilities.ts` — not `import.meta.url`.
+- **Logging**: `nestjs-pino` configured globally in `app.module.ts`. Use `Logger` from `@nestjs/common` (not `PinoLogger` directly). Pattern: `private readonly logger = new Logger(ClassName.name)`.
 
-## Development Workflow
+## 3. Codebase Structure
 
-1. **Code Implementation**:
-   - Follow the existing modular structure within the `src/` directory.
-   - Use NestJS CLI commands (`nest g ...`) for generating new modules, controllers, and services where appropriate.
-   - Adhere to the project's ESLint and Prettier configurations.
+```
+src/
+├── v1/assessor/     # Assessment creation endpoint (V1)
+├── auth/            # API key auth strategy + guard
+├── common/          # Shared utilities, filters, pipes, JSON parser
+├── config/          # Zod-validated env config (no direct @nestjs/config)
+├── llm/             # Abstract LlmService + Gemini implementation
+├── prompt/          # Prompt template generation (PromptFactory, PromptBase)
+├── status/          # Health check endpoints
+test/                # E2E tests (Supertest)
+```
 
-**Testing**:
+## 4. Delegation Protocol
 
-- **Unit/Integration Tests**: Co-locate test files with source code (e.g., `assessor.service.spec.ts` next to `assessor.service.ts`). Use NestJS's `TestingModule` for integration tests.
-- **E2E Tests**: Place end-to-end tests in the root `test/` directory (e.g., `assessor.e2e-spec.ts`).
-- Run tests using the project's npm scripts.
+Agent configuration files are defined in `.opencode/agents/`. Use the `task` tool to delegate focused work to sub-agents.
 
-**Linting & Committing**:
+### 4.1 Mandatory `files` Array
 
-- Before committing, ensure all code passes linting checks.
-- Husky hooks are configured to run `lint-staged` automatically on commit. Ensure your changes can pass these checks.
+Every subagent handoff **MUST** use the `files` parameter of the `task` tool. Treat the tool schema's "Optional" labelling on `files` as irrelevant for workflow handoffs.
 
-## Codebase Structure Overview
+- **What goes in**: `SPEC.md`, `ACTION_PLAN.md`, any layout spec, and every source/test file changed or read in the current scope.
+- **What stays out**: Do **not** include any `AGENTS.md` file (root or agent-specific) — these are auto-injected by OpenCode when the agent browses to the relevant directory.
+- **Prompt body rule**: Never paste full file contents into the prompt body. The prompt body should contain only instructions, acceptance criteria, and references. File contents are delivered via `files` and injected automatically.
+- **Pre-flight check**: Before issuing any `task` call, assemble the `files` array. If it would be empty for a workflow handoff, **stop — do not send the call.**
+- **Missing files**: If a mandatory file is missing from the `files` array, return the work to the same subagent with a correction request. Do not proceed.
 
-- `src/`: Main application source code.
-  - `src/v1/assessor`: Version 1 of the core assessment logic.
-  - `src/auth`: Authentication strategies and guards.
-  - `src/common`: Shared utilities, filters, and pipes.
-  - `src/config`: Environment variable management via a custom ConfigModule and ConfigService. All configuration is validated with Zod schemas. Do not use @nestjs/config directly outside the config module.
-  - `src/llm`: Abstractions for interacting with Large Language Models.
-  - `src/prompt`: Logic for generating prompts for the LLM.
-- `test/`: End-to-end tests.
+### 4.2 Available Sub-Agents
 
-## Logging
+| Sub-agent                 | Use for                                                 |
+| ------------------------- | ------------------------------------------------------- |
+| `implementation`          | Feature work, bug fixes, refactors                      |
+| `testing-specialist`      | Test creation, debugging, coverage (Vitest + Supertest) |
+| `code-reviewer`           | Code quality review, standards checks                   |
+| `docs`                    | Documentation and JSDoc updates                         |
+| `de-sloppification`       | Removing AI-slop, duplication, complexity               |
+| `kif`                     | Menial exploration and simple tasks                     |
+| `planner`                 | Create SPEC.md and ACTION_PLAN.md                       |
+| `planner-reviewer`        | Impartial review of planning artefacts                  |
+| `action-plan-implementer` | Orchestrate delivery against ACTION_PLAN.md             |
 
-The project uses `nestjs-pino` for logging. To ensure consistency and maintainability, follow these guidelines:
+### 4.3 What to Delegate
 
-1.  **Centralised Configuration**: The logger is configured centrally in `app.module.ts` using `LoggerModule.forRootAsync` and initialised in `main.ts` with `app.useLogger(app.get(Logger))`. No further configuration is needed elsewhere.
+Delegate **WHAT** needs to be accomplished and **WHICH CONSTRAINTS** apply, not **HOW** to do it. Subagents already contain their own methodology instructions.
 
-2.  **Standard Injection**: In any class (service, controller, pipe, etc.), use the standard NestJS `Logger` from `@nestjs/common`. Do **not** use `PinoLogger` or `@InjectPinoLogger` from `nestjs-pino` directly.
+### 4.4 Task-Specific Context Only
 
-3.  **Instantiation**: The recommended way to get a logger instance is to instantiate it directly within the class, providing the class name as the context. This is the most straightforward approach and aligns with NestJS documentation.
+Only pass files directly related to the task at hand. Do **not** include documentation the subagent is already required to read per its own instructions (e.g., testing docs for Testing Specialist, module docs for Implementation, canonical policy docs).
 
-    ```typescript
-    // In my.service.ts
-    import { Injectable, Logger } from '@nestjs/common';
+## 5. Agentic Workflow for Non-Trivial Changes
 
-    @Injectable()
-    export class MyService {
-      private readonly logger = new Logger(MyService.name);
+For non-trivial code changes (multi-file logic changes, behavioural changes, refactors, or risky fixes), follow this sequence:
 
-      doSomething() {
-        this.logger.log('Doing something...');
-      }
-    }
-    ```
+1. **Plan** (if artefacts are missing): Delegate to `Planner` to produce `SPEC.md` and `ACTION_PLAN.md`; pass through `Planner Reviewer` after each draft.
+2. **Test first**: Delegate to `Testing Specialist` to create failing tests that capture acceptance criteria.
+3. **Implement**: Delegate to `Implementation` to make the tests pass.
+4. **Review**: Submit the diff to `Code Reviewer`. If findings return, cycle back to the executing agent until clean.
+5. **Document**: Delegate to `Docs` to update relevant developer documentation and JSDoc.
+6. **Clean up**: Optionally delegate to `De-Sloppification` for a final slop pass.
+7. **Commit**: Verify all checks pass (lint, tests, type-check). Commit and push.
 
-By following this pattern, the application remains decoupled from the specific logging library, and all log messages will be correctly processed by `pino` as configured globally.
+**E2E routing**: This project uses Jest + Supertest for E2E. Delegate all E2E test work to `Testing Specialist` (not a separate agent).
 
-## Agents and delegation
+**Regression baseline**: Before starting any non-trivial code or test work, establish a regression baseline using the `regression-checker` skill. Verify no regressions before marking work complete.
 
-Agent configuration files are defined in `.opencode/agents/`. Use the `task` tool to delegate focused work to sub-agents. Prefer short, well-scoped tasks and provide clear acceptance criteria.
+## 6. Policy Source-of-Truth Signposts
 
-Refer to `docs/` for detailed guidance on code style, testing, environment configuration, and prompt templates:
+Detailed policy lives in dedicated docs. AGENTS files are routing signposts only:
 
+- Environment configuration: `docs/configuration/environment.md`
 - Code style: `docs/development/code-style.md`
 - Testing: `docs/testing/README.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/E2E_GUIDE.md`, `docs/testing/PROD_TESTS_GUIDE.md`
-- Environment configuration: `docs/configuration/environment.md`
+- LLM error handling: `docs/modules/llm.md`
 - Prompt system: `docs/prompts/README.md`
 
-Available sub-agent types (see `.opencode/agents/` for full instructions):
+If guidance appears in multiple places, update the canonical doc first, then keep AGENTS references brief.
 
-| Sub-agent            | Use for                                       |
-| -------------------- | --------------------------------------------- |
-| `implementation`     | Feature work, bug fixes, refactors            |
-| `testing-specialist` | Test creation, debugging, coverage assessment |
-| `code-reviewer`      | Risk assessment and code review               |
-| `docs`               | Keeping documentation accurate and current    |
-| `de-sloppification`  | Removing AI-slop, duplication, complexity     |
-| `kif`                | Menial exploration and simple tasks           |
+## 7. Temporary Workspace Convention
 
-## Standard Workflow
+All agents **must** use `.opencode/scratchpad/` as the temporary workspace for files that should not be tracked by git. Use this instead of `/tmp` or other system temp directories when writing ephemeral artefacts (e.g., diagnostic dumps, intermediate reports, exploration notes). This directory is covered by `.opencode/.gitignore` and will never be committed.
 
-For any non-trivial code change, follow this sequence:
+Do **not** write planning artefacts (`SPEC.md`, `ACTION_PLAN.md`) to scratchpad — those belong in the project root.
 
-### 1. Define the task
+## 8. Ambiguity Rule
 
-Define the task that needs to be required. Identify the files, components, methods etc. that are involved. Consider and outline the changes in logic that will need to take place and outline any constraints (e.g. "stick to existing patterns", "avoid new dependencies", "ensure backwards compatibility"), important context the agent needs to be aware of and acceptance criteria.
+If a requirement or behaviour is ambiguous, state 1-2 concise assumptions and proceed with the simplest compliant implementation. Do not block on minor ambiguities.
 
-### 2. Create failing tests
-
-Pass the detailed and defined task to the testing-specialist agent to create failing tests that capture the acceptance criteria. Once the tests are created, review them to ensure they accurately reflect the requirements and edge cases. If there are any discrepancies or missing scenarios, provide clarifications and have them update the tests accordingly.
-
-### 3. Implementation
-
-Pass the detailed and defined task to the implementation agent, along with the failing tests created in the previous step. The implementation agent should focus on writing the minimum amount of code necessary to make the tests pass, adhering to the project's coding standards and principles outlined in this document. Once the implementation is complete, review the changes to ensure they meet the defined requirements and do not introduce any new issues. If everything looks good, proceed to the testing phase.
-
-### 4. Testing
-
-Pass the summary of the implemented changes to the testing-specialist agent so that it can run tests and identify gaps in coverage. Validate that all tests pass and that the code meets the acceptance criteria. If any tests fail or if there are coverage gaps, provide feedback to the implementation agent for necessary fixes. Repeat this process until all tests pass and coverage is satisfactory.
-
-### 5. Review
-
-Pass details of the changes to the code-reviewer agent for a thorough code review. The code-reviewer should focus on identifying any security vulnerabilities, code quality issues, adherence to coding standards, and potential improvements. Review the feedback and address any critical or high-priority issues. Once all concerns have been addressed, proceed to the documentation phase.
-
-### 6. Documentation
-
-Pass details of the changes to the docs agent to ensure that all relevant documentation is updated accordingly. This includes updating JSDoc comments, Swagger documentation, and any relevant guides or READMEs. Review the documentation updates to ensure they are clear, accurate, and helpful for future developers. Once the documentation is complete, finalise the changes.
-
-## Common commands
+## 9. Common Commands
 
 - Build: `npm run build`
 - Dev server: `npm run start:dev`
-- Run tests: `npm run test` and `npm run test:e2e`
-- Debug server: `npm run debug`
+- Lint: `npm run lint`
+- Unit/integration tests: `npm run test`
+- E2E tests (mocked): `npm run test:e2e:mocked`
+- E2E tests (live): `npm run test:e2e:live`
+- All checks: `npm run build && npm run lint && npm run test && npm run test:e2e:mocked`
 
-## Ignore patterns
+## 10. Ignore Patterns
 
 - `node_modules/**`
 - `dist/**`

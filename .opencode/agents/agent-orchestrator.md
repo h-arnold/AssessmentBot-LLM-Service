@@ -64,13 +64,12 @@ When delegating to subagents, specify **WHAT** needs to be accomplished and **WH
 
 Every subagent handoff **must** include:
 
-- `Mandatory Reading` section with explicit file paths (mandatory)
-- All mandatory documentation required by the subagent's own instructions
+- Mandatory files via the `files` parameter of the `task` tool — file contents are injected automatically into the subagent's prompt; do not rely on the subagent to read them itself
 - Constraints and scope boundaries
 - Exact requested outcome
 - Expected deliverables
 
-**Blocking rule**: If a handoff omits mandatory `Files read` evidence, return the work immediately to the same subagent with a correction request. Do not proceed.
+**Blocking rule**: If a handoff omits a mandatory file from the `files` array, return the work immediately to the same subagent with a correction request. Do not proceed.
 
 ### 3.3 Sub-Agent Delegation Constraints
 
@@ -84,31 +83,32 @@ Every subagent handoff **must** include:
 
 **Principle:** Only prompt subagents to read documentation directly related to the task at hand. Do **not** include documentation that the subagent is already required to read per its own instructions.
 
-**What to include in `Mandatory Reading`:**
+**What to include in the `files` array (task-specific context):**
 
-| Documentation Type                                             | Include? | Rationale                                        |
-| -------------------------------------------------------------- | -------- | ------------------------------------------------ |
-| Planning artefacts (SPEC.md, ACTION_PLAN.md, layout specs)     | ✅ Yes   | Task-specific, not in subagent's baseline        |
-| Changed source files                                           | ✅ Yes   | Task-specific context                            |
-| Nearby test files                                              | ✅ Yes   | Task-specific context                            |
-| Online/official docs (library docs)                            | ✅ Yes   | Task-specific reference                          |
-| Module AGENTS.md files                                         | ❌ No    | Already required by subagent's own instructions  |
-| Testing docs (docs/testing/README.md, PRACTICAL_GUIDE.md etc.) | ❌ No    | Already required by Testing Specialist           |
-| E2E testing guide (docs/testing/E2E_GUIDE.md)                  | ❌ No    | Already required by Testing Specialist           |
-| CONTRIBUTING.md, top-level AGENTS.md                           | ❌ No    | Already required by Implementation/Code Reviewer |
-| Canonical policy docs (logging, configuration, etc.)           | ❌ No    | Already required by relevant subagents           |
+| Documentation Type                                             | Mechanism      | Rationale                                        |
+| -------------------------------------------------------------- | -------------- | ------------------------------------------------ |
+| Planning artefacts (SPEC.md, ACTION_PLAN.md, layout specs)     | `files` array  | Task-specific, not in subagent's baseline        |
+| Changed source files                                           | `files` array  | Task-specific context                            |
+| Nearby test files                                              | `files` array  | Task-specific context                            |
+| Online/official docs (library docs)                            | Prompt text    | Task-specific reference; URLs cannot be injected |
+| Module AGENTS.md files                                         | ❌ Do not pass | Already required by subagent's own instructions  |
+| Testing docs (docs/testing/README.md, PRACTICAL_GUIDE.md etc.) | ❌ Do not pass | Already required by Testing Specialist           |
+| E2E testing guide (docs/testing/E2E_GUIDE.md)                  | ❌ Do not pass | Already required by Testing Specialist           |
+| CONTRIBUTING.md, top-level AGENTS.md                           | ❌ Do not pass | Already required by Implementation/Code Reviewer |
+| Canonical policy docs (logging, configuration, etc.)           | ❌ Do not pass | Already required by relevant subagents           |
 
 **Example delegations:**
 
 To Testing Specialist for a new endpoint:
 
 ```
-Mandatory reading:
-- SPEC.md (section 3.2 covers this feature)
-- ACTION_PLAN.md (section 4)
-- src/v1/assessor/assessor.controller.ts
-- src/v1/assessor/assessor.service.ts
-- src/v1/assessor/assessor.service.spec.ts
+files: [
+  "SPEC.md",
+  "ACTION_PLAN.md",
+  "src/v1/assessor/assessor.controller.ts",
+  "src/v1/assessor/assessor.service.ts",
+  "src/v1/assessor/assessor.service.spec.ts",
+]
 
 Testing Specialist, add tests for the new assessment validation endpoint.
 Follow idiomatic NestJS testing patterns with TestingModule.
@@ -117,11 +117,12 @@ Follow idiomatic NestJS testing patterns with TestingModule.
 To Implementation for a new service:
 
 ```
-Mandatory reading:
-- SPEC.md (section 2.1)
-- src/llm/llm.service.interface.ts
-- src/llm/gemini.service.ts
-- src/llm/gemini.service.spec.ts
+files: [
+  "SPEC.md",
+  "src/llm/llm.service.interface.ts",
+  "src/llm/gemini.service.ts",
+  "src/llm/gemini.service.spec.ts",
+]
 
 Implementation, add the new LLM response parser.
 Follow all applicable module standards and ensure all validation passes.
@@ -130,10 +131,11 @@ Follow all applicable module standards and ensure all validation passes.
 To Docs for a new feature:
 
 ```
-Mandatory reading:
-- SPEC.md (full document)
-- src/prompt/prompt.factory.ts
-- docs/modules/prompt.md (existing related doc)
+files: [
+  "SPEC.md",
+  "src/prompt/prompt.factory.ts",
+  "docs/modules/prompt.md",
+]
 
 Docs, document the new prompt factory in all relevant developer documentation.
 Ensure JSDoc accuracy.
@@ -155,7 +157,7 @@ Write your findings as a structured list to the scratchpad as `task-docs.md`. Re
 Include file paths and URLs only — no analysis or interpretation.
 ```
 
-Use the scratchpad file to populate the task-specific `Mandatory Reading` section for the primary agent delegation.
+Use the scratchpad file to populate the task-specific `files` array for the primary agent delegation.
 
 **When to use this:**
 
@@ -256,11 +258,11 @@ Process changes in logical units. For each unit, select the appropriate agent(s)
 
 ### 6.1 Context Discovery (Optional)
 
-For changes with unclear scope or dependencies, first use Kif to discover relevant documentation (see Section 4). Use the scratchpad output to build the task-specific `Mandatory reading` list.
+For changes with unclear scope or dependencies, first use Kif to discover relevant documentation (see Section 4). Use the scratchpad output to build the task-specific `files` array.
 
 ### 6.2 Task Execution Phase
 
-Delegate to the most appropriate agent with a **WHAT**-focused prompt and task-specific `Mandatory Reading`:
+Delegate to the most appropriate agent with a **WHAT**-focused prompt and task-specific files via the `files` parameter:
 
 - **For unit/integration tests**: "Testing Specialist, add tests for [behaviour]. Follow idiomatic testing patterns and meet coverage thresholds."
 - **For E2E tests**: "Testing Specialist, add E2E tests for [endpoint/flow]. Follow existing E2E patterns in `test/`."
@@ -377,7 +379,7 @@ When returning work to the user, always provide:
 - **Use Kif for context discovery** — to identify relevant docs and dependencies before delegation
 - **Use Kif efficiently** — for menial tasks only; do not use for reasoning-heavy work
 - **Write Kif findings to scratchpad** — for documentation discovery, not direct return
-- **Fail fast on missing evidence** — return work immediately when `Files read` is incomplete
+- **Fail fast on missing evidence** — return work immediately when mandatory files are missing from the `files` array
 - **Always establish regression baseline first** — before non-trivial code/test changes begin
 - **Always verify no regressions** — before marking non-trivial code/test changes complete
 - **Stay within scope** — no speculative expansions

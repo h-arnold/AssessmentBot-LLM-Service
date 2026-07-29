@@ -386,5 +386,37 @@ describe('RoutingLLMService', () => {
 
       expect(result).toBe(expected);
     });
+
+    it('does not mutate the caller-supplied payload object', async () => {
+      const mockConfig = createMockConfig({
+        DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+        TEXT_REASONING_EFFORT: 'high',
+      });
+      mockGemini.send.mockResolvedValue(createMockLlmResponse());
+
+      const service = new RoutingLLMService(
+        mockConfig as unknown as ConfigService,
+        mockGemini as unknown as GeminiService,
+        mockMistral as unknown as MistralService,
+      );
+
+      const original: LlmPayload = {
+        system: 's',
+        user: 'u',
+        model: 'caller-model',
+        reasoningEffort: 'off',
+      };
+
+      await service.send(original);
+
+      // The caller's object must be untouched — the router overwrites on a copy.
+      expect(original.model).toBe('caller-model');
+      expect(original.reasoningEffort).toBe('off');
+      // …while the provider received the authoritative server values.
+      const sent = mockGemini.send.mock.calls[0][0] as LlmPayload;
+      expect(sent).not.toBe(original);
+      expect(sent.model).toBe('gemini-2.5-flash-lite');
+      expect(sent.reasoningEffort).toBe('high');
+    });
   });
 });

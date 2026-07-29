@@ -4,12 +4,12 @@ The application uses environment variables for configuration. All variables are 
 
 Copy `.env.example` to `.env` and configure the following variables:
 
-## Required for Functionality
+## Required for Functionality (Conditional)
 
-These variables are essential for the application's core features to work.
+These variables are essential for the application's core features to work. Some are conditionally required based on the configured models.
 
-- `GEMINI_API_KEY`: The API key for the Google Gemini service. Required when any assessment is routed to a Gemini model (this is the default for the `gemini-2.5-flash-lite` / `gemini-2.5-flash` model ids). The application will not start without this key if a Gemini model is selected, because the `GeminiService` constructor fails fast when it is absent.
-- `MISTRAL_API_KEY`: The API key for the Mistral AI service. Required (non-empty) when any assessment is routed to a Mistral model (the `mistral-*` model ids, which are now the `DEFAULT_TEXT_TABLE_MODEL` / `DEFAULT_IMAGE_MODEL` defaults). The `MistralService` constructor fails fast when it is absent. The two providers are routed by model id, so **both** keys must be present in any deployment that permits either provider's models — they are independently validated and neither is a fallback for the other.
+- `GEMINI_API_KEY`: The API key for the Google Gemini service. Optional at the schema level but required (non-empty) when `DEFAULT_TEXT_TABLE_MODEL` or `DEFAULT_IMAGE_MODEL` routes to the Gemini provider. Empty or whitespace-only values are treated as unset. The Zod environment schema enforces this at startup, so a Mistral-only deployment may omit this key entirely.
+- `MISTRAL_API_KEY`: The API key for the Mistral AI service. Optional at the schema level but required (non-empty) when `DEFAULT_TEXT_TABLE_MODEL` or `DEFAULT_IMAGE_MODEL` routes to the Mistral provider. Empty or whitespace-only values are treated as unset. The Zod environment schema enforces this at startup, so a Gemini-only deployment may omit this key entirely.
 - `API_KEYS`: A comma-separated list of valid API keys for client authentication. Each key must match the required format: `<API_KEY_PREFIX>` followed by exactly 32 base64url characters (`[A-Za-z0-9_-]`). Example: `API_KEYS=abt_<32-char-base64url-body>`. Keys not matching this format will abort application startup via Zod config validation. Use `npm run generate:api-key` to mint correctly-formatted keys. While the application can start without any keys, no authenticated endpoints will be accessible.
 - `API_KEY_PREFIX`: Selects the required prefix for all API keys. Default is `abt_`. Must match `[A-Za-z0-9_-]+`. Only override this together with regenerated keys.
 
@@ -65,18 +65,18 @@ These variables have default values but can be customised to change application 
 
 ### LLM Configuration
 
+- `LOG_LLM_CONTENT`: When true, raw LLM prompt and response content (which may contain student-derived data) is included in debug logs. Default is `false` to avoid persisting personal data in default deployments.
 - `LLM_BACKOFF_BASE_MS`: Base backoff time in milliseconds for LLM rate limit retries. Default is `1000`.
 - `LLM_MAX_RETRIES`: Maximum number of retry attempts for LLM rate limit errors. Default is `3`.
-- `MISTRAL_API_KEY`: The API key for the Mistral AI service. Required (non-empty) when any assessment is routed to a Mistral model. Zod type: `z.string().min(1)`. No default — startup aborts if empty. See the "Required for Functionality" section above for the routing interaction with `GEMINI_API_KEY`.
 - `DEFAULT_TEXT_TABLE_MODEL`: The model id used for text and table assessment tasks. Zod type: `z.string()`. Default is `'mistral-small-latest'`. The model id's prefix selects the provider at send time (a `mistral-*` id routes to `MistralService`; a `gemini-*` id routes to `GeminiService`).
 - `DEFAULT_IMAGE_MODEL`: The model id used for image assessment tasks. Zod type: `z.string()`. Default is `'mistral-small-latest'`. Same prefix-based routing as `DEFAULT_TEXT_TABLE_MODEL`.
-- `TEXT_REASONING_EFFORT`: The abstract reasoning-effort level applied to text/table tasks. Zod type: `z.enum(['off', 'low', 'high', 'max'])`. Default is `'low'`. Mapped to the provider-native value at send time (Mistral: `off`/`low`→`none`, `high`/`max`→`high` — `mistral-small-latest` only accepts those two; Gemini: `off`/`low`→thinking budget `0` and `thinkingConfig` omitted, `high`→`1024`, `max`→`8192`).
+- `TEXT_REASONING_EFFORT`: The abstract reasoning-effort level applied to text/table tasks. Zod type: `z.enum(['off', 'low', 'high', 'max'])`. Default is `'low'`. Mapped to the provider-native value at send time (Mistral: `off`/`low`→`none`, `high`/`max`→`high` — `mistral-small-latest` only accepts those two; Gemini 2.5 series: `off`/`low`→thinking budget `0`, `high`→`1024`, `max`→`8192`; Gemini 3 series incl. `gemini-flash-latest`: `off`→`minimal`, `low`→`low`, `high`→`medium`, `max`→`high` thinking level, always sent explicitly because omission defaults the model to medium thinking).
 - `IMAGE_REASONING_EFFORT`: The abstract reasoning-effort level applied to image tasks. Zod type: `z.enum(['off', 'low', 'high', 'max'])`. Default is `'high'`. Same mapping as `TEXT_REASONING_EFFORT`.
 
 ### Example Configuration
 
 ```env
-# Required (provider keys are independently required for the models you enable)
+# Provider API keys — required only when a configured model routes to that provider
 GEMINI_API_KEY=your_gemini_api_key_here
 MISTRAL_API_KEY=your_mistral_api_key_here
 API_KEY_PREFIX=abt_

@@ -6,14 +6,13 @@ import { Mistral } from '@mistralai/mistralai';
  *
  * These were captured from live `npm run test:e2e:live` runs (text, table, and
  * image assessment tasks) and are kept intentionally faithful so the mocked
- * suite reflects real provider output. The provider is selected by inspecting
- * the request payload shape/payload length, mirroring how the live router
- * chooses a provider by model id.
+ * suite reflects real provider output. The module patches each SDK's prototype
+ * independently to return appropriate mock responses based on the request shape.
  *
  * NOTE: the Mistral text response retains the literal substring
  * "Mistral mocked" so `test/mistral.e2e-spec.ts` can assert the request
- * exercised the Mistral path. The table/image Mistral responses use fully
- * realistic captured text.
+ * exercised the Mistral path. The image Mistral responses use fully realistic
+ * captured text.
  */
 
 // --- Gemini (SDK: `models.generateContent` resolves to `{ text }`) ---
@@ -33,23 +32,6 @@ const geminiTextResponse = {
     score: 2,
     reasoning:
       'There are more than three SPaG errors, including incorrect capitalization of words mid-sentence and missing final punctuation.',
-  },
-};
-
-const geminiTableResponse = {
-  completeness: {
-    score: 5,
-    reasoning: 'The student completed all six rows required by the task.',
-  },
-  accuracy: {
-    score: 3,
-    reasoning:
-      'Most entries are accurate, but the ethics topic was incorrectly replaced with electric cars and safety risks were omitted.',
-  },
-  spag: {
-    score: 3,
-    reasoning:
-      "There are two SPaG errors, including missing hyphens in 'self-driving' and incorrect grammar in 'cars safety'.",
   },
 };
 
@@ -90,23 +72,6 @@ const mistralTextResponse = {
   },
 };
 
-const mistralTableResponse = {
-  completeness: {
-    score: 4,
-    reasoning:
-      'Student completed all sections but with some deviations in detail compared to the reference task.',
-  },
-  accuracy: {
-    score: 3,
-    reasoning:
-      'Mostly accurate but missing some expected details (e.g., images for technology, ethical considerations for video summary).',
-  },
-  spag: {
-    score: 5,
-    reasoning: 'Flawless spelling, punctuation, and grammar in the added text.',
-  },
-};
-
 const mistralImageResponse = {
   ReferenceTask:
     "The first image shows the expected output for a Microbit program: 'We're no strangers to love.' It also shows the correct code blocks in the proper order: 'We're', 'no', 'strangers', 'to', 'love'.",
@@ -136,17 +101,12 @@ const mistralImageResponse = {
 };
 
 /**
- * Chooses a response variant based on the request contents.
- * @param {unknown} contents - The Gemini `contents` payload (string or parts array).
- * @returns One of the three captured Gemini response variants.
- */
-/**
  * Chooses a response variant based on the Gemini request.
  * @param {unknown} contents - The Gemini `contents` payload (string or parts array).
- * @returns One of the three captured Gemini response variants.
+ * @returns One of the two captured Gemini response variants (text or image).
  */
 function selectGeminiResponse(contents) {
-  const serialized = Array.isArray(contents)
+  const serialised = Array.isArray(contents)
     ? JSON.stringify(contents)
     : typeof contents === 'string'
       ? contents
@@ -154,7 +114,7 @@ function selectGeminiResponse(contents) {
   // Image tasks carry inline base64 `data:` URIs; detect that shape
   // rather than relying on payload length (a text task with a tiny
   // payload would otherwise be indistinguishable from a table by size alone).
-  if (/data:image\/[a-z]+;base64/i.test(serialized)) {
+  if (/data:image\/[a-z]+;base64/i.test(serialised)) {
     return geminiImageResponse;
   }
   // Text and table tasks are indistinguishable once flattened; both are
@@ -163,16 +123,16 @@ function selectGeminiResponse(contents) {
 }
 
 /**
- * Chooses a response variant based on the Mistral request.
- * @param {unknown} request - The request object passed to `chat.complete`.
- * @returns One of the three captured Mistral response variants.
+ * Chooses a response variant based on the Mistral messages array.
+ * @param {unknown} messages - The messages array from the request.
+ * @returns One of the two captured Mistral response variants (text or image).
  */
-function selectMistralResponse(request) {
-  const serialized = JSON.stringify(request?.messages ?? []);
+function selectMistralResponse(messages) {
+  const serialised = JSON.stringify(messages ?? []);
   // Image tasks carry inline base64 `data:` URIs; this is the only
   // signal that survives request-shape flattening (text and table
   // tasks are both plain prompt text by the time they reach the mock).
-  if (/data:image\/[a-z]+;base64/i.test(serialized)) {
+  if (/data:image\/[a-z]+;base64/i.test(serialised)) {
     return mistralImageResponse;
   }
   // Text and table tasks are indistinguishable here; both are schema-valid

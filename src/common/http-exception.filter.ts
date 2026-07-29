@@ -210,12 +210,33 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
       this.logger.error(
         logContext,
         logMessage,
-        isErrorObject(exception) ? exception.stack : undefined,
+        this.resolveExceptionStack(exception),
       );
     } else {
       // Handles 4xx and the specific PayloadTooLargeError case
       this.logger.warn(logContext, logMessage);
     }
+  }
+
+  /**
+   * Resolves the most useful stack trace for logging. For `LlmError` (and any
+   * wrapper carrying the upstream error), the caught exception's own stack is
+   * just the mapper's allocation site; the *original* upstream stack is far
+   * more useful. This prefers `originalError.stack`, then `cause.stack`, and
+   * finally the exception's own stack.
+   * @param exception - The caught exception.
+   * @returns The resolved stack trace, or `undefined` when none is available.
+   */
+  private resolveExceptionStack(exception: unknown): string | undefined {
+    if (typeof exception === 'object' && exception !== null) {
+      const originalError = (exception as { originalError?: unknown })
+        .originalError;
+      if (originalError instanceof Error) return originalError.stack;
+
+      const cause = (exception as { cause?: unknown }).cause;
+      if (cause instanceof Error) return cause.stack;
+    }
+    return isErrorObject(exception) ? exception.stack : undefined;
   }
 
   /**

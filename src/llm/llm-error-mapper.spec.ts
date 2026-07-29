@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
 import type { LlmErrorMapperProbes } from './llm-error-mapper.js';
-import { classifyLlmError } from './llm-error-mapper.js';
+import {
+  classifyLlmError,
+  NETWORK_ERROR_PATTERN,
+  normaliseStatusCode,
+  probeStatusCode,
+} from './llm-error-mapper.js';
 import {
   AuthenticationError,
   ContentFilteredError,
@@ -56,8 +61,7 @@ function buildProbes(
         typeof v === 'string' && v.toLowerCase() === lowerValue;
       return matches(error_.status) || matches(error_.code);
     },
-    networkPattern:
-      /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i,
+    networkPattern: NETWORK_ERROR_PATTERN,
     ...overrides,
   };
 }
@@ -248,6 +252,22 @@ describe('HTTP 5xx — ProviderServerError', () => {
     expect(result).toBeInstanceOf(ProviderServerError);
     expect(result!.providerName).toBe('test-provider');
   });
+
+  it('uses a generic client-facing message that never embeds the raw provider body', () => {
+    const probes = buildProbes();
+    const error = {
+      statusCode: 500,
+      message: 'boom',
+      body: 'SECRET UPSTREAM BODY leak-token-123',
+    };
+    const result = classifyLlmError(probes, error);
+    expect(result).toBeInstanceOf(ProviderServerError);
+    expect(result!.message).toBe(
+      'The upstream LLM provider returned a server error',
+    );
+    expect(result!.message).not.toContain('SECRET UPSTREAM BODY');
+    expect(result!.message).not.toContain('leak-token-123');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -353,5 +373,119 @@ describe('Non-object, null, undefined, and string inputs', () => {
     const probes = buildProbes();
     const result = classifyLlmError(probes, 'some string error');
     expect(result).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Generic client-facing messages (Security #1 — no raw provider body leak)
+// ---------------------------------------------------------------------------
+describe('generic client-facing messages', () => {
+  it('ResourceExhaustedError uses a generic message and omits the raw body', () => {
+    const probes = buildProbes();
+    const error = {
+      statusCode: 429,
+      message: 'resource exhausted',
+      body: 'SECRET quota detail xyz',
+    };
+    const result = classifyLlmError(probes, error);
+    expect(result).toBeInstanceOf(ResourceExhaustedError);
+    expect(result!.message).toBe(
+      'The LLM provider resource quota was exhausted',
+    );
+    expect(result!.message).not.toContain('SECRET');
+  });
+
+  it('NetworkError uses a generic message and omits the raw body', () => {
+    const probes = buildProbes();
+    const error = new Error('fetch failed: ECONNREFUSED SECRET-host:1234');
+    const result = classifyLlmError(probes, error);
+    expect(result).toBeInstanceOf(NetworkError);
+    expect(result!.message).toBe(
+      'A network error occurred while contacting the LLM provider',
+    );
+    expect(result!.message).not.toContain('SECRET-host');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// statusCode: 0 transport errors (Error-handling I-1)
+// ---------------------------------------------------------------------------
+describe('statusCode: 0 handling', () => {
+  it('treats a statusCode of 0 as absent so an HTTPClientError classifies as retryable NetworkError', () => {
+    const probes = buildProbes({
+      extractStatusCode: (error: unknown): number | undefined =>
+        probeStatusCode(error, [['statusCode'], ['status']]),
+      isHttpClientError: (error: unknown): boolean =>
+        typeof error === 'object' &&
+        error !== null &&
+        (error as Record<string, unknown>).name === 'ConnectionError',
+    });
+    const error = {
+      name: 'ConnectionError',
+      statusCode: 0,
+      message: 'connection failed',
+    };
+    const result = classifyLlmError(probes, error);
+    expect(result).toBeInstanceOf(NetworkError);
+    expect(result!.retryable).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error.cause propagation (Error-handling I-2)
+// ---------------------------------------------------------------------------
+describe('Error.cause propagation', () => {
+  it('sets cause to the input Error instance for classified errors', () => {
+    const probes = buildProbes();
+    const errorInstance = new Error('fetch failed: ECONNREFUSED');
+    const result = classifyLlmError(probes, errorInstance);
+    expect(result).toBeInstanceOf(NetworkError);
+    expect(result!.cause).toBe(errorInstance);
+  });
+
+  it('leaves cause undefined for non-Error inputs', () => {
+    const probes = buildProbes();
+    const plainObject = { statusCode: 500, message: 'Internal server error' };
+    const result = classifyLlmError(probes, plainObject);
+    expect(result).toBeInstanceOf(ProviderServerError);
+    expect(result!.cause).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normaliseStatusCode + probeStatusCode (direct unit coverage)
+// ---------------------------------------------------------------------------
+describe('normaliseStatusCode', () => {
+  it('returns numeric codes verbatim and coerces numeric strings', () => {
+    expect(normaliseStatusCode(404)).toBe(404);
+    expect(normaliseStatusCode('404')).toBe(404);
+  });
+
+  it('treats 0 (and strings coercing to 0) as absent', () => {
+    expect(normaliseStatusCode(0)).toBeUndefined();
+    expect(normaliseStatusCode('0')).toBeUndefined();
+    expect(normaliseStatusCode('')).toBeUndefined();
+  });
+
+  it('returns undefined for non-numeric values', () => {
+    expect(normaliseStatusCode('abc')).toBeUndefined();
+    expect(normaliseStatusCode(undefined)).toBeUndefined();
+    expect(normaliseStatusCode(null)).toBeUndefined();
+  });
+});
+
+describe('probeStatusCode', () => {
+  it('walks nested paths in priority order and returns the first match', () => {
+    const error = { response: { status: 503 } };
+    expect(probeStatusCode(error, [['status'], ['response', 'status']])).toBe(
+      503,
+    );
+  });
+
+  it('returns undefined when no path yields a valid status', () => {
+    expect(
+      probeStatusCode({ foo: 'bar' }, [['status'], ['code']]),
+    ).toBeUndefined();
+    expect(probeStatusCode(null, [['status']])).toBeUndefined();
   });
 });

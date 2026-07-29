@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import {
-  SUPPORTED_MODELS,
-  resolveProvider,
-  validateModelName,
-} from './model-registry.js';
+import { SUPPORTED_MODELS, resolveProvider } from './model-registry.js';
 
 describe('Model registry', () => {
   // ---------------------------------------------------------------------------
@@ -77,22 +73,9 @@ describe('Model registry', () => {
     it('is case-sensitive and throws for uppercase model name', () => {
       expect(() => resolveProvider('GEMINI-2.5-FLASH')).toThrow(Error);
     });
-  });
 
-  // ---------------------------------------------------------------------------
-  // validateModelName
-  // ---------------------------------------------------------------------------
-  describe('validateModelName', () => {
-    it('does not throw for a recognised model name', () => {
-      expect(() => validateModelName('mistral-small-latest')).not.toThrow();
-    });
-
-    it('throws Error for an unrecognised model name', () => {
-      expect(() => validateModelName('gpt-4o')).toThrow(Error);
-    });
-
-    it('includes the unrecognised model name in the error message', () => {
-      expect(() => validateModelName('gpt-4o')).toThrow(/gpt-4o/);
+    it('throws with the model name in the message for unknown model gpt-4o', () => {
+      expect(() => resolveProvider('gpt-4o')).toThrow(/gpt-4o/);
     });
   });
 });

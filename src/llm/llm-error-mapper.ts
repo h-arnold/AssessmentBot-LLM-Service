@@ -69,18 +69,105 @@ export interface LlmErrorMapperProbes {
 
 /**
  * Coerces a raw value to a numeric status code if possible.
+ *
+ * A numeric `0` (or a string that coerces to `0`, e.g. `''`) returns
+ * `undefined` because `0` is never a valid HTTP status — this ensures
+ * transport errors carrying `statusCode: 0` fall through to the
+ * `NetworkError` branch instead of being misclassified as 5xx.
  * @param value - The raw value (number or string-coercible).
  * @returns The numeric status code, or `undefined` if the value is neither a
- *   number nor a string-coercible number.
+ *   number nor a string-coercible number, or is `0`.
  */
 export function normaliseStatusCode(value: unknown): number | undefined {
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') {
+    if (value === 0) return undefined;
+    return value;
+  }
   if (typeof value === 'string') {
     const n = Number(value);
-    if (!Number.isNaN(n)) return n;
+    if (!Number.isNaN(n)) {
+      if (n === 0) return undefined;
+      return n;
+    }
   }
   return undefined;
 }
+
+/**
+ * Shared network-failure pattern used by all provider probe configurations.
+ * Matches common OS-level and fetch-level network error messages.
+ */
+export const NETWORK_ERROR_PATTERN =
+  /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i;
+
+// ---------------------------------------------------------------------------
+// Shared status-code path probe helper (DRY)
+// ---------------------------------------------------------------------------
+
+/**
+ * Walks a set of dot-path probes into an error object and returns the first
+ * normalised numeric status code found, or `undefined` when none match.
+ *
+ * Each entry in `paths` is a list of property keys to traverse sequentially
+ * (e.g. `['response', 'status']` probes `error.response.status`). The first
+ * path yielding a valid non-zero status code wins.
+ * @param error - The raw error to probe.
+ * @param paths - Ordered list of property paths to walk, in priority order.
+ * @returns The first normalised numeric status code, or `undefined`.
+ */
+export function probeStatusCode(
+  error: unknown,
+  paths: ReadonlyArray<readonly string[]>,
+): number | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  for (const path of paths) {
+    const code = normaliseStatusCode(walkPath(error, path));
+    if (code !== undefined) return code;
+  }
+  return undefined;
+}
+
+/**
+ * Traverses a sequence of property keys into an object, returning the value at
+ * the end of the path or `undefined` if any intermediate value is not an
+ * object.
+ * @param root - The object to traverse from.
+ * @param path - The ordered list of property keys to follow.
+ * @returns The value at the end of the path, or `undefined`.
+ */
+function walkPath(root: object, path: readonly string[]): unknown {
+  let current: unknown = root;
+  for (const key of path) {
+    if (typeof current !== 'object' || current === null) return undefined;
+    current = Reflect.get(current, key);
+  }
+  return current;
+}
+
+/**
+ * Gemini status-code probe paths, in priority order: `error.status`,
+ * `error.statusCode`, `error.code`, `error.response.status`,
+ * `error.error.status`, then `error.error.code`.
+ */
+export const GEMINI_STATUS_PATHS: ReadonlyArray<readonly string[]> = [
+  ['status'],
+  ['statusCode'],
+  ['code'],
+  ['response', 'status'],
+  ['error', 'status'],
+  ['error', 'code'],
+] as const;
+
+/**
+ * Mistral status-code probe paths, in priority order: `error.statusCode`,
+ * `error.status`, `error.code`, then `error.response.status`.
+ */
+export const MISTRAL_STATUS_PATHS: ReadonlyArray<readonly string[]> = [
+  ['statusCode'],
+  ['status'],
+  ['code'],
+  ['response', 'status'],
+] as const;
 
 // ---------------------------------------------------------------------------
 // Module-level pattern constants (extracted from GeminiService)
@@ -106,6 +193,29 @@ const CONTENT_FILTERED_PATTERN = /safety|blocked|filter/i;
  * Pattern matching context-length-exceeded messages.
  */
 const CONTEXT_LENGTH_PATTERN = /context[ _]?length/i;
+
+// ---------------------------------------------------------------------------
+// Generic, safe client-facing messages
+// ---------------------------------------------------------------------------
+//
+// The classifier extracts a rich internal message (including the raw provider
+// `error.body`) purely to drive classification. It MUST NOT embed that raw
+// message in the `LlmError` returned to the caller, because that value becomes
+// the client-facing HTTP response body. These generic constants are stored on
+// the produced errors instead; the raw upstream detail is logged server-side by
+// each provider (see `logProviderError`).
+
+/** Client-facing message for `ResourceExhaustedError`. */
+const RESOURCE_EXHAUSTED_MESSAGE =
+  'The LLM provider resource quota was exhausted';
+
+/** Client-facing message for `ProviderServerError`. */
+const PROVIDER_SERVER_ERROR_MESSAGE =
+  'The upstream LLM provider returned a server error';
+
+/** Client-facing message for `NetworkError`. */
+const NETWORK_ERROR_MESSAGE =
+  'A network error occurred while contacting the LLM provider';
 
 // ---------------------------------------------------------------------------
 // Module-local helpers
@@ -161,7 +271,10 @@ function buildError<T extends LlmError>(
   error: unknown,
 ): T {
   const originalError = isErrorObject(error) ? error : undefined;
-  return new ErrorClass(message, providerName, { originalError });
+  return new ErrorClass(message, providerName, {
+    originalError,
+    cause: originalError,
+  });
 }
 
 /**
@@ -217,18 +330,20 @@ function isRateLimit(
  *
  * Behaviour:
  * 1. Non-object or `null`/`undefined` inputs return `undefined`.
- * 2. `extractStatusCode()` and `hasStringStatus()` are called once each.
- *    Message is extracted from `error.message` (and `error.body` for
- *    Mistral) — see `extractMessage`.
+ * 2. `extractStatusCode()` is called once; `hasStringStatus()` may be called up
+ *    to three times (for `resource_exhausted`, `rate_limit_exceeded`, and
+ *    `429`). Message is extracted from `error.message` (and `error.body` for
+ *    Mistral) — see `extractMessage`. The extracted message drives
+ *    classification only; the raw upstream detail is never stored on the
+ *    returned error (see the generic client-facing message constants).
  * 3. Priority order (highest first): `ResourceExhaustedError`,
  *    `RateLimitError`, `AuthenticationError`, `ContentFilteredError`,
  *    `ContextLengthExceededError`, `InvalidRequestError`,
  *    `ProviderServerError`, `NetworkError`, `undefined`.
  * 4. Tie-breaks: resource-exhausted > rate-limit; content-filtered >
  *    context-length.
- * 5. `originalError` on the produced `LlmError` is narrowed to
- *    `Error | undefined` (non-`Error` inputs produce
- *    `originalError: undefined`).
+ * 5. `originalError` and `cause` on the produced `LlmError` are narrowed to
+ *    `Error | undefined` (non-`Error` inputs produce `undefined` for both).
  * @param probes - Per-provider probe configuration.
  * @param error - The raw error from `_sendInternal`.
  * @returns An `LlmError` instance, or `undefined` if the error is
@@ -251,7 +366,7 @@ export function classifyLlmError(
   if (isResourceExhausted(probes, statusCode, message, error)) {
     return buildError(
       ResourceExhaustedError,
-      message,
+      RESOURCE_EXHAUSTED_MESSAGE,
       probes.providerName,
       error,
     );
@@ -310,7 +425,12 @@ export function classifyLlmError(
 
   // 8. ProviderServerError — any 5xx
   if (statusCode !== undefined && statusCode >= 500) {
-    return buildError(ProviderServerError, message, probes.providerName, error);
+    return buildError(
+      ProviderServerError,
+      PROVIDER_SERVER_ERROR_MESSAGE,
+      probes.providerName,
+      error,
+    );
   }
 
   // 9. NetworkError — isHttpClientError probe returns true, OR message matches
@@ -318,7 +438,12 @@ export function classifyLlmError(
   if (statusCode === undefined) {
     const isHttpClientError_ = probes.isHttpClientError?.(error) ?? false;
     if (isHttpClientError_ || probes.networkPattern.test(message)) {
-      return buildError(NetworkError, message, probes.providerName, error);
+      return buildError(
+        NetworkError,
+        NETWORK_ERROR_MESSAGE,
+        probes.providerName,
+        error,
+      );
     }
   }
 

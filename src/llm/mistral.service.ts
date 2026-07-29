@@ -1,22 +1,23 @@
 import { Mistral } from '@mistralai/mistralai';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import {
   classifyLlmError,
-  normaliseStatusCode,
   type LlmErrorMapperProbes,
+  MISTRAL_STATUS_PATHS,
+  NETWORK_ERROR_PATTERN,
+  probeStatusCode,
 } from './llm-error-mapper.js';
 import {
-  ImagePromptPayload,
   LLMService,
   LlmPayload,
   ReasoningEffort,
-  StringPromptPayload,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
 import { LlmError } from '../common/errors/index.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,18 @@ type MistralCompleteResponse = Awaited<ReturnType<Mistral['chat']['complete']>>;
 // ---------------------------------------------------------------------------
 // Module-level helpers for the Mistral probe configuration
 // ---------------------------------------------------------------------------
+
+/**
+ * Mistral SDK HTTP-client-error subclass names that should be classified
+ * as network errors. Excludes `InvalidRequestError` to avoid a name
+ * collision with our own {@link InvalidRequestError} subclass.
+ */
+const HTTP_CLIENT_ERROR_NAMES = new Set([
+  'ConnectionError',
+  'RequestTimeoutError',
+  'RequestAbortedError',
+  'UnexpectedClientError',
+]);
 
 /**
  * Per-provider probe configuration for Mistral, supplied to the shared
@@ -53,32 +66,12 @@ type MistralCompleteResponse = Awaited<ReturnType<Mistral['chat']['complete']>>;
 const MISTRAL_PROBES: LlmErrorMapperProbes = {
   providerName: 'mistral',
 
-  extractStatusCode: (error: unknown): number | undefined => {
-    if (typeof error !== 'object' || error === null) return undefined;
-    const error_ = error as Record<string, unknown>;
-
-    // Primary: MistralError.statusCode (numeric on the SDK error class)
-    const statusCode = normaliseStatusCode(error_.statusCode);
-    if (statusCode !== undefined) return statusCode;
-
-    // Fallback: status, code, response.status
-    const status = normaliseStatusCode(error_.status);
-    if (status !== undefined) return status;
-    const code = normaliseStatusCode(error_.code);
-    if (code !== undefined) return code;
-    if (typeof error_.response === 'object' && error_.response !== null) {
-      const response = error_.response as Record<string, unknown>;
-      const responseStatus = normaliseStatusCode(response.status);
-      if (responseStatus !== undefined) return responseStatus;
-    }
-
-    return undefined;
-  },
+  extractStatusCode: (error: unknown): number | undefined =>
+    probeStatusCode(error, MISTRAL_STATUS_PATHS),
 
   hasStringStatus: (): boolean => false,
 
-  networkPattern:
-    /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i,
+  networkPattern: NETWORK_ERROR_PATTERN,
 
   isHttpClientError: (error: unknown): boolean => {
     if (typeof error !== 'object' || error === null) return false;
@@ -86,15 +79,7 @@ const MISTRAL_PROBES: LlmErrorMapperProbes = {
     // Deliberately excluding 'InvalidRequestError' to avoid name collision
     // with our LlmError subclass (see SPEC § "InvalidRequestError
     // name-collision").
-    return (
-      typeof name === 'string' &&
-      [
-        'ConnectionError',
-        'RequestTimeoutError',
-        'RequestAbortedError',
-        'UnexpectedClientError',
-      ].includes(name)
-    );
+    return typeof name === 'string' && HTTP_CLIENT_ERROR_NAMES.has(name);
   },
 };
 
@@ -117,21 +102,43 @@ const MISTRAL_PROBES: LlmErrorMapperProbes = {
  */
 @Injectable()
 export class MistralService extends LLMService {
-  private readonly client: Mistral;
-  private readonly mistralLogger = new Logger(MistralService.name);
+  private client?: Mistral;
 
   protected readonly providerName = 'mistral';
+
+  private readonly logLlmContent: boolean;
 
   constructor(
     configService: ConfigService,
     private readonly jsonParserUtility: JsonParserUtility,
   ) {
     super(configService);
+    this.logLlmContent = this.configService.get('LOG_LLM_CONTENT');
+  }
+
+  /**
+   * Lazily constructs (and caches) the Mistral SDK client.
+   *
+   * The client is built on first use rather than in the constructor because
+   * `MISTRAL_API_KEY` is only conditionally required: the DI container eagerly
+   * constructs every provider service regardless of routing, and a deployment
+   * whose configured models all route to another provider may legitimately
+   * omit this key. The Zod environment schema enforces the key at startup
+   * whenever a configured model routes to Mistral, so this throw is a
+   * defensive backstop for direct-instantiation paths.
+   * @returns The cached or newly constructed Mistral SDK client.
+   * @throws {Error} When `MISTRAL_API_KEY` is absent or empty.
+   */
+  private getClient(): Mistral {
+    if (this.client) {
+      return this.client;
+    }
     const apiKey = this.configService.get('MISTRAL_API_KEY');
     if (!apiKey) {
       throw new Error('MISTRAL_API_KEY is not set in environment');
     }
     this.client = new Mistral({ apiKey });
+    return this.client;
   }
 
   /**
@@ -149,7 +156,7 @@ export class MistralService extends LLMService {
     const messages = this.buildMessages(payload);
     const request = this.buildRequest(model, messages, payload);
 
-    this.mistralLogger.debug(
+    this.logger.debug(
       `Sending to Mistral with model: ${model}, temperature: ${
         payload.temperature ?? 0
       }`,
@@ -158,9 +165,7 @@ export class MistralService extends LLMService {
     // First try: hand the request to the Mistral SDK.
     let result: MistralCompleteResponse;
     try {
-      result = await this.client.chat.complete(
-        request as unknown as MistralCompleteRequest,
-      );
+      result = await this.getClient().chat.complete(request);
     } catch (error) {
       this.logProviderError(error, model, payload);
       throw error;
@@ -168,10 +173,16 @@ export class MistralService extends LLMService {
 
     // Processing after the SDK call.
     const responseText = this.extractResponseText(result);
-    this.mistralLogger.debug({ responseText }, 'Raw response from Mistral');
+    // Gate raw content logging behind LOG_LLM_CONTENT to prevent persisting
+    // student-derived PII in default deployments.
+    if (this.logLlmContent) {
+      this.logger.debug({ responseText }, 'Raw response from Mistral');
+    }
 
     const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
-    this.mistralLogger.debug({ parsedJson }, 'Parsed JSON response');
+    if (this.logLlmContent) {
+      this.logger.debug({ parsedJson }, 'Parsed JSON response');
+    }
 
     const dataToValidate: unknown = Array.isArray(parsedJson)
       ? (parsedJson as unknown[])[0]
@@ -199,11 +210,18 @@ export class MistralService extends LLMService {
     model: string,
     payload: LlmPayload,
   ): void {
-    const error_ = error as { statusCode?: number; status?: number };
+    const error_ = error as {
+      statusCode?: number;
+      status?: number;
+      body?: unknown;
+    };
     const statusCode = error_.statusCode ?? error_.status;
     const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
+    const errorMessage = isErrorObject(error) ? error.message : String(error);
+    const errorBody = typeof error_.body === 'string' ? error_.body : undefined;
+    const stack = isErrorObject(error) ? error.stack : undefined;
     this.logger.error(
-      { model, payloadType, statusCode },
+      { model, payloadType, statusCode, errorMessage, errorBody, stack },
       'Error communicating with or validating response from Mistral API',
     );
   }
@@ -236,12 +254,14 @@ export class MistralService extends LLMService {
   private buildMessages(
     payload: LlmPayload,
   ): Array<{ role: string; content: unknown }> {
-    const userContent = this.isImagePromptPayload(payload)
-      ? payload.images.map((img) => ({
+    const userContent = this.mapPayload<unknown>(payload, {
+      image: (p) =>
+        p.images.map((img) => ({
           type: 'image_url' as const,
           imageUrl: `data:${img.mimeType};base64,${img.data}`,
-        }))
-      : payload.user;
+        })),
+      text: (p) => p.user,
+    });
 
     return [
       { role: 'system', content: payload.system },
@@ -262,10 +282,10 @@ export class MistralService extends LLMService {
     model: string,
     messages: Array<{ role: string; content: unknown }>,
     payload: LlmPayload,
-  ): Record<string, unknown> {
-    const request: Record<string, unknown> = {
+  ): MistralCompleteRequest {
+    const request: MistralCompleteRequest = {
       model,
-      messages,
+      messages: messages as MistralCompleteRequest['messages'],
       temperature: payload.temperature ?? 0,
       safePrompt: false,
       responseFormat: { type: 'json_object' },
@@ -321,7 +341,7 @@ export class MistralService extends LLMService {
    *   `none` and `high`, so both `'off'` and `'low'` map to `'none'`, and
    *   `'high'` and `'max'` map to `'high'`.
    */
-  private mapReasoningEffort(effort: ReasoningEffort): string | undefined {
+  private mapReasoningEffort(effort: ReasoningEffort): 'none' | 'high' {
     switch (effort) {
       case 'off':
       case 'low':
@@ -334,27 +354,5 @@ export class MistralService extends LLMService {
         // `max` maps to the highest effort the model supports (`high`).
         return 'high';
     }
-  }
-
-  /**
-   * Type guard that checks whether a payload is an {@link ImagePromptPayload}.
-   * @param payload - The payload to check.
-   * @returns `true` if the payload contains images.
-   */
-  private isImagePromptPayload(
-    payload: LlmPayload,
-  ): payload is ImagePromptPayload {
-    return 'images' in payload;
-  }
-
-  /**
-   * Type guard that checks whether a payload is a {@link StringPromptPayload}.
-   * @param payload - The payload to check.
-   * @returns `true` if the payload contains a `user` string.
-   */
-  private isStringPromptPayload(
-    payload: LlmPayload,
-  ): payload is StringPromptPayload {
-    return 'user' in payload;
   }
 }

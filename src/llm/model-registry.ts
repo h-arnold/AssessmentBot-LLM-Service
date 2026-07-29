@@ -55,8 +55,23 @@ export const SUPPORTED_MODELS: readonly ModelEntry[] = [
  * string for use in error messages.
  * @returns A comma-separated string of all registered model prefixes.
  */
-function formatSupportedPrefixes(): string {
+export function formatSupportedPrefixes(): string {
   return SUPPORTED_MODELS.map((entry) => entry.prefix).join(', ');
+}
+
+/**
+ * Formats a standard "unsupported model name" error message for one or more
+ * unrecognised model names.
+ *
+ * Each name is single-quoted; multiple names are joined with `', '`.
+ * The message includes the full set of supported model prefixes from the
+ * registry so callers always see what is available.
+ * @param modelNames - One or more unrecognised model names to include.
+ * @returns A formatted error message (without a trailing period).
+ */
+export function formatUnsupportedModelMessage(modelNames: string[]): string {
+  const quoted = modelNames.map((n) => `'${n}'`).join(', ');
+  return `Unsupported model name(s): ${quoted}. Supported model prefixes: ${formatSupportedPrefixes()}`;
 }
 
 /**
@@ -75,20 +90,5 @@ export function resolveProvider(modelName: string): ProviderId {
       return entry.provider;
     }
   }
-  throw new Error(
-    `Unsupported model name: '${modelName}'. Supported model prefixes: ${formatSupportedPrefixes()}`,
-  );
-}
-
-/**
- * Validates that a model name is supported by the registry.
- *
- * Delegates to {@link resolveProvider} and discards the result. Throws a
- * descriptive error (including the model name and the list of supported
- * prefixes) when the model name does not match any registered prefix.
- * @param modelName - The model name to validate (case-sensitive).
- * @throws {Error} If the model name does not match any known prefix.
- */
-export function validateModelName(modelName: string): void {
-  resolveProvider(modelName);
+  throw new Error(formatUnsupportedModelMessage([modelName]));
 }

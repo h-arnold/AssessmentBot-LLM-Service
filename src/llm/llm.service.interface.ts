@@ -75,7 +75,7 @@ export type LlmPayload = ImagePromptPayload | StringPromptPayload;
  */
 @Injectable()
 export abstract class LLMService implements ILlmService {
-  protected readonly logger = new Logger(LLMService.name);
+  protected readonly logger = new Logger(this.constructor.name);
 
   constructor(protected readonly configService: ConfigService) {}
 
@@ -111,10 +111,12 @@ export abstract class LLMService implements ILlmService {
    *
    * ### Error flow:
    * - `ZodError` is re-thrown without calling `mapError()` and without retry.
-   * - For all other errors, `mapError()` is called. If it returns an `LlmError`
-   *   with `retryable === true`, the method retries with exponential backoff up
-   *   to `LLM_MAX_RETRIES` attempts; non-retryable errors are thrown immediately.
-   * - If `mapError()` returns `undefined` or throws, the base class wraps the
+   * - For all other errors, the error is classified exactly once via
+   *   `classifyError()` and the resulting `LlmError` is reused across retry
+   *   iterations. If it has `retryable === true`, the method retries with
+   *   exponential backoff up to `LLM_MAX_RETRIES` attempts; non-retryable
+   *   errors are thrown immediately.
+   * - If classification returns `undefined` or throws, the base class wraps the
    *   **original** `_sendInternal` error in an `LlmServiceError` (retryable=false,
    *   HTTP 500) and throws it without retrying.
    * - The `originalError` property on the resulting `LlmError` stores only `Error`
@@ -132,6 +134,8 @@ export abstract class LLMService implements ILlmService {
     const baseBackoffMs = Number(this.configService.get('LLM_BACKOFF_BASE_MS'));
     const payloadSummary = this.describePayload(payload);
 
+    let classifiedError: LlmError | undefined;
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await this.sendAttempt(
@@ -147,8 +151,23 @@ export abstract class LLMService implements ILlmService {
           throw error;
         }
 
-        await this.handleAttemptError(
-          error,
+        // Classify the error only once and reuse the result across retry
+        // iterations. This assumes the error raised by `_sendInternal` is
+        // idempotent across attempts (the same underlying failure recurs), so
+        // re-classifying on every retry would be redundant. If a later
+        // attempt raised a genuinely different error this caching would
+        // preserve the first classification — acceptable here because retries
+        // target the same transient failure.
+        if (classifiedError === undefined) {
+          classifiedError = this.classifyError(error);
+        }
+
+        if (!classifiedError.retryable || attempt === maxRetries) {
+          throw classifiedError;
+        }
+
+        await this.waitBeforeRetry(
+          classifiedError,
           attempt,
           maxRetries,
           baseBackoffMs,
@@ -170,24 +189,23 @@ export abstract class LLMService implements ILlmService {
       ? `LLM service error: ${error.message}`
       : 'LLM service error: Unknown error';
     const originalError = isErrorObject(error) ? error : undefined;
-    return new LlmServiceError(message, this.providerName, { originalError });
+    return new LlmServiceError(message, this.providerName, {
+      originalError,
+      cause: originalError,
+    });
   }
 
   /**
-   * Handles a non-ZodError caught from {@link sendAttempt}. Delegates to
-   * {@link mapError} and either throws the mapped error or, for retryable
-   * errors with remaining retries, waits before the next attempt.
-   * @param error - The error caught from `sendAttempt`.
-   * @param attempt - The current attempt number (0-indexed).
-   * @param maxRetries - The maximum number of retries.
-   * @param baseBackoffMs - The base backoff delay in milliseconds.
+   * Classifies a raw error from {@link _sendInternal} into an {@link LlmError}
+   * by delegating to {@link mapError}, falling back to {@link wrapUnclassified}
+   * when mapping returns `undefined` or throws.
+   *
+   * This is called at most once per `send()` invocation; subsequent retries
+   * reuse the cached result via a variable local to `send()`.
+   * @param error - The raw error caught from `_sendInternal`.
+   * @returns An `LlmError` instance.
    */
-  private async handleAttemptError(
-    error: unknown,
-    attempt: number,
-    maxRetries: number,
-    baseBackoffMs: number,
-  ): Promise<void> {
+  private classifyError(error: unknown): LlmError {
     let llmError: LlmError | undefined;
     try {
       llmError = this.mapError(error);
@@ -199,19 +217,7 @@ export abstract class LLMService implements ILlmService {
       llmError = undefined;
     }
 
-    const errorToThrow: LlmError =
-      llmError === undefined ? this.wrapUnclassified(error) : llmError;
-
-    if (!errorToThrow.retryable || attempt === maxRetries) {
-      throw errorToThrow;
-    }
-
-    await this.waitBeforeRetry(
-      errorToThrow,
-      attempt,
-      maxRetries,
-      baseBackoffMs,
-    );
+    return llmError === undefined ? this.wrapUnclassified(error) : llmError;
   }
 
   private async sendAttempt(
@@ -269,6 +275,58 @@ export abstract class LLMService implements ILlmService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Type guard that checks whether a payload is an {@link ImagePromptPayload}.
+   * @param payload - The payload to check.
+   * @returns `true` if the payload contains images.
+   */
+  protected isImagePromptPayload(
+    payload: LlmPayload,
+  ): payload is ImagePromptPayload {
+    return 'images' in payload;
+  }
+
+  /**
+   * Type guard that checks whether a payload is a {@link StringPromptPayload}.
+   * @param payload - The payload to check.
+   * @returns `true` if the payload contains a `user` string.
+   */
+  protected isStringPromptPayload(
+    payload: LlmPayload,
+  ): payload is StringPromptPayload {
+    return 'user' in payload;
+  }
+
+  /**
+   * Template-method dispatcher that routes an {@link LlmPayload} to the
+   * appropriate handler based on whether it is an image or a text payload.
+   *
+   * Throws `'Unsupported payload type'` when the payload matches neither type
+   * (that is, when it is malformed).
+   * @param payload - The payload to dispatch.
+   * @param handlers - An object with `image` and `text` handler functions.
+   * @param handlers.image - Handler invoked for {@link ImagePromptPayload}
+   *   payloads. Receives the narrowed image payload.
+   * @param handlers.text - Handler invoked for {@link StringPromptPayload}
+   *   payloads. Receives the narrowed text payload.
+   * @returns The result of the matched handler.
+   */
+  protected mapPayload<T>(
+    payload: LlmPayload,
+    handlers: {
+      image: (payload: ImagePromptPayload) => T;
+      text: (payload: StringPromptPayload) => T;
+    },
+  ): T {
+    if (this.isImagePromptPayload(payload)) {
+      return handlers.image(payload);
+    }
+    if (this.isStringPromptPayload(payload)) {
+      return handlers.text(payload);
+    }
+    throw new Error('Unsupported payload type');
   }
 
   private describePayload(payload: LlmPayload): string {

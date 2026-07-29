@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 
 import {
   ImagePromptPayload,
+  LlmPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
@@ -158,16 +159,34 @@ describe('MistralService', () => {
   // A. Constructor and initialisation
   // ---------------------------------------------------------------------------
 
-  describe('constructor', () => {
-    it('should read MISTRAL_API_KEY from ConfigService on construction', () => {
+  describe('constructor and lazy client initialisation', () => {
+    it('should construct successfully without reading MISTRAL_API_KEY (lazy client)', () => {
+      // The key is conditionally required, and the DI container eagerly
+      // constructs every provider — so construction must not touch the key.
+      expect(configService.get).not.toHaveBeenCalledWith('MISTRAL_API_KEY');
+      expect(mockMistral).not.toHaveBeenCalled();
+    });
+
+    it('should instantiate the Mistral SDK client with the correct API key on first send', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      await service.send(createStringPayload());
+
       expect(configService.get).toHaveBeenCalledWith('MISTRAL_API_KEY');
-    });
-
-    it('should instantiate Mistral SDK client with the correct API key', () => {
       expect(mockMistral).toHaveBeenCalledWith({ apiKey: 'test-mistral-key' });
+      expect(mockMistral).toHaveBeenCalledTimes(1);
     });
 
-    it('should throw when MISTRAL_API_KEY is empty', () => {
+    it('should construct the SDK client only once across multiple sends', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      await service.send(createStringPayload());
+      await service.send(createStringPayload());
+
+      expect(mockMistral).toHaveBeenCalledTimes(1);
+    });
+
+    it('should construct without a key but fail on first send when MISTRAL_API_KEY is empty', async () => {
       const emptyConfig = {
         get: vi.fn((key: string): string | null => {
           if (key === 'MISTRAL_API_KEY') return '';
@@ -177,15 +196,16 @@ describe('MistralService', () => {
         }),
       } as unknown as ConfigService;
 
-      expect(
-        () =>
-          new MistralService(emptyConfig, {
-            parse: mockParse,
-          } as unknown as JsonParserUtility),
-      ).toThrow('MISTRAL_API_KEY is not set in environment');
+      const keylessService = new MistralService(emptyConfig, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+
+      await expect(keylessService.send(createStringPayload())).rejects.toThrow(
+        'LLM service error: MISTRAL_API_KEY is not set in environment',
+      );
     });
 
-    it('should throw when MISTRAL_API_KEY is undefined', () => {
+    it('should construct without a key but fail on first send when MISTRAL_API_KEY is undefined', async () => {
       const noKeyConfig = {
         get: vi.fn((key: string): string | null => {
           if (key === 'MISTRAL_API_KEY') return null;
@@ -195,12 +215,13 @@ describe('MistralService', () => {
         }),
       } as unknown as ConfigService;
 
-      expect(
-        () =>
-          new MistralService(noKeyConfig, {
-            parse: mockParse,
-          } as unknown as JsonParserUtility),
-      ).toThrow('MISTRAL_API_KEY is not set in environment');
+      const keylessService = new MistralService(noKeyConfig, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+
+      await expect(keylessService.send(createStringPayload())).rejects.toThrow(
+        'LLM service error: MISTRAL_API_KEY is not set in environment',
+      );
     });
   });
 
@@ -421,6 +442,27 @@ describe('MistralService', () => {
           ],
         }),
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // C2. Malformed payload dispatch
+  // ---------------------------------------------------------------------------
+
+  describe('_sendInternal — malformed payload', () => {
+    it('throws "Unsupported payload type" for a payload that is neither text nor image', async () => {
+      const malformed = { system: 's' } as unknown as LlmPayload;
+
+      await expect(
+        (
+          service as unknown as {
+            _sendInternal: (p: LlmPayload) => Promise<unknown>;
+          }
+        )._sendInternal(malformed),
+      ).rejects.toThrow('Unsupported payload type');
+
+      // The SDK must never be called for an unclassifiable payload.
+      expect(mockComplete).not.toHaveBeenCalled();
     });
   });
 
@@ -717,7 +759,7 @@ describe('MistralService', () => {
 
       const error = Object.assign(new Error('Server error'), {
         statusCode: 500,
-        body: 'Server error',
+        body: 'raw upstream body detail',
       });
       mockComplete.mockRejectedValue(error);
 
@@ -729,6 +771,9 @@ describe('MistralService', () => {
           model: 'mistral-small-latest',
           payloadType: 'text',
           statusCode: 500,
+          errorMessage: 'Server error',
+          errorBody: 'raw upstream body detail',
+          stack: expect.any(String),
         }),
         'Error communicating with or validating response from Mistral API',
       );

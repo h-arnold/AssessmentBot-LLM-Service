@@ -1,25 +1,24 @@
 import {
   GoogleGenAI,
+  ThinkingLevel,
   type GenerateContentConfig,
   type Part,
 } from '@google/genai';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import {
   classifyLlmError,
+  GEMINI_STATUS_PATHS,
   type LlmErrorMapperProbes,
-  normaliseStatusCode,
+  NETWORK_ERROR_PATTERN,
+  probeStatusCode,
 } from './llm-error-mapper.js';
-import {
-  ImagePromptPayload,
-  LLMService,
-  LlmPayload,
-  StringPromptPayload,
-} from './llm.service.interface.js';
+import { LLMService, LlmPayload } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
 import { type LlmError } from '../common/errors/index.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
 type GeminiRequest = { model: string; config: GenerateContentConfig };
@@ -43,36 +42,8 @@ type GeminiRequest = { model: string; config: GenerateContentConfig };
 const GEMINI_PROBES: LlmErrorMapperProbes = {
   providerName: 'gemini',
 
-  extractStatusCode: (error: unknown): number | undefined => {
-    if (typeof error !== 'object' || error === null) return undefined;
-    const error_ = error as Record<string, unknown>;
-
-    // Direct numeric or string-coercible properties
-    const directStatus = normaliseStatusCode(error_.status);
-    if (directStatus !== undefined) return directStatus;
-    const directStatusCode = normaliseStatusCode(error_.statusCode);
-    if (directStatusCode !== undefined) return directStatusCode;
-    const directCode = normaliseStatusCode(error_.code);
-    if (directCode !== undefined) return directCode;
-
-    // Nested response.status
-    if (typeof error_.response === 'object' && error_.response !== null) {
-      const response = error_.response as Record<string, unknown>;
-      const responseStatus = normaliseStatusCode(response.status);
-      if (responseStatus !== undefined) return responseStatus;
-    }
-
-    // Nested error.status / error.code
-    if (typeof error_.error === 'object' && error_.error !== null) {
-      const nestedError = error_.error as Record<string, unknown>;
-      const nestedStatus = normaliseStatusCode(nestedError.status);
-      if (nestedStatus !== undefined) return nestedStatus;
-      const nestedCode = normaliseStatusCode(nestedError.code);
-      if (nestedCode !== undefined) return nestedCode;
-    }
-
-    return undefined;
-  },
+  extractStatusCode: (error: unknown): number | undefined =>
+    probeStatusCode(error, GEMINI_STATUS_PATHS),
 
   hasStringStatus: (error: unknown, value: string): boolean => {
     if (typeof error !== 'object' || error === null) return false;
@@ -94,8 +65,7 @@ const GEMINI_PROBES: LlmErrorMapperProbes = {
     return false;
   },
 
-  networkPattern:
-    /ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|network/i,
+  networkPattern: NETWORK_ERROR_PATTERN,
 };
 
 /**
@@ -105,33 +75,57 @@ const GEMINI_PROBES: LlmErrorMapperProbes = {
  */
 @Injectable()
 export class GeminiService extends LLMService {
-  private readonly client: GoogleGenAI;
-  private readonly geminiLogger = new Logger(GeminiService.name);
+  private client?: GoogleGenAI;
 
   protected readonly providerName = 'gemini';
+
+  private readonly logLlmContent: boolean;
 
   constructor(
     configService: ConfigService,
     private readonly jsonParserUtility: JsonParserUtility,
   ) {
     super(configService);
+    this.logLlmContent = this.configService.get('LOG_LLM_CONTENT');
+  }
+
+  /**
+   * Lazily constructs (and caches) the Gemini SDK client.
+   *
+   * The client is built on first use rather than in the constructor because
+   * `GEMINI_API_KEY` is only conditionally required: the DI container eagerly
+   * constructs every provider service regardless of routing, and a deployment
+   * whose configured models all route to another provider may legitimately
+   * omit this key. The Zod environment schema enforces the key at startup
+   * whenever a configured model routes to Gemini, so this throw is a
+   * defensive backstop for direct-instantiation paths.
+   * @returns The cached or newly constructed Gemini SDK client.
+   * @throws {Error} When `GEMINI_API_KEY` is absent or empty.
+   */
+  private getClient(): GoogleGenAI {
+    if (this.client) {
+      return this.client;
+    }
     const apiKey = this.configService.get('GEMINI_API_KEY');
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is not set in environment');
     }
     this.client = new GoogleGenAI({ apiKey });
+    return this.client;
   }
 
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
     const modelParameters: GeminiRequest = this.buildModelParams(payload);
     const contents = this.buildContents(payload);
 
-    this.geminiLogger.debug(
+    this.logger.debug(
       `Sending to Gemini with model: ${modelParameters.model}, temperature: ${
         modelParameters.config.temperature ?? 0
       }`,
     );
-    this.logPayload(payload, contents);
+    if (this.logLlmContent) {
+      this.logPayload(payload, contents);
+    }
 
     try {
       return await this.generateAndParseResponse(
@@ -144,20 +138,28 @@ export class GeminiService extends LLMService {
         status?: number;
         statusCode?: number;
         response?: { status?: number };
+        body?: unknown;
       };
       const statusCode =
         error_?.status ?? error_?.statusCode ?? error_?.response?.status;
       const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
-      this.geminiLogger.error(
+      const errorMessage = isErrorObject(error) ? error.message : String(error);
+      const errorBody =
+        typeof error_?.body === 'string' ? error_.body : undefined;
+      const stack = isErrorObject(error) ? error.stack : undefined;
+      this.logger.error(
         {
           model: modelParameters.model,
           payloadType,
           statusCode,
+          errorMessage,
+          errorBody,
+          stack,
         },
         'Error communicating with or validating response from Gemini API',
       );
       if (error instanceof ZodError) {
-        this.geminiLogger.debug(
+        this.logger.debug(
           `Zod validation failed: ${JSON.stringify(error.issues)}`,
         );
         throw error;
@@ -192,24 +194,6 @@ export class GeminiService extends LLMService {
     return classifyLlmError(GEMINI_PROBES, error);
   }
 
-  // The private helpers `isResourceExhausted`, `isRateLimit`, `extractMessage`,
-  // `buildError`, `extractStatusCode`, `normaliseStatusCode`, and
-  // `hasStringStatus` have been extracted into the shared `classifyLlmError`
-  // helper in `llm-error-mapper.ts`. See `GEMINI_PROBES` above for the
-  // Gemini-specific probe configuration.
-
-  private isImagePromptPayload(
-    payload: LlmPayload,
-  ): payload is ImagePromptPayload {
-    return 'images' in payload;
-  }
-
-  private isStringPromptPayload(
-    payload: LlmPayload,
-  ): payload is StringPromptPayload {
-    return 'user' in payload;
-  }
-
   private buildModelParams(payload: LlmPayload): GeminiRequest {
     // Use payload.model if present; otherwise fall back to the current
     // hardcoded selection based on payload type.
@@ -223,31 +207,59 @@ export class GeminiService extends LLMService {
     const temperature =
       typeof payload.temperature === 'number' ? payload.temperature : 0;
 
-    // Map abstract reasoning-effort level to Gemini's thinkingBudget.
-    // See `mapThinkingBudget` for the mapping and v1-limitation note.
-    const thinkingBudget = this.mapThinkingBudget(payload.reasoningEffort);
-
-    // Only attach `thinkingConfig` when a non-zero thinking budget is
-    // requested. Some Gemini models (e.g. the `gemini-flash-latest` stable
-    // alias) reject the `thinkingConfig` field outright with a 400
-    // INVALID_ARGUMENT, so omitting it for the default/disabled case keeps
-    // those models working. Models that support thinking (the 2.5 series)
-    // continue to receive the budget as before.
+    // Map the abstract reasoning-effort level to the model family's native
+    // thinking parameter. See `buildThinkingConfig` for the per-family rules.
     const config: GenerateContentConfig = {
       systemInstruction,
       temperature,
-      ...(thinkingBudget > 0 && { thinkingConfig: { thinkingBudget } }),
+      ...this.buildThinkingConfig(modelName, payload.reasoningEffort),
     };
     return { model: modelName, config };
   }
 
   /**
-   * Maps an abstract reasoning-effort level to a Gemini thinking budget.
+   * Builds the family-appropriate `thinkingConfig` fragment for a request, per
+   * https://ai.google.dev/gemini-api/docs/thinking:
+   *
+   * - **Gemini 2.5 series** — `thinkingLevel` is not supported; the legacy
+   *   `thinkingBudget` is used instead (0 disables thinking). See
+   *   {@link mapThinkingBudget}.
+   * - **Gemini 2.0 series** — no thinking support at all, so `thinkingConfig`
+   *   is omitted entirely (the field is rejected with a 400 INVALID_ARGUMENT).
+   * - **Gemini 3 series and rolling aliases** (e.g. `gemini-flash-latest`) —
+   *   `thinkingLevel` is the recommended control. Crucially, omitting it makes
+   *   the model default to *medium* thinking (extra latency and cost), so a
+   *   level is always sent. See {@link mapThinkingLevel}.
+   * @param modelName - The resolved Gemini model name.
+   * @param effort - The abstract reasoning-effort level (or undefined).
+   * @returns An object spread fragment containing `thinkingConfig`, or an
+   *   empty object when the model family does not support thinking.
+   */
+  private buildThinkingConfig(
+    modelName: string,
+    effort: string | undefined,
+  ): Pick<GenerateContentConfig, 'thinkingConfig'> {
+    if (modelName.startsWith('gemini-2.0')) {
+      return {};
+    }
+    if (modelName.startsWith('gemini-2.5')) {
+      return {
+        thinkingConfig: { thinkingBudget: this.mapThinkingBudget(effort) },
+      };
+    }
+    return {
+      thinkingConfig: { thinkingLevel: this.mapThinkingLevel(effort) },
+    };
+  }
+
+  /**
+   * Maps an abstract reasoning-effort level to a Gemini 2.5-series thinking
+   * budget (in tokens). 0 disables thinking on the 2.5 Flash models.
    *
    * Note: `'off'` and `'low'` both map to 0, making them indistinguishable at
-   * the request level. This is a known v1 limitation — Gemini has no native
-   * low-effort equivalent, so `'low'` deliberately preserves the existing
-   * default (0).
+   * the request level. This is a known v1 limitation — Gemini 2.5 has no
+   * native low-effort equivalent, so `'low'` deliberately preserves the
+   * existing default (0).
    * @param effort - The abstract reasoning-effort level (or undefined).
    * @returns The Gemini thinking budget in tokens.
    */
@@ -262,16 +274,35 @@ export class GeminiService extends LLMService {
     }
   }
 
+  /**
+   * Maps an abstract reasoning-effort level to a Gemini 3-series
+   * `thinkingLevel`.
+   *
+   * Gemini 3 models cannot fully disable thinking; `'minimal'` is documented
+   * as matching the "no thinking" setting for most queries, so both `'off'`
+   * and the absent default map to it. The level is always sent because
+   * omitting it defaults the model to `'medium'` thinking.
+   * @param effort - The abstract reasoning-effort level (or undefined).
+   * @returns The Gemini thinking level.
+   */
+  private mapThinkingLevel(effort: string | undefined): ThinkingLevel {
+    switch (effort) {
+      case 'low':
+        return ThinkingLevel.LOW;
+      case 'high':
+        return ThinkingLevel.MEDIUM;
+      case 'max':
+        return ThinkingLevel.HIGH;
+      default:
+        return ThinkingLevel.MINIMAL;
+    }
+  }
+
   private buildContents(payload: LlmPayload): (string | Part)[] {
-    if (this.isImagePromptPayload(payload)) {
-      const { images } = payload;
-      const imageParts = this.mapImageParts(images);
-      return imageParts;
-    }
-    if (this.isStringPromptPayload(payload)) {
-      return [payload.user];
-    }
-    throw new Error('Unsupported payload type');
+    return this.mapPayload<(string | Part)[]>(payload, {
+      image: (p) => this.mapImageParts(p.images),
+      text: (p) => [p.user],
+    });
   }
 
   private mapImageParts(
@@ -299,13 +330,13 @@ export class GeminiService extends LLMService {
 
   private logPayload(payload: LlmPayload, contents: (string | Part)[]): void {
     if (this.isStringPromptPayload(payload)) {
-      this.geminiLogger.debug({ contents }, 'String payload being sent');
+      this.logger.debug({ contents }, 'String payload being sent');
     } else if (this.isImagePromptPayload(payload)) {
-      this.geminiLogger.debug(
+      this.logger.debug(
         `Image payload being sent with ${contents.length} content items`,
       );
     } else {
-      this.geminiLogger.debug(
+      this.logger.debug(
         `Unknown payload type being sent with ${contents.length} content items`,
       );
     }
@@ -322,8 +353,8 @@ export class GeminiService extends LLMService {
    * @remarks
    * - The response text is read via the new SDK's `result.text` getter (the
    *   concatenated text), falling back to an empty string when absent.
-   * - `thinkingConfig.thinkingBudget = 0` disables additional thinking for the
-   *   Gemini 2.5 models used here.
+   * - Thinking configuration (budget / level) is handled by
+   *   {@link buildThinkingConfig} based on the model family and effort level.
    */
   private async generateAndParseResponse(
     payload: LlmPayload,
@@ -331,20 +362,23 @@ export class GeminiService extends LLMService {
     contents: (string | Part)[],
   ): Promise<LlmResponse> {
     const { model, config } = modelParameters;
-    const result = await this.client.models.generateContent({
+    const result = await this.getClient().models.generateContent({
       model,
       contents,
       config,
     });
     const responseText = result.text ?? '';
 
-    // Pass the raw value as a structured field so pino serialises it lazily
-    // only when the debug level is enabled (avoids an unconditional, potentially
-    // large string concatenation on the hot path).
-    this.geminiLogger.debug({ responseText }, 'Raw response from Gemini');
+    // Gate raw content logging behind LOG_LLM_CONTENT to prevent persisting
+    // student-derived PII in default deployments.
+    if (this.logLlmContent) {
+      this.logger.debug({ responseText }, 'Raw response from Gemini');
+    }
 
     const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
-    this.geminiLogger.debug({ parsedJson }, 'Parsed JSON response');
+    if (this.logLlmContent) {
+      this.logger.debug({ parsedJson }, 'Parsed JSON response');
+    }
 
     const dataToValidate: unknown = Array.isArray(parsedJson)
       ? (parsedJson as unknown[])[0]

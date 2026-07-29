@@ -23,5 +23,7 @@ export const loadFileAsDataURI = async (filePath: string): Promise<string> => {
   const fileBuffer = await fs.readFile(filePath);
   const mimeType =
     path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toBase64()}`;
+  // Encode via Buffer's base64 encoder for portability across Node versions.
+  // `Uint8Array#toBase64` is newer and is unavailable in some runtimes.
+  return `data:${mimeType};base64,${Buffer.prototype.toString.call(fileBuffer, 'base64')}`;
 };

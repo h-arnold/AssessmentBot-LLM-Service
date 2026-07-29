@@ -330,6 +330,22 @@ describe('NetworkError', () => {
     // isHttpClientError probe excludes 'InvalidRequestError' → unclassifiable.
     expect(result).toBeUndefined();
   });
+
+  it('uses ?? false default when isHttpClientError is undefined and no status/message match', () => {
+    // buildProbes() omits isHttpClientError → the probe resolves to
+    // undefined, and classifyLlmError uses `?? false` so the check
+    // behaves as if the probe returned false.
+    const probes = buildProbes();
+    const error = {
+      // No extractable status code
+      // Message does NOT match network pattern
+      message: 'Some unrecognised upstream condition',
+    };
+    const result = classifyLlmError(probes, error);
+    // With isHttpClientError resolving to false (via ?? false) and no
+    // network-pattern match, the error is unclassifiable.
+    expect(result).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ import {
   ImagePromptPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
+import type { LlmPayload } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
 import {
   AuthenticationError,
@@ -226,6 +227,95 @@ describe('GeminiService', () => {
       await service.send(payload);
 
       expect(mockParse).toHaveBeenCalledWith(malformedJson);
+    });
+  });
+
+  describe('payload dispatch edge cases', () => {
+    it('should fail-fast on an unsupported payload type (no user or images)', async () => {
+      const malformed = { system: 's' } as unknown as LlmPayload;
+
+      // _sendInternal calls buildContents which calls mapPayload, which
+      // throws 'Unsupported payload type' from the base class dispatcher.
+      await expect(
+        (
+          service as unknown as {
+            _sendInternal: (p: LlmPayload) => Promise<unknown>;
+          }
+        )._sendInternal(malformed),
+      ).rejects.toThrow('Unsupported payload type');
+
+      // The SDK must never be called for an unclassifiable payload.
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('should silently drop an invalid image entry (no data) from the content array', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        // First image is valid, second is missing the `data` field
+        images: [
+          { mimeType: 'image/png', data: 'valid-data' },
+          { mimeType: 'image/jpeg' }, // data is undefined
+        ],
+      };
+
+      const result = await service.send(payload);
+
+      // The SDK call should only include the valid image part.
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [
+            { inlineData: { mimeType: 'image/png', data: 'valid-data' } },
+          ],
+        }),
+      );
+      expectValidResponse(result, 3);
+    });
+
+    it('should silently drop an image entry with non-string mimeType', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [
+          { mimeType: 'image/png', data: 'valid-data' },
+          { mimeType: 123 as unknown as string, data: 'bad-mime' },
+        ],
+      };
+
+      const result = await service.send(payload);
+
+      // Only the valid image is included
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [
+            { inlineData: { mimeType: 'image/png', data: 'valid-data' } },
+          ],
+        }),
+      );
+      expectValidResponse(result, 3);
+    });
+
+    it('should handle an all-invalid images array by sending no image parts', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [
+          { mimeType: 'image/png' as const }, // no data field
+        ],
+      };
+
+      // Sending with no valid image parts should still work (empty contents)
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [],
+        }),
+      );
+      expectValidResponse(result, 3);
     });
   });
 

@@ -46,6 +46,10 @@ describe('Model registry', () => {
       expect(resolveProvider('gemini-2.0-flash')).toBe('gemini');
     });
 
+    it('resolves gemini-flash-latest to gemini', () => {
+      expect(resolveProvider('gemini-flash-latest')).toBe('gemini');
+    });
+
     it('resolves mistral-small-latest to mistral', () => {
       expect(resolveProvider('mistral-small-latest')).toBe('mistral');
     });

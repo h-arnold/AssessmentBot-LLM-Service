@@ -252,5 +252,40 @@ describe('AssessorService', () => {
         Object.prototype.hasOwnProperty.call(receivedDto, '__proto__'),
       ).toBe(false);
     });
+
+    it('should log and re-throw when the LLM service throws (catch/log branch)', async () => {
+      const dto: CreateAssessorDto = {
+        taskType: TaskType.TEXT,
+        reference: 'ref',
+        studentResponse: 'stud',
+        template: 'temp',
+      };
+
+      const mockPrompt = {
+        buildMessage: vi.fn().mockResolvedValue({
+          system: 'System prompt',
+          user: 'prompt message',
+        }),
+      };
+      mockPromptFactory.create.mockResolvedValue(
+        mockPrompt as unknown as Prompt,
+      );
+      mockLlmService.send.mockRejectedValue(new Error('LLM failure'));
+
+      const loggerSpy = vi.spyOn(
+        (service as unknown as { logger: { error: (...a: unknown[]) => void } })
+          .logger,
+        'error',
+      );
+
+      await expect(service.createAssessment(dto)).rejects.toThrow(
+        'LLM failure',
+      );
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'Assessment failed for task type: TEXT.',
+        expect.any(String),
+      );
+    });
   });
 });

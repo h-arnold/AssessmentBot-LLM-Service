@@ -23,6 +23,17 @@ import {
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 
+/**
+ * Invokes the private `extractResponseText` helper on a MistralService instance.
+ * @param instance - The MistralService under test.
+ * @param result - The mock provider result to extract text from.
+ * @returns The extracted text string.
+ */
+const callExtractResponseText = (instance: unknown, result: unknown): string =>
+  (
+    instance as unknown as { extractResponseText: (r: unknown) => string }
+  ).extractResponseText(result);
+
 // ---------------------------------------------------------------------------
 // Mock the Mistral SDK
 // ---------------------------------------------------------------------------
@@ -467,6 +478,73 @@ describe('MistralService', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // C3. extractResponseText branches
+  // ---------------------------------------------------------------------------
+
+  describe('extractResponseText', () => {
+    it('returns a string content verbatim', () => {
+      const result = {
+        choices: [{ message: { content: '{"valid": "json"}' } }],
+      };
+      expect(callExtractResponseText(service, result)).toBe(
+        '{"valid": "json"}',
+      );
+    });
+
+    it('concatenates text chunks from an Array content', () => {
+      const result = {
+        choices: [
+          {
+            message: {
+              content: [
+                { type: 'text', text: '{"completeness": ' },
+                { type: 'text', text: '{"score": 3, "reasoning": "A"}' },
+                {
+                  type: 'text',
+                  text: ', "accuracy": {"score": 4, "reasoning": "B"}}',
+                },
+              ],
+            },
+          },
+        ],
+      };
+      const expected =
+        '{"completeness": {"score": 3, "reasoning": "A"}, "accuracy": {"score": 4, "reasoning": "B"}}';
+      expect(callExtractResponseText(service, result)).toBe(expected);
+    });
+
+    it('returns an empty string for an Array content with no text chunks', () => {
+      const result = {
+        choices: [
+          {
+            message: {
+              content: [
+                { type: 'image_url', imageUrl: 'data:image/png;base64,abc' },
+              ],
+            },
+          },
+        ],
+      };
+      expect(callExtractResponseText(service, result)).toBe('');
+    });
+
+    it('returns an empty string for null content', () => {
+      const result = { choices: [{ message: { content: null } }] };
+      expect(callExtractResponseText(service, result)).toBe('');
+    });
+
+    it('returns an empty string when content is missing', () => {
+      const result = { choices: [{ message: {} }] };
+      expect(callExtractResponseText(service, result)).toBe('');
+    });
+
+    it('returns an empty string when choices is empty', () => {
+      const result = { choices: [] };
+      expect(callExtractResponseText(service, result)).toBe('');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // D. mapError
   // ---------------------------------------------------------------------------
 
@@ -657,6 +735,48 @@ describe('MistralService', () => {
         expect(result!.providerName).toBe('mistral');
       });
 
+      it('should return NetworkError for RequestTimeoutError instance', () => {
+        const error = new Error('Request timed out');
+        Object.defineProperty(error, 'name', {
+          value: 'RequestTimeoutError',
+          configurable: true,
+          writable: true,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('mistral');
+      });
+
+      it('should return NetworkError for RequestAbortedError instance', () => {
+        const error = new Error('Request aborted');
+        Object.defineProperty(error, 'name', {
+          value: 'RequestAbortedError',
+          configurable: true,
+          writable: true,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('mistral');
+      });
+
+      it('should return NetworkError for UnexpectedClientError instance', () => {
+        const error = new Error('Unexpected client error');
+        Object.defineProperty(error, 'name', {
+          value: 'UnexpectedClientError',
+          configurable: true,
+          writable: true,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(NetworkError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('mistral');
+      });
+
       it('should return NetworkError for ECONNREFUSED error with no HTTP status', () => {
         const error = new Error('connect ECONNREFUSED');
         const result = callMapError(error);
@@ -664,6 +784,44 @@ describe('MistralService', () => {
         expect(result!.getStatus()).toBe(502);
         expect(result!.retryable).toBe(true);
         expect(result!.providerName).toBe('mistral');
+      });
+    });
+
+    describe('real MISTRAL_PROBES status-code fallback paths', () => {
+      it('extracts statusCode from error.status when statusCode is absent', () => {
+        const error = Object.assign(new Error('Server error'), {
+          status: 500,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ProviderServerError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('mistral');
+      });
+
+      it('extracts statusCode from error.code when statusCode and status are absent', () => {
+        const error = Object.assign(new Error('Rate limited'), {
+          code: 429,
+        });
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(RateLimitError);
+        expect(result!.getStatus()).toBe(429);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('mistral');
+      });
+
+      it('extracts statusCode from error.response.status when all top-level fields are absent', () => {
+        const error = { response: { status: 500 }, message: 'Server error' };
+        const result = callMapError(error);
+        expect(result).toBeInstanceOf(ProviderServerError);
+        expect(result!.getStatus()).toBe(502);
+        expect(result!.retryable).toBe(true);
+        expect(result!.providerName).toBe('mistral');
+      });
+
+      it('returns undefined when none of the fallback paths yield a valid status', () => {
+        const result = callMapError({ foo: 'bar' });
+        expect(result).toBeUndefined();
       });
     });
 

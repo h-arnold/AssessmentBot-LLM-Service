@@ -454,6 +454,40 @@ describe('MistralService', () => {
         }),
       );
     });
+
+    it('should silently drop an image entry with no data field from the content array', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        // First image is valid, second is missing the `data` field
+        images: [
+          { mimeType: 'image/png', data: 'valid-data' },
+          { mimeType: 'image/jpeg' }, // data is undefined
+        ],
+      };
+
+      const result = await service.send(payload);
+
+      // Only the valid image is included; no `base64,undefined` URI is sent.
+      expect(mockComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: [
+            { role: 'system', content: 'system prompt' },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image_url',
+                  imageUrl: 'data:image/png;base64,valid-data',
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      expectValidResponse(result, 3);
+    });
   });
 
   // ---------------------------------------------------------------------------

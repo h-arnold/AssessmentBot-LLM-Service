@@ -247,7 +247,9 @@ export class MistralService extends LLMService {
    *
    * For text payloads, the user message content is a plain string.
    * For image payloads, each image becomes an `ImageURLChunk` with a
-   * `data:` URI.
+   * `data:` URI. Entries lacking a string `data` (or string `mimeType`)
+   * are silently dropped, mirroring the Gemini service's `mapImageParts`
+   * guard.
    * @param payload - The LLM payload.
    * @returns An array of system and user messages.
    */
@@ -256,10 +258,23 @@ export class MistralService extends LLMService {
   ): Array<{ role: string; content: unknown }> {
     const userContent = this.mapPayload<unknown>(payload, {
       image: (p) =>
-        p.images.map((img) => ({
-          type: 'image_url' as const,
-          imageUrl: `data:${img.mimeType};base64,${img.data}`,
-        })),
+        p.images.flatMap((img) => {
+          // Mirror GeminiService.mapImageParts: only include entries where
+          // both `data` and `mimeType` are strings, so a missing `data`
+          // never produces a `base64,undefined` URI.
+          if (
+            typeof img.data === 'string' &&
+            typeof img.mimeType === 'string'
+          ) {
+            return [
+              {
+                type: 'image_url' as const,
+                imageUrl: `data:${img.mimeType};base64,${img.data}`,
+              },
+            ];
+          }
+          return [];
+        }),
       text: (p) => p.user,
     });
 

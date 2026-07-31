@@ -8,6 +8,7 @@ const validBody = randomBytes(24).toString('base64url');
 
 const validEnvironment = {
   GEMINI_API_KEY: 'dummy-key-for-testing',
+  MISTRAL_API_KEY: 'dummy-key-for-testing',
 };
 
 describe('Environment schema', () => {
@@ -107,6 +108,193 @@ describe('Environment schema', () => {
           API_KEYS: `abt_${otherBody}`,
         }),
       ).toThrow(z.ZodError);
+    });
+  });
+
+  describe('Mistral environment variables', () => {
+    it('should validate a config object with all five new variables present', () => {
+      const result = configSchema.parse({
+        ...validEnvironment,
+        MISTRAL_API_KEY: 'explicit-mistral-key',
+        DEFAULT_TEXT_TABLE_MODEL: 'custom-text-model',
+        DEFAULT_IMAGE_MODEL: 'custom-image-model',
+        TEXT_REASONING_EFFORT: 'max',
+        IMAGE_REASONING_EFFORT: 'off',
+      });
+      expect(result.MISTRAL_API_KEY).toBe('explicit-mistral-key');
+      expect(result.DEFAULT_TEXT_TABLE_MODEL).toBe('custom-text-model');
+      expect(result.DEFAULT_IMAGE_MODEL).toBe('custom-image-model');
+      expect(result.TEXT_REASONING_EFFORT).toBe('max');
+      expect(result.IMAGE_REASONING_EFFORT).toBe('off');
+    });
+
+    it('should reject TEXT_REASONING_EFFORT with invalid value', () => {
+      expect(() =>
+        configSchema.parse({
+          ...validEnvironment,
+          TEXT_REASONING_EFFORT: 'nonsense',
+        }),
+      ).toThrow(z.ZodError);
+    });
+
+    it('should reject IMAGE_REASONING_EFFORT with invalid value', () => {
+      expect(() =>
+        configSchema.parse({
+          ...validEnvironment,
+          IMAGE_REASONING_EFFORT: 'nonsense',
+        }),
+      ).toThrow(z.ZodError);
+    });
+
+    it('should apply defaults for omitted model and effort variables', () => {
+      const result = configSchema.parse(validEnvironment);
+      expect(result.DEFAULT_TEXT_TABLE_MODEL).toBe('mistral-small-latest');
+      expect(result.DEFAULT_IMAGE_MODEL).toBe('mistral-small-latest');
+      expect(result.TEXT_REASONING_EFFORT).toBe('low');
+      expect(result.IMAGE_REASONING_EFFORT).toBe('high');
+    });
+
+    it('should reject a config with empty MISTRAL_API_KEY when a model routes to mistral', () => {
+      expect(() =>
+        configSchema.parse({
+          ...validEnvironment,
+          MISTRAL_API_KEY: '',
+        }),
+      ).toThrow(z.ZodError);
+    });
+
+    describe('conditional provider API keys', () => {
+      it('should require GEMINI_API_KEY when a configured model routes to gemini', () => {
+        expect(() =>
+          configSchema.parse({
+            ...validEnvironment,
+            GEMINI_API_KEY: '',
+            DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+            DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash-lite',
+          }),
+        ).toThrow(z.ZodError);
+      });
+
+      it('should require MISTRAL_API_KEY when a configured model routes to mistral', () => {
+        expect(() =>
+          configSchema.parse({
+            ...validEnvironment,
+            MISTRAL_API_KEY: '',
+            DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
+            DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
+          }),
+        ).toThrow(z.ZodError);
+      });
+
+      it('should allow an omitted MISTRAL_API_KEY when both models route to gemini', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          MISTRAL_API_KEY: undefined,
+          DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+          DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash-lite',
+        });
+        expect(result.MISTRAL_API_KEY).toBeUndefined();
+      });
+
+      it('should allow an empty MISTRAL_API_KEY when both models route to gemini', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          MISTRAL_API_KEY: '',
+          DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+          DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash-lite',
+        });
+        expect(result.MISTRAL_API_KEY).toBe('');
+      });
+
+      it('should allow an omitted GEMINI_API_KEY when both models route to mistral', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          GEMINI_API_KEY: undefined,
+          DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
+          DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
+        });
+        expect(result.GEMINI_API_KEY).toBeUndefined();
+      });
+
+      it('should allow an empty GEMINI_API_KEY when both models route to mistral', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          GEMINI_API_KEY: '',
+          DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
+          DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
+        });
+        expect(result.GEMINI_API_KEY).toBe('');
+      });
+
+      it('should require a key only for the provider actually routed to', () => {
+        expect(() =>
+          configSchema.parse({
+            ...validEnvironment,
+            MISTRAL_API_KEY: '',
+            DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+            DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash-lite',
+          }),
+        ).not.toThrow();
+      });
+
+      it('should ignore the empty key requirement for an unrecognised model prefix', () => {
+        expect(() =>
+          configSchema.parse({
+            ...validEnvironment,
+            GEMINI_API_KEY: '',
+            MISTRAL_API_KEY: '',
+            DEFAULT_TEXT_TABLE_MODEL: 'openai-gpt-4o',
+            DEFAULT_IMAGE_MODEL: 'openai-gpt-4o',
+          }),
+        ).not.toThrow();
+      });
+    });
+
+    describe('LOG_LLM_CONTENT coercion', () => {
+      it('should default LOG_LLM_CONTENT to false when omitted', () => {
+        const result = configSchema.parse(validEnvironment);
+        expect(result.LOG_LLM_CONTENT).toBe(false);
+      });
+
+      it('should coerce the string "false" to false (not truthy)', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          LOG_LLM_CONTENT: 'false',
+        });
+        expect(result.LOG_LLM_CONTENT).toBe(false);
+      });
+
+      it('should coerce the string "true" to true', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          LOG_LLM_CONTENT: 'true',
+        });
+        expect(result.LOG_LLM_CONTENT).toBe(true);
+      });
+
+      it('should coerce the numeric string "1" to true', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          LOG_LLM_CONTENT: '1',
+        });
+        expect(result.LOG_LLM_CONTENT).toBe(true);
+      });
+
+      it('should coerce a non-truthy string ("0") to false', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          LOG_LLM_CONTENT: '0',
+        });
+        expect(result.LOG_LLM_CONTENT).toBe(false);
+      });
+
+      it('should coerce a boolean true value to true', () => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          LOG_LLM_CONTENT: true,
+        });
+        expect(result.LOG_LLM_CONTENT).toBe(true);
+      });
     });
   });
 });

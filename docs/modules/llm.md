@@ -1,14 +1,18 @@
 # LLM Module
 
-The LLM Module (`src/llm/`) provides Large Language Model integration services, implementing an abstract service layer with Google Gemini as the concrete implementation.
+The LLM Module (`src/llm/`) provides Large Language Model integration services, implementing an abstract service layer that dispatches to one of two concrete provider implementations — Google Gemini (`GeminiService`) or Mistral AI (`MistralService`) — through a routing service (`RoutingLLMService`) bound to the `LLM_SERVICE_TOKEN`.
 
 ## Module Structure
 
 ```typescript
 @Module({
   imports: [ConfigModule, CommonModule],
-  providers: [GeminiService, { provide: LLMService, useClass: GeminiService }],
-  exports: [LLMService],
+  providers: [
+    GeminiService,
+    MistralService,
+    { provide: LLM_SERVICE_TOKEN, useClass: RoutingLLMService },
+  ],
+  exports: [LLM_SERVICE_TOKEN],
 })
 export class LlmModule {}
 ```
@@ -27,6 +31,18 @@ Abstract base class providing the `send(payload: LlmPayload): Promise<LlmRespons
 
 Implements Google Gemini-specific functionality via the `@google/genai` client.
 
+### MistralService (Concrete Implementation)
+
+**Location:** `src/llm/mistral.service.ts`
+
+Implements Mistral AI-specific functionality via the `@mistralai/mistralai` client.
+
+### RoutingLLMService (Router / Dispatcher)
+
+**Location:** `src/llm/routing-llm.service.ts`
+
+Resolves the provider for each configured model (`DEFAULT_TEXT_TABLE_MODEL` / `DEFAULT_IMAGE_MODEL`) once at construction and binds `LLM_SERVICE_TOKEN` to itself via the module provider above. On `send()`, it normalises the payload, authoritatively sets `payload.model` and `payload.reasoningEffort` (overriding any caller values) based on the task type, and dispatches to the matching concrete provider.
+
 **Model Selection Logic** (non-obvious):
 
 The service selects the model based on payload type:
@@ -34,7 +50,7 @@ The service selects the model based on payload type:
 - `gemini-2.5-flash-lite` — used for text-only requests (cheaper, faster)
 - `gemini-2.5-flash` — used for multimodal requests (images)
 
-The distinction is made via `isImagePromptPayload()`: if the payload has an `images` array, the multimodal model is chosen. Both models use `thinkingConfig: { thinkingBudget: 0 }` to disable additional thinking budget per Gemini guidance.
+The distinction is made via `isImagePromptPayload()`: if the payload has an `images` array, the multimodal model is chosen. The thinking parameter is selected per model family (see `buildThinkingConfig()`): Gemini 2.5 models receive `thinkingConfig: { thinkingBudget }` (0 disables thinking), Gemini 2.0 models receive no `thinkingConfig` (the field is rejected with a 400 `INVALID_ARGUMENT`), and Gemini 3-series models (including the `gemini-flash-latest` alias) always receive an explicit `thinkingConfig: { thinkingLevel }` because omitting it defaults the model to _medium_ thinking (`off`/absent→`minimal`, `low`→`low`, `high`→`medium`, `max`→`high`).
 
 ### Centralised LLM Error Handling
 
@@ -67,6 +83,7 @@ priority rules, and how to add a new provider, see the dedicated guide:
 ## Dependencies
 
 - **@google/genai** — Google Gemini API client
+- **@mistralai/mistralai** — Mistral AI API client
 - **ConfigModule** — Environment configuration
 - **CommonModule** — Shared utilities (`JsonParserUtility`)
 - **zod** — Response validation schemas

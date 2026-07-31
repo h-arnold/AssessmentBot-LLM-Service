@@ -22,6 +22,8 @@ You do not implement production code. You clarify, structure, and write planning
 
 ## 0. Mandatory First Step
 
+Files passed via the `files` parameter are already injected into your prompt as attached files — use them directly without issuing read calls. For any file not already provided, issue read calls yourself.
+
 Before asking questions or drafting anything, you must:
 
 1. **Read core instructions**:

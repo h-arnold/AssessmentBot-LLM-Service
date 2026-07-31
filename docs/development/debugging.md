@@ -22,6 +22,8 @@ LOG_LEVEL=info     # Production — structured JSON logs
 
 Available levels (from most to least verbose): `trace`, `debug`, `info`, `warn`, `error`, `fatal`.
 
+> **Note:** Raw LLM prompt and response content (which may contain student-derived data) is gated behind the `LOG_LLM_CONTENT` env var. Even with `LOG_LEVEL=debug`, this content will not appear unless `LOG_LLM_CONTENT=true` is also set.
+
 ## Viewing Logs
 
 - **Development**: `npm run start:dev` outputs pretty-printed logs via `pino-pretty` automatically.
@@ -36,6 +38,7 @@ All HTTP requests are automatically logged by the global `nestjs-pino` middlewar
 
 ```bash
 LOG_LEVEL=debug                            # Enable verbose logging
+LOG_LLM_CONTENT=true                       # Also log raw LLM prompt/response content (requires LOG_LEVEL=debug; off by default to prevent persisting student-derived PII)
 E2E_TESTING=true                           # Enable E2E test mode (mocks external calls)
 NODE_OPTIONS="--inspect=0.0.0.0:9229"      # Enable Node.js inspector
 ```

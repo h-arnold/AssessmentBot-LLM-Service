@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.10.0",
+    "@mistralai/mistralai": "^2.5.0",
     "@nestjs/common": "^11.1.19",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.19",
@@ -105,7 +106,8 @@
   "lint-staged": {
     "*.ts": "eslint --fix",
     "*.{js,ts,json,md}": "prettier --write",
-    "*.{ts,js}": "./scripts/check-british-english.sh"
+    "*.{ts,js,mjs,md}": "./scripts/check-british-english.sh",
+    "*.env*": "./scripts/check-british-english.sh"
   },
   "repository": {
     "type": "git",

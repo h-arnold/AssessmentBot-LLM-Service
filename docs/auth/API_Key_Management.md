@@ -25,7 +25,7 @@ API keys are used to authenticate requests to protected endpoints. The key must 
 
 - **Header Format**: Use the `Bearer` scheme, followed by a space, and then your API key.
 
-**Note:** `Bearer` is case sensitive, so it must be capitalized.
+**Note:** `Bearer` is case sensitive, so it must be capitalised.
 
 ```
 Authorization: Bearer <your_api_key_here>

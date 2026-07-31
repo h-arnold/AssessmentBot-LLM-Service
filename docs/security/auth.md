@@ -66,7 +66,7 @@ The strategy explicitly checks `authHeader.startsWith('Bearer ')`. This is a sec
 
 File: `src/auth/api-key.service.ts`
 
-The use of a Zod schema for initial validation is a defense-in-depth measure. It allows the system to fail fast for clearly invalid tokens before performing a search in the list of valid keys, which is a slightly more expensive operation.
+The use of a Zod schema for initial validation is a defence-in-depth measure. It allows the system to fail fast for clearly invalid tokens before performing a search in the list of valid keys, which is a slightly more expensive operation.
 
 ### Configuration
 

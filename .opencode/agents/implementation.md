@@ -27,6 +27,8 @@ This gate overrides all other instructions. No handoff is valid until checks pas
 
 ## 1. MANDATORY: Context Acquisition
 
+Files passed via the `files` parameter are already injected into your prompt as attached files — use them directly without issuing read calls. For any file not already provided, issue read calls yourself.
+
 Before planning or editing anything, you **MUST** fetch the local context:
 
 1. **Acquire context**:

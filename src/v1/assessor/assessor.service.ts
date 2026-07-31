@@ -1,7 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { CreateAssessorDto } from './dto/create-assessor.dto.js';
-import { LLMService, LlmPayload } from '../../llm/llm.service.interface.js';
+import type { ILlmService } from '../../llm/llm.service.interface.js';
+import {
+  LLM_SERVICE_TOKEN,
+  LlmPayload,
+} from '../../llm/llm.service.interface.js';
 import { LlmResponse } from '../../llm/types.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
 
@@ -17,13 +21,13 @@ export class AssessorService {
   private readonly logger = new Logger(AssessorService.name);
   /**
    * Constructs an instance of AssessorService.
-   * @param {LLMService} llmService - The service responsible for interacting
+   * @param llmService - The service responsible for interacting
    *   with the LLM.
-   * @param {PromptFactory} promptFactory - The factory responsible for
+   * @param promptFactory - The factory responsible for
    *   generating prompts for the LLM.
    */
   constructor(
-    private readonly llmService: LLMService,
+    @Inject(LLM_SERVICE_TOKEN) private readonly llmService: ILlmService,
     private readonly promptFactory: PromptFactory,
   ) {}
 
@@ -32,9 +36,9 @@ export class AssessorService {
    *
    * This method generates a prompt using the `promptFactory`, builds a message,
    * and sends it to the LLM service for processing.
-   * @param {CreateAssessorDto} dto - The data transfer object containing the
+   * @param dto - The data transfer object containing the
    *   details required to create an assessment.
-   * @returns {Promise<LlmResponse>} A promise that resolves to an LlmResponse
+   * @returns A promise that resolves to an LlmResponse
    *   containing the result of the assessment.
    */
   async createAssessment(dto: CreateAssessorDto): Promise<LlmResponse> {
@@ -65,8 +69,8 @@ export class AssessorService {
   /**
    * Describes an LLM payload for debug logging — determines whether it is an
    * image or text payload and returns a human-readable summary string.
-   * @param {LlmPayload} message The LLM payload to describe.
-   * @returns {string} A human-readable summary string.
+   * @param message The LLM payload to describe.
+   * @returns A human-readable summary string.
    */
   private describePayloadSummary(message: LlmPayload): string {
     return 'images' in message

@@ -17,6 +17,8 @@ You are typically invoked by an orchestrator with a list of changed files and a 
 
 ## 0. Mandatory First Step
 
+Files passed via the `files` parameter are already injected into your prompt as attached files — use them directly without issuing read calls. For any file not already provided, issue read calls yourself.
+
 Before writing documentation updates, you must:
 
 1. **Acquire Context**: Read the changed source files directly. Do not rely only on change summaries.
@@ -100,7 +102,7 @@ Do not claim completion until documentation and JSDoc reflect the implemented co
 
 Provide a concise handoff summary including:
 
-- Files read (explicit paths), including mandatory docs from agent instructions.
+- Files reviewed (explicit paths), including mandatory docs from agent instructions and any files passed via the `files` parameter.
 - Files updated/created.
 - What behaviour or contract changes were documented.
 - Policy updates made.
@@ -138,7 +140,7 @@ Provide a concise handoff summary including:
 
 ```
 .
-├── AGENTS.md                                        # Root: core principles, tech stack, logging, workflow, delegation
+├── AGENTS.md                                        # Root: core principles, tech stack, delegation protocol, agentic workflow, policy signposts
 ├── CONTRIBUTING.md                                  # Contribution guidelines
 ├── docs/
 │   ├── README.md                                    # Main documentation index
@@ -172,6 +174,9 @@ Provide a concise handoff summary including:
 │   │
 │   ├── design/
 │   │   └── ClassStructure.md                        # Class structure documentation
+│   │
+│   ├── llm/
+│   │   └── error-handling.md                       # LLM error handling docs
 │   │
 │   ├── development/
 │   │   ├── code-style.md                            # TypeScript/ESLint code style
@@ -231,14 +236,25 @@ Provide a concise handoff summary including:
 │   ├── docs.md                                       # THIS FILE - Documentation Agent instructions
 │   ├── implementation.md                             # Focused implementation tasks
 │   ├── kif.md                                        # Kif subagent for menial exploration tasks
-│   ├── planner.md                                    # Create SPEC.md, LAYOUT_SPEC.md, ACTION_PLAN.md
+│   ├── planner.md                                    # Create SPEC.md, ACTION_PLAN.md
 │   ├── planner-reviewer.md                           # Impartial review of planning artefacts
 │   └── testing-specialist.md                         # Test implementation and debugging (Jest + NestJS)
+│
+├── plugins/
+│   ├── task-files.ts                                 # Extends `task` tool with `files` parameter for automatic file injection
+│   ├── task-files.README.md                          # Documentation for the task-files plugin
+│   ├── no-eslint-silence.ts                          # Blocks lint-silencing comment usage
+│   └── tests/                                        # Plugin regression tests
+│
+├── reviews/                                          # Code review scratch files (CI-generated)
+│
+├── scratchpad/                                       # Agent temporary workspace (gitignored)
 │
 └── skills/
     ├── agent-setup/SKILL.md                          # Configure OpenCode subagents
     ├── loc-counter/SKILL.md                          # Count lines of code
-    ├── regression-checker/SKILL.md                  # Regression checker CLI
+    ├── pre-pr-review/SKILL.md                        # Pre-PR review orchestrator
+    ├── regression-checker/SKILL.md                   # Regression checker CLI
     └── sonar-pr-duplication/SKILL.md                 # Fetch and expand Sonar PR duplication comments
 ```
 

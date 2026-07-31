@@ -12,12 +12,12 @@ import {
 } from './utils/app-lifecycle.js';
 import { loadFileAsDataURI, TaskData } from './utils/e2e-helpers.js';
 
-describe('AssessorController (e2e-live)', () => {
+describe('AssessorController (e2e-live-mistral)', () => {
   let app: AppInstance;
   const logFilePath = path.join(
     getCurrentDirname(),
     'logs',
-    'assessor-live.e2e-spec.log',
+    'mistral-live.e2e-spec.log',
   );
 
   let tableData: TaskData;
@@ -28,8 +28,8 @@ describe('AssessorController (e2e-live)', () => {
 
   beforeAll(async () => {
     app = await startApp(logFilePath, {
-      DEFAULT_TEXT_TABLE_MODEL: 'gemini-flash-latest',
-      DEFAULT_IMAGE_MODEL: 'gemini-flash-latest',
+      DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
+      DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
     });
 
     // Load test data asynchronously

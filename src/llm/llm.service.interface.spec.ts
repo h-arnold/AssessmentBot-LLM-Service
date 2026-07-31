@@ -121,8 +121,8 @@ describe('LLMService retry-loop (Section 2 contract)', () => {
     expect(result).toEqual(successResponse);
     // _sendInternal called once per attempt: 0, 1, 2 (all 3 with maxRetries=2)
     expect(sendMock).toHaveBeenCalledTimes(3);
-    // mapError called for each failed attempt (never for the success)
-    expect(mapErrorSpy).toHaveBeenCalledTimes(2);
+    // mapError called once on the first failure; the result is reused for retries
+    expect(mapErrorSpy).toHaveBeenCalledTimes(1);
   });
 
   // -----------------------------------------------------------------------

@@ -149,6 +149,55 @@ describe('HttpExceptionFilter', () => {
     );
   });
 
+  it('logs the original upstream stack (not the LlmError allocation stack) when originalError is present', () => {
+    const upstream = new Error('upstream boom');
+    const providerServerError = new ProviderServerError(
+      'The upstream LLM provider returned a server error',
+      'mistral',
+      { originalError: upstream, cause: upstream },
+    );
+    const mockJson: Mock = vi.fn();
+    const mockStatus: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ json: mockJson }));
+    const mockGetResponse: Mock = vi
+      .fn()
+      .mockImplementation(() => ({ status: mockStatus }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
+      url: '/test-original-stack',
+      method: 'POST',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
+      getResponse: mockGetResponse,
+      getRequest: mockGetRequest,
+    }));
+    const mockArgumentsHost: ArgumentsHost = {
+      switchToHttp: mockHttpArgumentsHost,
+      getArgByIndex: vi.fn(),
+      getArgs: vi.fn(),
+      getType: vi.fn(),
+      switchToRpc: vi.fn(),
+      switchToWs: vi.fn(),
+    };
+    const loggerSpy: MockInstance = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    filter['catch'](providerServerError, mockArgumentsHost);
+
+    // The third argument must be the ORIGINAL upstream stack, not the
+    // ProviderServerError's own allocation stack.
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(String),
+      upstream.stack,
+    );
+    const stackArgument = loggerSpy.mock.calls[0][2];
+    expect(stackArgument).not.toBe(providerServerError.stack);
+  });
+
   it('should sanitise 503 LlmError message in production', () => {
     const productionFilter = new HttpExceptionFilter(
       new Logger(),

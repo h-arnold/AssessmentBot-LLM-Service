@@ -1,4 +1,4 @@
-import { GoogleGenAI, ApiError } from '@google/genai';
+import { GoogleGenAI, ApiError, ThinkingLevel } from '@google/genai';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
@@ -7,6 +7,7 @@ import {
   ImagePromptPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
+import type { LlmPayload } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
 import {
   AuthenticationError,
@@ -66,6 +67,23 @@ const expectValidResponse = (result: LlmResponse, score: number): void => {
   });
 };
 
+/**
+ * Asserts that the SDK was called with the given Gemini 3-series
+ * `thinkingLevel` for the `gemini-flash-latest` fixture request.
+ * @param thinkingLevel - The expected thinking level.
+ */
+const expectThinkingLevel = (thinkingLevel: ThinkingLevel): void => {
+  expect(mockGenerateContent).toHaveBeenCalledWith({
+    model: 'gemini-flash-latest',
+    contents: ['test prompt'],
+    config: {
+      systemInstruction: 'system prompt',
+      temperature: 0,
+      thinkingConfig: { thinkingLevel },
+    },
+  });
+};
+
 describe('GeminiService', () => {
   let service: GeminiService;
   let configService: ConfigService;
@@ -100,12 +118,58 @@ describe('GeminiService', () => {
     ).mapError(error);
   };
 
+  // Helper for the Gemini 3-series `thinkingLevel` mapping tests. Gemini 3
+  // models (including the `gemini-flash-latest` rolling alias) use
+  // `thinkingLevel` rather than `thinkingBudget`. Omitting the level makes
+  // the model default to *medium* thinking, so a level must always be sent.
+  // See https://ai.google.dev/gemini-api/docs/thinking.
+  const sendWithEffort = async (
+    reasoningEffort?: StringPromptPayload['reasoningEffort'],
+  ): Promise<LlmResponse> => {
+    mockGenerateContent.mockResolvedValue(createValidResponse(1));
+    const payload: StringPromptPayload = {
+      ...createStringPayload('test prompt'),
+      model: 'gemini-flash-latest',
+      ...(reasoningEffort && { reasoningEffort }),
+    };
+    return service.send(payload);
+  };
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  it('should initialise the SDK correctly', () => {
+  it('should construct without touching GEMINI_API_KEY, then initialise the SDK lazily on first send', async () => {
+    // Construction must not build the client — the key is conditionally
+    // required and the DI container eagerly constructs every provider.
+    expect(mockGoogleGenAI).not.toHaveBeenCalled();
+
+    mockGenerateContent.mockResolvedValue(createValidResponse(1));
+    await service.send(createStringPayload('test prompt'));
+
     expect(mockGoogleGenAI).toHaveBeenCalledWith({ apiKey: 'test-api-key' });
+    expect(mockGoogleGenAI).toHaveBeenCalledTimes(1);
+  });
+
+  it('should construct without a key but fail on first send when GEMINI_API_KEY is missing', async () => {
+    const noKeyConfig = {
+      get: vi.fn((key: string): string | null => {
+        if (key === 'GEMINI_API_KEY') return null;
+        if (key === 'LLM_BACKOFF_BASE_MS') return '10';
+        if (key === 'LLM_MAX_RETRIES') return '2';
+        return null;
+      }),
+    } as unknown as ConfigService;
+
+    const keylessService = new GeminiService(noKeyConfig, {
+      parse: mockParse,
+    } as unknown as JsonParserUtility);
+
+    await expect(
+      keylessService.send(createStringPayload('test prompt')),
+    ).rejects.toThrow(
+      'LLM service error: GEMINI_API_KEY is not set in environment',
+    );
   });
 
   describe('basic functionality', () => {
@@ -166,6 +230,301 @@ describe('GeminiService', () => {
     });
   });
 
+  describe('payload dispatch edge cases', () => {
+    it('should fail-fast on an unsupported payload type (no user or images)', async () => {
+      const malformed = { system: 's' } as unknown as LlmPayload;
+
+      // _sendInternal calls buildContents which calls mapPayload, which
+      // throws 'Unsupported payload type' from the base class dispatcher.
+      await expect(
+        (
+          service as unknown as {
+            _sendInternal: (p: LlmPayload) => Promise<unknown>;
+          }
+        )._sendInternal(malformed),
+      ).rejects.toThrow('Unsupported payload type');
+
+      // The SDK must never be called for an unclassifiable payload.
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('should silently drop an invalid image entry (no data) from the content array', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        // First image is valid, second is missing the `data` field
+        images: [
+          { mimeType: 'image/png', data: 'valid-data' },
+          { mimeType: 'image/jpeg' }, // data is undefined
+        ],
+      };
+
+      const result = await service.send(payload);
+
+      // The SDK call should only include the valid image part.
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [
+            { inlineData: { mimeType: 'image/png', data: 'valid-data' } },
+          ],
+        }),
+      );
+      expectValidResponse(result, 3);
+    });
+
+    it('should silently drop an image entry with non-string mimeType', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [
+          { mimeType: 'image/png', data: 'valid-data' },
+          { mimeType: 123 as unknown as string, data: 'bad-mime' },
+        ],
+      };
+
+      const result = await service.send(payload);
+
+      // Only the valid image is included
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [
+            { inlineData: { mimeType: 'image/png', data: 'valid-data' } },
+          ],
+        }),
+      );
+      expectValidResponse(result, 3);
+    });
+
+    it('should handle an all-invalid images array by sending no image parts', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [
+          { mimeType: 'image/png' as const }, // no data field
+        ],
+      };
+
+      // Sending with no valid image parts should still work (empty contents)
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [],
+        }),
+      );
+      expectValidResponse(result, 3);
+    });
+  });
+
+  describe('optional model and reasoningEffort payload fields', () => {
+    it('should use payload.model override for text payloads', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        model: 'gemini-2.5-flash',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should default to gemini-2.5-flash-lite when payload.model is absent (regression)', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload = createStringPayload('test prompt');
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should use payload.model override for image payloads', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        ...createImagePayload(),
+        model: 'gemini-2.0-flash',
+      };
+      const result = await service.send(payload);
+
+      // gemini-2.0 models have no thinking support, so thinkingConfig must be
+      // omitted entirely (the API rejects it with a 400 INVALID_ARGUMENT).
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.0-flash',
+        contents: [
+          { inlineData: { mimeType: 'image/png', data: 'test-data' } },
+        ],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+        },
+      });
+      expectValidResponse(result, 3);
+    });
+
+    it('should map reasoningEffort "off" to thinkingBudget 0', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'off',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "low" to thinkingBudget 0', async () => {
+      // Note: 'low' maps to 0, deliberately indistinguishable from 'off' at
+      // the request level. This is a known v1 limitation — the router
+      // correctly passes the abstract level 'low'; the 0-mapping is
+      // GeminiService's responsibility because Gemini has no native
+      // low-effort equivalent.
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'low',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "high" to thinkingBudget 1024', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'high',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 1024 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "max" to thinkingBudget 8192', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        reasoningEffort: 'max',
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 8192 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('should default thinkingBudget to 0 when reasoningEffort is absent (regression)', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload = createStringPayload('test prompt');
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+  });
+
+  describe('thinkingLevel mapping for Gemini 3-series models', () => {
+    it('should map reasoningEffort "off" to thinkingLevel MINIMAL', async () => {
+      const result = await sendWithEffort('off');
+      expectThinkingLevel(ThinkingLevel.MINIMAL);
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "low" to thinkingLevel LOW', async () => {
+      const result = await sendWithEffort('low');
+      expectThinkingLevel(ThinkingLevel.LOW);
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "high" to thinkingLevel MEDIUM', async () => {
+      const result = await sendWithEffort('high');
+      expectThinkingLevel(ThinkingLevel.MEDIUM);
+      expectValidResponse(result, 1);
+    });
+
+    it('should map reasoningEffort "max" to thinkingLevel HIGH', async () => {
+      const result = await sendWithEffort('max');
+      expectThinkingLevel(ThinkingLevel.HIGH);
+      expectValidResponse(result, 1);
+    });
+
+    it('should default to thinkingLevel MINIMAL when reasoningEffort is absent (regression)', async () => {
+      // Omitting thinkingConfig would silently default the model to medium
+      // thinking, adding latency and cost — the level must be sent explicitly.
+      const result = await sendWithEffort();
+      expectThinkingLevel(ThinkingLevel.MINIMAL);
+      expectValidResponse(result, 1);
+    });
+  });
+
   describe('error handling', () => {
     it('should throw an error if the SDK fails', async () => {
       mockGenerateContent.mockRejectedValue(new Error('SDK Error'));
@@ -206,14 +565,16 @@ describe('GeminiService', () => {
       const geminiErrorSpy = vi.spyOn(
         (
           service as unknown as {
-            geminiLogger: { error: (...a: unknown[]) => void };
+            logger: { error: (...a: unknown[]) => void };
           }
-        ).geminiLogger,
+        ).logger,
         'error',
       );
 
       mockGenerateContent.mockRejectedValue(
-        new ApiError({ message: 'Server error', status: 500 }),
+        Object.assign(new ApiError({ message: 'Server error', status: 500 }), {
+          body: 'raw upstream body detail',
+        }),
       );
 
       const payload = createStringPayload();
@@ -224,6 +585,9 @@ describe('GeminiService', () => {
           model: 'gemini-2.5-flash-lite',
           payloadType: 'text',
           statusCode: 500,
+          errorMessage: expect.stringContaining('Server error'),
+          errorBody: 'raw upstream body detail',
+          stack: expect.any(String),
         }),
         'Error communicating with or validating response from Gemini API',
       );

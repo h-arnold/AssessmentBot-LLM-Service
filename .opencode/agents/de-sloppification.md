@@ -15,6 +15,8 @@ The goal is not to produce generic clean-code feedback. The goal is to find conc
 
 ## 0. Mandatory First Step
 
+Files passed via the `files` parameter are already injected into your prompt as attached files — use them directly without issuing read calls. For any file not already provided, issue read calls yourself.
+
 Before reviewing or editing anything, you must:
 
 1. **Acquire context**:
@@ -146,7 +148,7 @@ When the review is complete:
 - list any cleanup work you actually performed
 - list the validation commands you ran and their outcomes
 - call out any areas you could not verify
-- include a `Files read` section with explicit file paths for mandatory docs and canonical policies consulted
+- include a `Files consulted` section with explicit file paths for mandatory docs and canonical policies consulted (use this instead of a bare `Files read` to distinguish from the `files` injection mechanism)
 
 Do not mark the review clean while unresolved canonical-policy deviations remain.
 

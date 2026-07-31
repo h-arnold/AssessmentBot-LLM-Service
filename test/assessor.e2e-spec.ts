@@ -42,7 +42,10 @@ describe('AssessorController (e2e)', () => {
   };
 
   beforeAll(async () => {
-    app = await startApp(logFilePath);
+    app = await startApp(logFilePath, {
+      DEFAULT_TEXT_TABLE_MODEL: 'gemini-flash-latest',
+      DEFAULT_IMAGE_MODEL: 'gemini-flash-latest',
+    });
   });
 
   afterAll(() => {
@@ -50,7 +53,7 @@ describe('AssessorController (e2e)', () => {
   });
 
   describe('Auth and Validation', () => {
-    it('/v1/assessor (POST) should return 401 Unauthorized when no API key is provided', async () => {
+    it('/v1/assessor (POST) should return 401 Unauthorised when no API key is provided', async () => {
       const response = await request(app.appUrl)
         .post('/v1/assessor')
         .send(textTask)
@@ -58,7 +61,7 @@ describe('AssessorController (e2e)', () => {
       expect(response.body.message).toBe('Unauthorized');
     });
 
-    it('/v1/assessor (POST) should return 401 Unauthorized when an invalid API key is provided', async () => {
+    it('/v1/assessor (POST) should return 401 Unauthorised when an invalid API key is provided', async () => {
       const response = await request(app.appUrl)
         .post('/v1/assessor')
         .set('Authorization', 'Bearer invalid-key')

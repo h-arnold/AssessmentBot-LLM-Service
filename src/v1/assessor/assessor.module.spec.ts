@@ -11,6 +11,8 @@ const getMockConfigValue = (key: string): unknown => {
   switch (key) {
     case 'GEMINI_API_KEY':
       return 'test-key';
+    case 'MISTRAL_API_KEY':
+      return 'dummy-key-for-testing';
     case 'NODE_ENV':
       return 'test';
     case 'PORT':
@@ -23,6 +25,14 @@ const getMockConfigValue = (key: string): unknown => {
       return 'image/png,image/jpeg';
     case 'LOG_LEVEL':
       return 'debug';
+    case 'DEFAULT_TEXT_TABLE_MODEL':
+      return 'gemini-2.5-flash-lite';
+    case 'DEFAULT_IMAGE_MODEL':
+      return 'gemini-2.5-flash';
+    case 'TEXT_REASONING_EFFORT':
+      return 'low';
+    case 'IMAGE_REASONING_EFFORT':
+      return 'high';
     default:
       return undefined;
   }

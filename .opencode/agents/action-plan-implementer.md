@@ -155,14 +155,14 @@ Each section must complete **two independent, self-contained loops** (red and gr
    `Implementation` fixes issues, re-runs checks, and re-submits to `Code Reviewer`.  
    **Repeat until the green-phase review is clean.**
 5. **After Green Loop:**
-   Run the **Regression Gate** (see **Section 1.2**).
+   Run the **Regression Gate** (see **Mandatory Gates — 2. Regression Gate**).
 
 ---
 
 ### **2.3 Refactor (If Required)**
 
 - If review requires refactoring, delegate to `Implementation` and send the result back through `Code Reviewer` until clean.
-- **After any refactoring:** Run the **Regression Gate** (see **Section 1.2**).
+- **After any refactoring:** Run the **Regression Gate** (see **Mandatory Gates — 2. Regression Gate**).
 
 ---
 
@@ -188,11 +188,12 @@ Each section must complete **two independent, self-contained loops** (red and gr
 ### **3.1 General Rules**
 
 - **Always pass** to sub-agents:
-  - Full context: `ACTION_PLAN.md`, `SPEC.md`, layout spec (if applicable), and files changed in the current section.
+  - Full context via the `files` array of the `task` tool: `ACTION_PLAN.md`, `SPEC.md`, layout spec (if applicable), and all source/test files changed in the current section.
   - Section name and phase (red, green, or refactor).
-  - A `Mandatory Reading` section listing all mandatory documents from the sub-agent's own instructions.
+  - Do **not** include `AGENTS.md` files — they are auto-injected by OpenCode.
+  - Do **not** paste file contents into the prompt body; deliver them via `files`.
 - **Never narrow the scope** for `Code Reviewer` below the full section context.
-- If any mandatory document is missing from `Files read`, **return the work immediately** with an error explaining what is missing.
+- If any mandatory file is missing from the `files` array, **return the work immediately** with an error explaining what is missing.
 
 ### **3.2 Handling Review Findings**
 
@@ -246,7 +247,7 @@ A section is **not complete** until all of the following are true:
 - Re-run `Code Reviewer` until clean.
 
 4. Update `ACTION_PLAN.md` with the cleanup outcome.
-5. Run the **Regression Gate** (see **Section 1.2**).
+5. Run the **Regression Gate** (see **Mandatory Gates — 2. Regression Gate**).
 
 **Required Evidence:**
 

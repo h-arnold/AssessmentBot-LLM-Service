@@ -30,12 +30,16 @@ const message = await prompt.buildMessage();
 
 ### Provider Pattern (Dependency Injection)
 
-**Implementation**: NestJS DI container
+**Implementation**: NestJS DI container with a token-based dispatcher
 
 ```typescript
 @Module({
-  providers: [GeminiService, { provide: LLMService, useClass: GeminiService }],
-  exports: [LLMService],
+  providers: [
+    GeminiService,
+    MistralService,
+    { provide: LLM_SERVICE_TOKEN, useClass: RoutingLLMService },
+  ],
+  exports: [LLM_SERVICE_TOKEN],
 })
 export class LlmModule {}
 ```
@@ -44,7 +48,7 @@ export class LlmModule {}
 
 ### Strategy Pattern
 
-**Implementation**: `LLMService` (`src/llm/llm.service.interface.ts`)
+**Implementation**: `LLMService` (`src/llm/llm.service.interface.ts`) with `GeminiService` and `MistralService` as concrete strategies, dispatched by `RoutingLLMService`.
 
 ```typescript
 @Injectable()
@@ -59,6 +63,13 @@ export abstract class LLMService {
 export class GeminiService extends LLMService {
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
     // Gemini-specific implementation
+  }
+}
+
+@Injectable()
+export class MistralService extends LLMService {
+  protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
+    // Mistral-specific implementation
   }
 }
 ```

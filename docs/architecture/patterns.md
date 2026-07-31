@@ -37,10 +37,9 @@ const message = await prompt.buildMessage();
   providers: [
     GeminiService,
     MistralService,
-    RoutingLLMService,
-    { provide: LLMService, useClass: RoutingLLMService },
+    { provide: LLM_SERVICE_TOKEN, useClass: RoutingLLMService },
   ],
-  exports: [LLMService],
+  exports: [LLM_SERVICE_TOKEN],
 })
 export class LlmModule {}
 ```

@@ -1,6 +1,6 @@
 # LLM Module
 
-The LLM Module (`src/llm/`) provides Large Language Model integration services, implementing an abstract service layer that dispatches to one of two concrete provider implementations — Google Gemini (`GeminiService`) or Mistral AI (`MistralService`) — through a routing service (`RoutingLLMService`) bound to the `LLMService` token.
+The LLM Module (`src/llm/`) provides Large Language Model integration services, implementing an abstract service layer that dispatches to one of two concrete provider implementations — Google Gemini (`GeminiService`) or Mistral AI (`MistralService`) — through a routing service (`RoutingLLMService`) bound to the `LLM_SERVICE_TOKEN`.
 
 ## Module Structure
 
@@ -10,10 +10,9 @@ The LLM Module (`src/llm/`) provides Large Language Model integration services, 
   providers: [
     GeminiService,
     MistralService,
-    RoutingLLMService,
-    { provide: LLMService, useClass: RoutingLLMService },
+    { provide: LLM_SERVICE_TOKEN, useClass: RoutingLLMService },
   ],
-  exports: [LLMService],
+  exports: [LLM_SERVICE_TOKEN],
 })
 export class LlmModule {}
 ```
@@ -42,7 +41,7 @@ Implements Mistral AI-specific functionality via the `@mistralai/mistralai` clie
 
 **Location:** `src/llm/routing-llm.service.ts`
 
-Resolves the provider for each configured model (`DEFAULT_TEXT_TABLE_MODEL` / `DEFAULT_IMAGE_MODEL`) once at construction and binds `LLMService` to itself via the module provider above. On `send()`, it normalises the payload, authoritatively sets `payload.model` and `payload.reasoningEffort` (overriding any caller values) based on the task type, and dispatches to the matching concrete provider.
+Resolves the provider for each configured model (`DEFAULT_TEXT_TABLE_MODEL` / `DEFAULT_IMAGE_MODEL`) once at construction and binds `LLM_SERVICE_TOKEN` to itself via the module provider above. On `send()`, it normalises the payload, authoritatively sets `payload.model` and `payload.reasoningEffort` (overriding any caller values) based on the task type, and dispatches to the matching concrete provider.
 
 **Model Selection Logic** (non-obvious):
 

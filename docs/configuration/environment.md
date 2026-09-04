@@ -1,82 +1,106 @@
 # Environment Variables
 
-The application uses environment variables for configuration. All variables are validated at startup using Zod schemas to ensure type safety and proper configuration.
+All configuration is validated at startup against the Zod schema in `src/config/environment.schema.ts` (the single source of truth). Invalid values abort startup with a `Invalid environment configuration` error — the application fails fast rather than running misconfigured.
 
-Copy `.env.example` to `.env` and configure the following variables:
+Copy `.env.example` to `.env` and set the values below. `process.env` takes precedence over the `.env` file (`src/config/config.service.ts`).
 
-## Required for Functionality (Conditional)
+## Conditionally required
 
-These variables are essential for the application's core features to work. Some are conditionally required based on the configured models.
+No variable is unconditionally required — each is required only when the configured behaviour needs it. An omitted `GEMINI_API_KEY` / `MISTRAL_API_KEY` is fine until a model routes to that provider.
 
-- `GEMINI_API_KEY`: The API key for the Google Gemini service. Optional at the schema level but required (non-empty) when `DEFAULT_TEXT_TABLE_MODEL` or `DEFAULT_IMAGE_MODEL` routes to the Gemini provider. Empty or whitespace-only values are treated as unset. The Zod environment schema enforces this at startup, so a Mistral-only deployment may omit this key entirely.
-- `MISTRAL_API_KEY`: The API key for the Mistral AI service. Optional at the schema level but required (non-empty) when `DEFAULT_TEXT_TABLE_MODEL` or `DEFAULT_IMAGE_MODEL` routes to the Mistral provider. Empty or whitespace-only values are treated as unset. The Zod environment schema enforces this at startup, so a Gemini-only deployment may omit this key entirely.
-- `API_KEYS`: A comma-separated list of valid API keys for client authentication. Each key must match the required format: `<API_KEY_PREFIX>` followed by exactly 32 base64url characters (`[A-Za-z0-9_-]`). Example: `API_KEYS=abt_<32-char-base64url-body>`. Keys not matching this format will abort application startup via Zod config validation. Use `npm run generate:api-key` to mint correctly-formatted keys. While the application can start without any keys, no authenticated endpoints will be accessible.
-- `API_KEY_PREFIX`: Selects the required prefix for all API keys. Default is `abt_`. Must match `[A-Za-z0-9_-]+`. Only override this together with regenerated keys.
+| Variable          | Required when                                                                                                 | What it does                                                        | Allowed values                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`  | `DEFAULT_TEXT_TABLE_MODEL` or `DEFAULT_IMAGE_MODEL` resolves to the Gemini provider (see model routing below) | Authenticates calls to the Google Gemini API                        | Non-empty string. Empty or whitespace-only counts as unset and fails validation when required                                                      |
+| `MISTRAL_API_KEY` | `DEFAULT_TEXT_TABLE_MODEL` or `DEFAULT_IMAGE_MODEL` resolves to the Mistral provider                          | Authenticates calls to the Mistral API                              | Non-empty string. Empty or whitespace-only counts as unset and fails validation when required                                                      |
+| `API_KEYS`        | Any authenticated endpoint must be reachable                                                                  | Comma-separated list of client API keys checked by the bearer guard | Comma-separated list in the [API key format](#api-key-format). May be omitted — the app starts, but no authenticated endpoint will accept requests |
 
-## Breaking Change — API Key Format
+## Optional (with defaults)
 
-This release introduces a breaking change to the API key format: all configured keys must now use the `<API_KEY_PREFIX><32-char base64url body>` format (e.g., `abt_` followed by exactly 32 base64url characters).
+Omit any of these to accept the default.
 
-**What has changed:**
+### Application
 
-- Previously, any alphanumeric string was accepted as an API key.
-- Now, each key must start with `API_KEY_PREFIX` (default `abt_`) and have a body of exactly 32 base64url characters (`[A-Za-z0-9_-]`).
-- Existing unprefixed keys will cause application startup to abort via Zod config validation.
+| Variable          | What it does                                                                              | Allowed values / default                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`        | Selects the runtime environment (also decides whether `.test.env` or `.env` is loaded)    | `development` \| `production` \| `test`. Default `production`                                                                            |
+| `PORT`            | Port the HTTP server listens on                                                           | Integer 1–65535. Default `3000`                                                                                                          |
+| `APP_NAME`        | Application name used in logs/startup                                                     | Any string. Default `Assessment Bot LLM Service`                                                                                         |
+| `APP_VERSION`     | Optional version override for consumers of `ConfigService`                                | Any string. No default — `undefined` when unset. Note: the `/health` endpoint reports the version from `package.json`, not this variable |
+| `API_KEY_PREFIX`  | Prefix every entry in `API_KEYS` must start with                                          | `[A-Za-z0-9_-]+`. Default `abt_`. Only change together with regenerating all keys                                                        |
+| `LOG_LEVEL`       | Logging verbosity                                                                         | `fatal` \| `error` \| `warn` \| `info` \| `debug` \| `verbose`. Default `info`                                                           |
+| `LOG_FILE`        | Writes logs to a file in addition to stdout. Intended for E2E runs                        | File path string. No default (unset)                                                                                                     |
+| `LOG_LLM_CONTENT` | Includes raw LLM prompt/response content (may contain student-derived data) in debug logs | `true` / `1` → enabled, anything else → disabled. Default `false`                                                                        |
 
-**Required migration:**
-Before redeploying, regenerate all configured API keys using the provided generator:
+### Image uploads
+
+| Variable                   | What it does                                          | Allowed values / default                                                |
+| -------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `MAX_IMAGE_UPLOAD_SIZE_MB` | Maximum accepted image size in megabytes              | Integer ≥ 0. Default `1`                                                |
+| `ALLOWED_IMAGE_MIME_TYPES` | Comma-separated MIME types accepted for image uploads | Comma-separated list. Default `image/png` (e.g. `image/png,image/jpeg`) |
+
+### Rate limiting
+
+| Variable                          | What it does                                       | Allowed values / default     |
+| --------------------------------- | -------------------------------------------------- | ---------------------------- |
+| `THROTTLER_TTL`                   | Length of each rate-limit window in milliseconds   | Integer ≥ 0. Default `10000` |
+| `UNAUTHENTICATED_THROTTLER_LIMIT` | Max requests per window for unauthenticated routes | Integer ≥ 0. Default `10`    |
+| `AUTHENTICATED_THROTTLER_LIMIT`   | Max requests per window for authenticated routes   | Integer ≥ 0. Default `90`    |
+
+### LLM models and reasoning
+
+| Variable                   | What it does                                                                                   | Allowed values / default                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_TEXT_TABLE_MODEL` | Model used for text and table assessments. The prefix selects the provider (see below)         | Any string; unrecognised prefixes fail fast at startup in `RoutingLLMService`. Default `mistral-small-latest` |
+| `DEFAULT_IMAGE_MODEL`      | Model used for image assessments. Same routing as above                                        | Any string. Default `mistral-small-latest`                                                                    |
+| `TEXT_REASONING_EFFORT`    | Abstract reasoning effort for text/table tasks, mapped to a provider-native value at send time | `off` \| `low` \| `high` \| `max`. Default `low`                                                              |
+| `IMAGE_REASONING_EFFORT`   | Abstract reasoning effort for image tasks                                                      | `off` \| `low` \| `high` \| `max`. Default `high`                                                             |
+| `LLM_BACKOFF_BASE_MS`      | Base delay for retries after LLM rate-limit errors                                             | Integer ≥ 100 (milliseconds). Default `1000`                                                                  |
+| `LLM_MAX_RETRIES`          | Max retry attempts after LLM rate-limit errors                                                 | Integer ≥ 0. Default `3`                                                                                      |
+
+#### Model → provider routing
+
+The prefix of the model name decides the provider (`src/llm/model-registry.ts`, case-sensitive, first match wins):
+
+| Provider | Recognised prefixes                                           |
+| -------- | ------------------------------------------------------------- |
+| Gemini   | `gemini-flash-latest`, `gemini-2.5-flash`, `gemini-2.0-flash` |
+| Mistral  | `mistral-small-latest`, `pixtral-`, `open-mistral-`           |
+
+So `mistral-small-latest` requires `MISTRAL_API_KEY`, while `gemini-2.5-flash-*` requires `GEMINI_API_KEY`. A mixed deployment (e.g. Mistral text model + Gemini image model) requires both keys.
+
+#### Reasoning-effort mapping
+
+`off` / `low` / `high` / `max` is mapped per provider at send time:
+
+| Abstract level | Mistral (`mistral-small-latest`)          | Gemini 2.5 series              | Gemini 3 series (incl. `gemini-flash-latest`)   | Gemini 2.0 series                    |
+| -------------- | ----------------------------------------- | ------------------------------ | ----------------------------------------------- | ------------------------------------ |
+| `off`          | Omitted from request (reasoning disabled) | Thinking budget `0` (disabled) | Thinking level `minimal` (cannot fully disable) | No thinking supported — nothing sent |
+| `low`          | `none`                                    | Thinking budget `0`            | Thinking level `low`                            | Nothing sent                         |
+| `high`         | `high`                                    | Thinking budget `1024`         | Thinking level `medium`                         | Nothing sent                         |
+| `max`          | `high`                                    | Thinking budget `8192`         | Thinking level `high`                           | Nothing sent                         |
+
+The Gemini 3-series level is always sent explicitly because omitting it defaults the model to medium thinking.
+
+## API key format
+
+Every entry in `API_KEYS` must be `<API_KEY_PREFIX>` followed by exactly 32 base64url characters (`[A-Za-z0-9_-]`). Malformed entries abort startup via Zod validation. Mint keys with:
 
 ```bash
 npm run generate:api-key
 ```
 
-This will output a single key in the correct format (default prefix `abt_`). For a custom prefix:
+With a custom prefix (must match `API_KEY_PREFIX`):
 
 ```bash
 API_KEY_PREFIX=custom_ npm run generate:api-key
 ```
 
-Update your `API_KEYS` environment variable with the regenerated keys.
+To rotate keys, mint replacements, update `API_KEYS`, and restart the application. Note this is a breaking change from earlier releases, which accepted any alphanumeric string — existing unprefixed keys must be regenerated.
 
-**Key rotation:** To rotate keys during normal operation, mint new keys with `npm run generate:api-key` and replace the values in `API_KEYS`, then restart the application.
-
-## Optional Variables
-
-These variables have default values but can be customised to change application behaviour.
-
-### Application Settings
-
-- `NODE_ENV`: Application environment (`development`, `production`, `test`). Default is `production`.
-- `PORT`: Port on which the server runs. Default is `3000`.
-- `APP_NAME`: Application name. Default is `Assessment Bot LLM Service`.
-- `APP_VERSION`: Application version. Optional, defaults to the version in `package.json`.
-- `LOG_LEVEL`: Logging verbosity level (`fatal`, `error`, `warn`, `info`, `debug`, `verbose`). Default is `info`.
-
-### Image Upload Configuration
-
-- `MAX_IMAGE_UPLOAD_SIZE_MB`: Sets the maximum allowed image size (in megabytes) for uploads. Default is `1` MB.
-- `ALLOWED_IMAGE_MIME_TYPES`: Comma-separated list of allowed image MIME types (e.g., `image/png,image/jpeg`). Default is `image/png`.
-
-### Rate Limiting (Throttling)
-
-- `THROTTLER_TTL`: Time-to-live for rate-limiting windows in milliseconds. Default is `10000`.
-- `UNAUTHENTICATED_THROTTLER_LIMIT`: Maximum requests per TTL window for unauthenticated routes. Default is `10`.
-- `AUTHENTICATED_THROTTLER_LIMIT`: Maximum requests per TTL window for authenticated routes. Default is `90`.
-
-### LLM Configuration
-
-- `LOG_LLM_CONTENT`: When true, raw LLM prompt and response content (which may contain student-derived data) is included in debug logs. Default is `false` to avoid persisting personal data in default deployments.
-- `LLM_BACKOFF_BASE_MS`: Base backoff time in milliseconds for LLM rate limit retries. Default is `1000`.
-- `LLM_MAX_RETRIES`: Maximum number of retry attempts for LLM rate limit errors. Default is `3`.
-- `DEFAULT_TEXT_TABLE_MODEL`: The model id used for text and table assessment tasks. Zod type: `z.string()`. Default is `'mistral-small-latest'`. The model id's prefix selects the provider at send time (a `mistral-*` id routes to `MistralService`; a `gemini-*` id routes to `GeminiService`).
-- `DEFAULT_IMAGE_MODEL`: The model id used for image assessment tasks. Zod type: `z.string()`. Default is `'mistral-small-latest'`. Same prefix-based routing as `DEFAULT_TEXT_TABLE_MODEL`.
-- `TEXT_REASONING_EFFORT`: The abstract reasoning-effort level applied to text/table tasks. Zod type: `z.enum(['off', 'low', 'high', 'max'])`. Default is `'low'`. Mapped to the provider-native value at send time (Mistral: `off`/`low`→`none`, `high`/`max`→`high` — `mistral-small-latest` only accepts those two; Gemini 2.5 series: `off`/`low`→thinking budget `0`, `high`→`1024`, `max`→`8192`; Gemini 3 series incl. `gemini-flash-latest`: `off`→`minimal`, `low`→`low`, `high`→`medium`, `max`→`high` thinking level, always sent explicitly because omission defaults the model to medium thinking).
-- `IMAGE_REASONING_EFFORT`: The abstract reasoning-effort level applied to image tasks. Zod type: `z.enum(['off', 'low', 'high', 'max'])`. Default is `'high'`. Same mapping as `TEXT_REASONING_EFFORT`.
-
-### Example Configuration
+## Example configuration
 
 ```env
-# Provider API keys — required only when a configured model routes to that provider
+# Provider API keys — each required only when a configured model routes to that provider
 GEMINI_API_KEY=your_gemini_api_key_here
 MISTRAL_API_KEY=your_mistral_api_key_here
 API_KEY_PREFIX=abt_

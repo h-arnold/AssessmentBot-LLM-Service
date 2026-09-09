@@ -44,6 +44,8 @@ classDiagram
     %% LLM Service Hierarchy
     class LLMService
     class GeminiService
+    class MistralService
+    class RoutingLLMService
 
     %% Module Relationships
     AppModule <|-- AssessorModule
@@ -77,6 +79,7 @@ classDiagram
 
     %% LLM Module Relationships
     LLMModule --> LLMService
+    LLMModule --> RoutingLLMService
 
     %% Prompt Inheritance
     PromptBase <|-- TextPrompt
@@ -85,10 +88,14 @@ classDiagram
 
     %% LLM Service Inheritance
     LLMService <|-- GeminiService
+    LLMService <|-- MistralService
 
     %% Service Integration
-    AssessorService --> LLMService
+    AssessorService --> RoutingLLMService
+    RoutingLLMService --> GeminiService
+    RoutingLLMService --> MistralService
     GeminiService --> JsonParserUtility
+    MistralService --> JsonParserUtility
     AssessorService --> PromptFactory
 
     %% Usage Relationships

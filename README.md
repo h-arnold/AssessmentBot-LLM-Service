@@ -16,7 +16,7 @@ This README provides a quick start guide and a high-level overview. For detailed
 
 - **Stateless Design**: No user data or session information is stored on the server, ensuring privacy and scalability.
 - **Modular Architecture**: Built with NestJS, following SOLID principles for a clean, maintainable, and scalable codebase.
-- **LLM Integration**: Abstracted service layer for interacting with LLMs (currently Google's Gemini) to perform assessments.
+- **LLM Integration**: Abstracted service layer for interacting with LLMs, using Mistral Small by default with Google Gemini also supported.
 - **Robust Validation**: All inputs are strictly validated using Zod for enhanced security and type safety.
 - **Comprehensive Testing**: Adheres to Test-Driven Development (TDD) with a full suite of unit, integration, and E2E tests.
 - **Containerised**: Ships with Docker and Docker Compose configurations for easy development and production deployment.
@@ -43,7 +43,7 @@ This method starts the application along with a Caddy reverse proxy and Fail2ban
     ```
 
 2.  **Set up environment variables**:
-    Copy the example environment file. You must provide a `GEMINI_API_KEY` and at least one `API_KEYS` for the application to be functional.
+    Copy the example environment file. You must provide a `MISTRAL_API_KEY` for the default Mistral Small models and at least one `API_KEYS`. Provide a `GEMINI_API_KEY` as well only when configuring a Gemini model.
 
     ```bash
     cp .env.example .env
@@ -72,7 +72,7 @@ The API will be available at `http://localhost:80`. For more details, see the [D
 
     ```bash
     cp .env.example .env
-    # Open .env and add your GEMINI_API_KEY and API_KEYS
+    # Open .env and add your MISTRAL_API_KEY and API_KEYS
     ```
 
 3.  **Start the development server**:
@@ -90,7 +90,7 @@ The API will be available at `http://localhost:80`. For more details, see the [D
 - **Authentication**: [Passport.js](http://www.passportjs.org/) (`passport-http-bearer`)
 - **Validation**: [Zod](https://zod.dev/)
 - **Testing**: [Vitest](https://vitest.dev/) & [Supertest](https://github.com/ladjs/supertest)
-- **LLM**: [Google Gemini](https://ai.google.dev/)
+- **LLM**: [Mistral AI](https://mistral.ai/) by default; [Google Gemini](https://ai.google.dev/) is also supported.
 
 ## 🔌 API Overview
 

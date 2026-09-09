@@ -39,7 +39,7 @@ The test script handles the entire lifecycle:
 The test environment is entirely self-contained within the test scripts in `prod-tests/`.
 
 - **Docker**: The tests require a running Docker daemon.
-- **Configuration**: All configuration, including the Docker image tag, container name, and environment variables (`API_KEYS`, `GEMINI_API_KEY`), is hardcoded within the test files (e.g., `test/prod-tests/docker-image.prod-spec.ts`). This ensures consistency and avoids reliance on external configuration.
+- **Configuration**: All configuration, including the Docker image tag, container name, and environment variables (`API_KEYS`, `MISTRAL_API_KEY`, and `GEMINI_API_KEY`), is hardcoded within the test files (e.g., `test/prod-tests/docker-image.prod-spec.ts`). This ensures consistency and avoids reliance on external configuration.
 - **Utilities**: Helper functions for running shell commands (`runCmd`) and waiting for the container's HTTP service to be ready (`waitForHttp`) are located in `prod-tests/utils/docker-utils.ts`.
 
 ## How to Add a New Production Test

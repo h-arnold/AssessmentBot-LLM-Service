@@ -51,7 +51,12 @@ Consult these resources before and during review. Local docs contain project-spe
 **Local Documentation**:
 
 - [AGENTS.md](../../AGENTS.md) - Core principles, tech stack, logging, workflow
+- [README.md](../../README.md) - Project overview and default LLM provider
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - Contribution guidelines
+- [docs/architecture/overview.md](../../docs/architecture/overview.md) - System architecture and provider integrations
+- [docs/architecture/modules.md](../../docs/architecture/modules.md) - Module responsibilities and dependencies
+- [docs/architecture/data-flow.md](../../docs/architecture/data-flow.md) - Request and provider data flow
+- [docs/design/ClassStructure.md](../../docs/design/ClassStructure.md) - Class relationships
 - [docs/testing/README.md](../../docs/testing/README.md) - Testing overview
 - [docs/testing/PRACTICAL_GUIDE.md](../../docs/testing/PRACTICAL_GUIDE.md) - Practical testing guidance
 - [docs/testing/E2E_GUIDE.md](../../docs/testing/E2E_GUIDE.md) - E2E testing with Supertest
@@ -59,7 +64,7 @@ Consult these resources before and during review. Local docs contain project-spe
 - [docs/configuration/environment.md](../../docs/configuration/environment.md) - Environment variables (Zod schema)
 - [docs/development/code-style.md](../../docs/development/code-style.md) - Code style guide
 - [docs/prompts/README.md](../../docs/prompts/README.md) - Prompt templates
-- [docs/modules/llm.md](../../docs/modules/llm.md) - LLM architecture and error handling
+- [docs/modules/llm.md](../../docs/modules/llm.md) - LLM architecture, provider routing, and error handling
 - [docs/modules/prompt.md](../../docs/modules/prompt.md) - Prompt generation and templates
 - [docs/modules/guards.md](../../docs/modules/guards.md) - Auth guards and throttler guard
 - [docs/modules/utilities.md](../../docs/modules/utilities.md) - Shared utilities (file, JSON, crypto)

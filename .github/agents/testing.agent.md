@@ -45,7 +45,7 @@ When authoring tests (in addition):
 Repository context & conventions:
 
 - Primary checks: `npm run lint`, `npm run lint:british`, `npm run test`. Coverage gate: `npm run test:cov`.
-- E2E: `npm run test:e2e`; tests live in `test/*.e2e-spec.ts`. Use `startApp`/`stopApp` from `test/utils/app-lifecycle.ts`. Defaults are hardcoded there; only `GEMINI_API_KEY` should come from `.test.env`. Honour the documented delays/backoff for Gemini calls.
+- E2E: `npm run test:e2e`; tests live in `test/*.e2e-spec.ts`. Use `startApp`/`stopApp` from `test/utils/app-lifecycle.ts`. Defaults are hardcoded there; provider API keys for live tests may come from `.test.env`. Honour the documented delays/backoff for upstream provider calls.
 - Note: the assessor cache E2E suite includes 60+ second TTL waits, so the overall run can take several minutes; this is expected.
 - Unit/integration tests are co-located in `src/**/*.spec.ts` and use Nest `TestingModule` patterns with `supertest` where relevant.
 - Production image tests: `prod-tests/`, command `npm run test:prod` (Docker required).
@@ -58,8 +58,8 @@ Authoring guidance:
 
 - Match existing Vitest style (describe/it, explicit expectations). Use British spelling in test names.
 - Choose the narrowest viable level: unit > integration > E2E unless behaviour requires full stack.
-- For E2E Gemini calls: add `await delay(2000)` before calls; rely on retry/backoff settings already in `startApp`; avoid parallel calls that breach rate limits.
-- Only read from `.test.env` for `GEMINI_API_KEY`; set other overrides via `envOverrides` when starting the app.
+- For E2E calls to an upstream LLM provider: add `await delay(2000)` before calls; rely on retry/backoff settings already in `startApp`; avoid parallel calls that breach rate limits.
+- Read provider API keys from `.test.env` for live tests; set other overrides via `envOverrides` when starting the app.
 - Prefer meaningful fixtures over inline literals; share setup with helpers to keep tests small and focused.
 - Assert on status codes, bodies, and side effects; include negative paths and auth/validation edges where relevant.
 

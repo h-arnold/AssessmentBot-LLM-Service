@@ -50,7 +50,7 @@ npm run test:e2e:mocked              # Run mocked E2E tests (default, no externa
 npm run test:e2e:mocked -- --verbose # Verbose output
 npm run test:debug                   # Unit tests in debug mode
 npx vitest run --project e2e test/specific.e2e-spec.ts  # Single test file
-npm run test:e2e:live -- --verbose   # Live E2E tests (requires real GEMINI_API_KEY)
+npm run test:e2e:live -- --verbose   # Live E2E tests (requires real provider API keys)
 ```
 
 ## Health Check

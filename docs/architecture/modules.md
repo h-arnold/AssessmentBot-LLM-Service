@@ -34,7 +34,7 @@ Health check and diagnostics endpoints. Provides `StatusController` and `StatusS
 
 ### LLM Module (`src/llm/llm.module.ts`)
 
-Abstracts LLM provider interaction. Defines `LLMService` abstract base class with common retry logic, and provides `GeminiService` as the concrete implementation for Google Gemini. Uses Strategy + Provider patterns.
+Abstracts LLM provider interaction. Defines the `LLMService` abstract base class with common retry logic, provides `GeminiService` and `MistralService` provider implementations, and uses `RoutingLLMService` to select the configured provider for each task. The default models are Mistral Small. Uses Strategy + Provider patterns.
 
 ### Prompt Module (`src/prompt/prompt.module.ts`)
 

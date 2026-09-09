@@ -12,7 +12,8 @@ sequenceDiagram
     participant Factory as Prompt Factory
     participant Prompt as Prompt Instance
     participant LLM as LLM Service
-    participant Gemini as Gemini API
+    participant Mistral as Mistral API (default)
+    participant Gemini as Gemini API (when configured)
 
     Client->>+Guard: POST /v1/assessor + API Key
     Guard->>Guard: Validate API Key
@@ -34,9 +35,15 @@ sequenceDiagram
     Prompt->>Prompt: Render with Mustache
     Prompt-->>-Service: LlmPayload
     Service->>+LLM: send(payload)
+    LLM->>LLM: Select configured model and provider
     LLM->>LLM: Retry Logic & Error Handling
-    LLM->>+Gemini: API Call
-    Gemini-->>-LLM: Raw Response
+    alt Default Mistral Small model
+        LLM->>+Mistral: API Call
+        Mistral-->>-LLM: Raw Response
+    else Gemini model configured
+        LLM->>+Gemini: API Call
+        Gemini-->>-LLM: Raw Response
+    end
     LLM->>LLM: Parse & Validate JSON
     LLM-->>-Service: LlmResponse
     Service-->>-Controller: LlmResponse
@@ -70,7 +77,7 @@ sequenceDiagram
 
 ### 6. LLM Integration
 
-`LLMService.send()` applies exponential backoff retry on rate limits (up to `LLM_MAX_RETRIES` times), calls the Gemini API via `GeminiService`, parses the response JSON (repairing with `jsonrepair` if needed), and validates against `LlmResponseSchema`.
+`RoutingLLMService.send()` selects the task-specific model and provider from server-side configuration. Both model settings default to `mistral-small-latest`, so the default path calls the Mistral API via `MistralService`; a configured Gemini model instead uses `GeminiService`. The selected provider applies exponential backoff retry on rate limits (up to `LLM_MAX_RETRIES` times), parses the response JSON (repairing with `jsonrepair` if needed), and validates against `LlmResponseSchema`.
 
 ### 7. Response Delivery
 

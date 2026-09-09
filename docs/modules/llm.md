@@ -1,6 +1,6 @@
 # LLM Module
 
-The LLM Module (`src/llm/`) provides Large Language Model integration services, implementing an abstract service layer that dispatches to one of two concrete provider implementations — Google Gemini (`GeminiService`) or Mistral AI (`MistralService`) — through a routing service (`RoutingLLMService`) bound to the `LLM_SERVICE_TOKEN`.
+The LLM Module (`src/llm/`) provides Large Language Model integration services, implementing an abstract service layer that dispatches to one of two concrete provider implementations — Google Gemini (`GeminiService`) or Mistral AI (`MistralService`) — through a routing service (`RoutingLLMService`) bound to the `LLM_SERVICE_TOKEN`. Both task-specific model settings default to Mistral Small (`mistral-small-latest`).
 
 ## Module Structure
 
@@ -45,12 +45,13 @@ Resolves the provider for each configured model (`DEFAULT_TEXT_TABLE_MODEL` / `D
 
 **Model Selection Logic** (non-obvious):
 
-The service selects the model based on payload type:
+`RoutingLLMService` selects the configured model and provider based on payload type:
 
-- `gemini-2.5-flash-lite` — used for text-only requests (cheaper, faster)
-- `gemini-2.5-flash` — used for multimodal requests (images)
+- Text/table payloads use `DEFAULT_TEXT_TABLE_MODEL`, defaulting to `mistral-small-latest`.
+- Image payloads use `DEFAULT_IMAGE_MODEL`, also defaulting to `mistral-small-latest`.
+- The model prefix determines the provider: Mistral prefixes route to `MistralService`, while Gemini prefixes route to `GeminiService`.
 
-The distinction is made via `isImagePromptPayload()`: if the payload has an `images` array, the multimodal model is chosen. The thinking parameter is selected per model family (see `buildThinkingConfig()`): Gemini 2.5 models receive `thinkingConfig: { thinkingBudget }` (0 disables thinking), Gemini 2.0 models receive no `thinkingConfig` (the field is rejected with a 400 `INVALID_ARGUMENT`), and Gemini 3-series models (including the `gemini-flash-latest` alias) always receive an explicit `thinkingConfig: { thinkingLevel }` because omitting it defaults the model to _medium_ thinking (`off`/absent→`minimal`, `low`→`low`, `high`→`medium`, `max`→`high`).
+The distinction is made by checking whether the payload has an `images` array. The router creates a new payload and authoritatively sets its model and reasoning effort from server configuration, overriding caller-supplied values. Provider-specific reasoning parameters are then built by the selected provider. Gemini 2.5 models receive `thinkingConfig: { thinkingBudget }` (0 disables thinking), Gemini 2.0 models receive no `thinkingConfig` (the field is rejected with a 400 `INVALID_ARGUMENT`), and Gemini 3-series models (including the `gemini-flash-latest` alias) always receive an explicit `thinkingConfig: { thinkingLevel }` because omitting it defaults the model to _medium_ thinking (`off`/absent→`minimal`, `low`→`low`, `high`→`medium`, `max`→`high`).
 
 ### Centralised LLM Error Handling
 

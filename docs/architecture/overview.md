@@ -32,7 +32,9 @@ graph TB
 
         subgraph "LLM Integration Layer"
             LLMS[LLM Service Interface]
+            ROUTER[Routing LLM Service]
             GS[Gemini Service]
+            MS[Mistral Service]
         end
 
         subgraph "Cross-Cutting Concerns"
@@ -44,6 +46,7 @@ graph TB
 
     subgraph "External Services"
         GEMINI[Google Gemini API]
+        MISTRAL[Mistral API]
     end
 
     C --> GW
@@ -57,11 +60,16 @@ graph TB
     PF --> IP
     PF --> TAP
     AS --> LLMS
-    LLMS --> GS
+    LLMS --> ROUTER
+    ROUTER --> GS
+    ROUTER --> MS
     GS --> GEMINI
+    MS --> MISTRAL
 
     CONFIG -.-> AS
+    CONFIG -.-> ROUTER
     CONFIG -.-> GS
+    CONFIG -.-> MS
     LOG -.-> AS
     LOG -.-> GS
     VALID -.-> AC
@@ -76,12 +84,15 @@ graph TB
 | **Assessor Service**     | Core business logic orchestration                       |
 | **Prompt Factory**       | Task-specific prompt generation (Factory pattern)       |
 | **LLM Service**          | Abstract interface for LLM providers (Strategy pattern) |
+| **Routing LLM Service**  | Selects the configured provider and model per task      |
 | **Gemini Service**       | Google Gemini API integration                           |
+| **Mistral Service**      | Mistral API integration                                 |
 | **Config Service**       | Zod-validated environment configuration                 |
 
 ## External Dependencies
 
-- **Google Gemini API**: Primary LLM provider for content assessment
+- **Mistral API**: Default provider for content assessment using `mistral-small-latest`.
+- **Google Gemini API**: Supported when a Gemini model is selected in configuration.
 
 ## Module Architecture
 
@@ -124,7 +135,7 @@ graph LR
 - **Framework**: NestJS with Express.js, TypeScript
 - **Validation**: Zod schemas for all runtime validation
 - **Auth**: Passport.js with `passport-http-bearer` strategy
-- **LLM Integration**: Abstract `LLMService` base class, `GeminiService` implementation, `jsonrepair` for response parsing
+- **LLM Integration**: Abstract `LLMService` base class, `RoutingLLMService`, Mistral and Gemini provider implementations, and `jsonrepair` for response parsing
 - **Templating**: Mustache for prompt rendering
 - **Testing**: Vitest, Supertest
 - **Logging**: `nestjs-pino` with structured JSON output

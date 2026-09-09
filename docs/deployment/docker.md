@@ -24,7 +24,8 @@ The production image uses a multi-stage build to create a minimal, secure runtim
 
     ```bash
     cp .env.example .env
-    # Edit .env with your configuration, especially GEMINI_API_KEY
+    # Edit .env with your configuration. The default models require MISTRAL_API_KEY;
+    # add GEMINI_API_KEY when selecting a Gemini model.
     ```
 
 3.  **Build and run the development container**:
@@ -67,7 +68,7 @@ The `docker-compose.yml` file defines three services:
 
 ### Environment Variables
 
-The application is configured via environment variables defined in the `.env` file. Key variables include `NODE_ENV`, `API_KEYS`, `GEMINI_API_KEY`, and `LOG_LEVEL`. Refer to `.env.example` for a full list.
+The application is configured via environment variables defined in the `.env` file. Key variables include `NODE_ENV`, `API_KEYS`, `MISTRAL_API_KEY`, and `LOG_LEVEL`. The default models use Mistral Small; `GEMINI_API_KEY` is needed only when a configured model routes to Gemini. Refer to `.env.example` for a full list.
 
 ### Caddy Configuration
 

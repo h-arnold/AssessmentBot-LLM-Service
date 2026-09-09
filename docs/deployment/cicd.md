@@ -58,7 +58,7 @@ on:
 
 #### Stage 3: End-to-End Testing (`e2e-test`)
 
-**Purpose**: Validates complete API functionality in a realistic environment. The default E2E run is mocked; the live suite can be run separately when Gemini integration needs verification.
+**Purpose**: Validates complete API functionality in a realistic environment. The default E2E run is mocked; live suites can be run separately when Mistral or Gemini integration needs verification.
 
 **Steps**:
 
@@ -70,7 +70,8 @@ on:
 
 The CI pipeline requires the following secrets to be configured in the repository at **Settings → Secrets and variables → Actions**:
 
-- **`GEMINI_API_KEY`**: A valid API key for the Gemini LLM, required only for live E2E tests (`npm run test:e2e:live`) and any integration tests that hit the live API.
+- **`MISTRAL_API_KEY`**: A valid API key for Mistral, required when a live test or integration routes to Mistral (including the default Mistral Small models).
+- **`GEMINI_API_KEY`**: A valid API key for Gemini, required when a live test or integration routes to Gemini, such as the Gemini live E2E suite (`npm run test:e2e:live`).
 - **`SONAR_TOKEN`**: A token for authenticating with SonarCloud for code analysis.
 
 ### Test Reporting
@@ -136,7 +137,8 @@ Standard environment variables used across workflows:
 ```bash
 NODE_ENV=test                    # Test environment
 GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}  # Automatic GitHub token
-GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}  # LLM API key
+MISTRAL_API_KEY=${{ secrets.MISTRAL_API_KEY }}  # Default LLM provider API key
+GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}    # Only for Gemini-configured tests
 ```
 
 #### Build Environment
@@ -299,7 +301,7 @@ DOCKER_BUILDKIT=1 docker build -f Docker/Dockerfile.prod .
 
 **API quota exceeded**:
 
-- Monitor Gemini API usage
+- Monitor usage for the configured LLM provider
 - Consider using test API keys with higher quotas
 - Implement retry logic in tests
 

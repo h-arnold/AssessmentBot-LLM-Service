@@ -30,17 +30,17 @@ Before providing any feedback, you must:
 
 AssessmentBot-LLM-Service is a NestJS backend API service with the following module structure:
 
-| Module      | Path               | Purpose                                      |
-| ----------- | ------------------ | -------------------------------------------- |
-| Auth        | `src/auth/`        | API key authentication via Passport.js       |
-| Common      | `src/common/`      | Shared utilities, filters, pipes             |
-| Config      | `src/config/`      | Zod-validated environment config             |
-| LLM         | `src/llm/`         | Abstract LLM service + Gemini implementation |
-| Prompt      | `src/prompt/`      | Prompt template generation                   |
-| Status      | `src/status/`      | Health check endpoint                        |
-| V1 Assessor | `src/v1/assessor/` | Assessment creation endpoint                 |
+| Module      | Path               | Purpose                                                   |
+| ----------- | ------------------ | --------------------------------------------------------- |
+| Auth        | `src/auth/`        | API key authentication via Passport.js                    |
+| Common      | `src/common/`      | Shared utilities, filters, pipes                          |
+| Config      | `src/config/`      | Zod-validated environment config                          |
+| LLM         | `src/llm/`         | Abstract LLM service + Gemini and Mistral implementations |
+| Prompt      | `src/prompt/`      | Prompt template generation                                |
+| Status      | `src/status/`      | Health check endpoint                                     |
+| V1 Assessor | `src/v1/assessor/` | Assessment creation endpoint                              |
 
-**Language**: TypeScript (ES2024 target), compiled to CommonJS via NestJS build pipeline.
+**Language**: TypeScript (ES2024 target), compiled as native ESM with NodeNext.
 **Validation**: Zod schemas for DTOs and environment variables.
 **Testing**: Vitest with NestJS TestingModule for unit/integration tests (co-located `*.spec.ts`), Vitest + Supertest for E2E tests (in `test/`).
 
@@ -51,7 +51,7 @@ Consult these resources before and during review. Local docs contain project-spe
 **Local Documentation**:
 
 - [AGENTS.md](../../AGENTS.md) - Core principles, tech stack, logging, workflow
-- [README.md](../../README.md) - Project overview and default LLM provider
+- [README.md](../../README.md) - Project overview, default LLM provider, and student data safeguarding
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - Contribution guidelines
 - [docs/architecture/overview.md](../../docs/architecture/overview.md) - System architecture and provider integrations
 - [docs/architecture/modules.md](../../docs/architecture/modules.md) - Module responsibilities and dependencies
@@ -71,6 +71,7 @@ Consult these resources before and during review. Local docs contain project-spe
 - [docs/modules/common.md](../../docs/modules/common.md) - Common module (filters, JSON parser)
 - [docs/modules/status.md](../../docs/modules/status.md) - Health check endpoints
 - [docs/api/rate-limiting.md](../../docs/api/rate-limiting.md) - Rate limiting configuration
+- [docs/auth/provider-api-keys.md](../../docs/auth/provider-api-keys.md) - Provider API keys and privacy requirements
 - [docs/modules/assessor.md](../../docs/modules/assessor.md) - Assessor module docs
 - [docs/modules/auth.md](../../docs/modules/auth.md) - Auth module docs
 - [docs/modules/config.md](../../docs/modules/config.md) - Config module docs
@@ -80,7 +81,7 @@ Consult these resources before and during review. Local docs contain project-spe
 - TypeScript: <https://www.typescriptlang.org/docs/>
 - Node.js: <https://nodejs.org/docs/>
 - NestJS: <https://docs.nestjs.com/>
-- Jest: <https://jestjs.io/docs/getting-started>
+- Vitest: <https://vitest.dev/guide/>
 - Supertest: <https://github.com/ladjs/supertest>
 - Zod: <https://zod.dev/>
 - Passport.js: <https://www.passportjs.org/docs/>
@@ -108,7 +109,7 @@ You will fail the task unless you read _the entirety_ of the relevant context be
 
 - **Framework**: NestJS. Use `@Module`, `@Controller`, `@Injectable`, `@Guard` decorators. Follow NestJS module conventions.
 - **Modularity**: Each feature area is a self-contained NestJS module with its own module, controller, service, and DTO files.
-- **ESM to CJS**: Source files use ESM `import`/`export` syntax. The build pipeline compiles to CommonJS. Do not use `import.meta.url` — use `getCurrentDirname()` from `src/common/file-utilities.ts`.
+- **Native ESM**: Source files use ESM `import`/`export` syntax and NodeNext resolution. Do not use `import.meta.url` — use `getCurrentDirname()` from `src/common/file-utilities.ts`.
 - **Typedness**: Strict TypeScript mode. No `any` types. `explicit-function-return-type` is enforced at lint level.
 - **No `console.*`**: Strictly forbidden in source code. Use NestJS `Logger` from `@nestjs/common` for all logging.
 - **British English**: Required in all comments, documentation, and user-facing text.
@@ -133,7 +134,7 @@ You will fail the task unless you read _the entirety_ of the relevant context be
 ### 4.5 LLM Integration
 
 - **Abstraction**: Use the abstract `LlmService` base class from `src/llm/llm.service.interface.ts`.
-- **Implementation**: `GeminiService` implements the LLM interface. Add new providers by extending `LlmService`.
+- **Implementations**: `GeminiService` and `MistralService` implement the LLM interface. Add new providers by extending `LlmService`.
 - **Error handling**: Use `ResourceExhaustedError` for quota/rate-limit scenarios. Retry with exponential backoff.
 - **Response parsing**: Use `jsonrepair` via `src/common/json-parser.utility.ts` for robust JSON parsing from LLM responses.
 
@@ -260,7 +261,7 @@ Structure all feedback as follows:
 >
 > Improvement (Coverage): New logic in `src/prompt/prompt.factory.ts` has no corresponding unit test. Coverage should be confirmed before merge.
 >
-> Nitpick: Variable `colour` in `src/common/utils/log-redactor.utility.ts` on line 14 is spelled correctly (British English) — good. However, the variable `sanitize` on line 22 should be `sanitise` per British English convention.
+> Nitpick: Variable `colour` in `src/common/utils/log-redactor.utility.ts` on line 14 is spelled correctly (British English) — good. However, the variable on line 22 should use the British spelling `sanitise`.
 
 ## 8. Completion
 

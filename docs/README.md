@@ -1,6 +1,6 @@
 # Assessment Bot LLM Service Documentation
 
-Welcome to the comprehensive documentation for the Assessment Bot LLM Service project. This documentation provides detailed information about the architecture, development, deployment, and usage of the assessment system.
+Use this index to find documentation for the Assessment Bot LLM Service.
 
 ## Table of Contents
 
@@ -28,6 +28,7 @@ Welcome to the comprehensive documentation for the Assessment Bot LLM Service pr
 
 - [API Reference](api/API_Documentation.md) - Complete API endpoint documentation
 - [Authentication](auth/API_Key_Management.md) - API key management and authentication
+- [LLM Provider API Keys](auth/provider-api-keys.md) - Obtaining and securely configuring Gemini and Mistral provider keys
 - [Request/Response Schemas](api/schemas.md) - Detailed data schemas
 - [Error Codes](api/error-codes.md) - API error handling and codes
 - [Rate Limiting](api/rate-limiting.md) - API rate limiting details
@@ -82,21 +83,21 @@ Welcome to the comprehensive documentation for the Assessment Bot LLM Service pr
 
 ## Documentation Standards
 
-All documentation in this project follows these standards:
+Project documentation follows these standards:
 
 - **British English**: All documentation uses British English spellings (e.g., "colour", "centre", "authorise")
 - **Markdown Format**: Documentation is written in Markdown for consistency and readability
-- **Code Examples**: Include practical code examples where appropriate
+- **Code Examples**: Include practical examples where they improve understanding
 - **Up-to-date**: Documentation is kept current with code changes
 - **Clear Structure**: Use clear headings, bullet points, and formatting for readability
 
 ## Contributing to Documentation
 
-When contributing to documentation:
+When updating documentation:
 
 1. Follow the existing structure and naming conventions
 2. Use British English throughout
-3. Include code examples and practical guidance
+3. Include examples and practical guidance where useful
 4. Update this contents page when adding new documentation
 5. Ensure links are working and up-to-date
 6. Follow the project's contributing guidelines

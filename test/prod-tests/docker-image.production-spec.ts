@@ -150,6 +150,8 @@ describe('Production Docker image smoke tests', () => {
       `API_KEYS=${PROD_TEST_API_KEY}`,
       '-e',
       'GEMINI_API_KEY=dummy-key',
+      '-e',
+      'MISTRAL_API_KEY=dummy-key',
       IMAGE_TAG,
     ]);
     try {

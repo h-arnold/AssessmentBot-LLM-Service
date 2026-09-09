@@ -7,7 +7,7 @@ This document provides instructions for setting up and running the End-to-End (E
 E2E tests are split into mocked (default) and live suites. Use the following commands:
 
 ```bash
-# Default mocked suite (no live Gemini calls)
+# Default mocked suite (no live provider calls)
 npm run test:e2e
 
 # Explicit mocked run
@@ -57,13 +57,13 @@ The test setup uses a specific strategy for managing environment variables to en
 
 ### LLM Mocking (Mocked E2E)
 
-When `E2E_MOCK_LLM=true`, the test runner applies an ESM preload shim to avoid live Gemini calls:
+When `E2E_MOCK_LLM=true`, the test runner applies an ESM preload shim to avoid live provider calls:
 
 - `startApp` injects `--import=<file://.../llm-mock.mjs>` via `NODE_OPTIONS`.
-- The shim (`test/utils/llm-mock.mjs`) imports `GoogleGenAI` from `@google/genai` and patches the `models` property (getter + silent setter) on `GoogleGenAI.prototype` so calls via `client.models.generateContent(...)` are intercepted. The patched function resolves to an object exposing a plain `text` property that returns `JSON.stringify(mockResponse)` — a deterministic payload with fixed scores (all `3`) and short reasoning text.
-- `generateContent` returns a deterministic JSON payload with fixed scores (all `3`) and short reasoning text.
+- The shim (`test/utils/llm-mock.mjs`) imports both provider SDKs and patches `GoogleGenAI.prototype.models` and `Mistral.prototype.chat` so Gemini `generateContent` and Mistral `complete` calls are intercepted.
+- It detects image requests and returns deterministic, schema-valid fixtures for text/table and image tasks. The fixtures use provider-specific response shapes and varied scores.
 
-This keeps the full HTTP request/response flow intact while making Gemini responses stable and offline. Use the live suites when you need to validate real provider behaviour or quotas.
+This keeps the full HTTP request/response flow intact while making provider responses stable and offline. Use the live suites when you need to validate real provider behaviour or quotas.
 
 ### Overriding Environment Variables
 

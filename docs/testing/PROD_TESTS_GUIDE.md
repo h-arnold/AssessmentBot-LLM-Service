@@ -23,7 +23,7 @@ npm run test:prod
 This command will:
 
 1.  Build the application (`npm run build`).
-2.  Execute the test specifications (`*.prod-spec.ts`) located in the `prod-tests/` directory using the Vitest workspace prod project (`--project prod`).
+2.  Execute the test specifications (`*.production-spec.ts`) located in the `prod-tests/` directory using the Vitest workspace prod project (`--project prod`).
 
 The test script handles the entire lifecycle:
 
@@ -39,11 +39,11 @@ The test script handles the entire lifecycle:
 The test environment is entirely self-contained within the test scripts in `prod-tests/`.
 
 - **Docker**: The tests require a running Docker daemon.
-- **Configuration**: All configuration, including the Docker image tag, container name, and environment variables (`API_KEYS`, `MISTRAL_API_KEY`, and `GEMINI_API_KEY`), is hardcoded within the test files (e.g., `test/prod-tests/docker-image.prod-spec.ts`). This ensures consistency and avoids reliance on external configuration.
-- **Utilities**: Helper functions for running shell commands (`runCmd`) and waiting for the container's HTTP service to be ready (`waitForHttp`) are located in `prod-tests/utils/docker-utils.ts`.
+- **Configuration**: All configuration, including the Docker image tag, container name, and environment variables (`API_KEYS`, `MISTRAL_API_KEY`, and `GEMINI_API_KEY`), is hardcoded within the test files (e.g., `test/prod-tests/docker-image.production-spec.ts`). This ensures consistency and avoids reliance on external configuration.
+- **Utilities**: Helper functions for running shell commands (`runCommand`) and waiting for the container's HTTP service to be ready (`waitForHttp`) are located in `prod-tests/utils/docker-utilities.ts`.
 
 ## How to Add a New Production Test
 
-1.  Create a new file in the `prod-tests/` directory with the suffix `.prod-spec.ts`.
-2.  Follow the structure in `docker-image.prod-spec.ts`, using the `beforeAll` and `afterAll` hooks to manage the Docker container lifecycle.
+1.  Create a new file in the `prod-tests/` directory with the suffix `.production-spec.ts`.
+2.  Follow the structure in `docker-image.production-spec.ts`, using the `beforeAll` and `afterAll` hooks to manage the Docker container lifecycle.
 3.  Add test cases that interact with the running container by making HTTP requests to `http://localhost:3002` (the port exposed by the container).

@@ -16,7 +16,7 @@ We follow a **test-driven development (TDD)** approach, prioritising security, r
 | `npm run test:e2e`        | Run mocked E2E tests (default).                          |
 | `npm run test:e2e:mocked` | Run mocked E2E tests with the LLM mock shim enabled.     |
 | `npm run test:e2e:live`   | Run live E2E tests against the configured provider APIs. |
-| `npm run test:prod`       | Run production image tests (`*.prod-spec.ts`).           |
+| `npm run test:prod`       | Run production image tests (`*.production-spec.ts`).     |
 | `npm run test:debug`      | Debug tests with the Node.js inspector.                  |
 
 ## Test Architecture
@@ -39,7 +39,7 @@ Our strategy uses three primary types of tests:
 
 ### 3. Production Image Tests
 
-- **Location**: In the `test/prod-tests/` directory (`*.prod-spec.ts`).
+- **Location**: In the `test/prod-tests/` directory (`*.production-spec.ts`).
 - **Purpose**: To validate the final, production-ready Docker image. These tests build the image, run it, and perform smoke tests to ensure it starts and operates correctly.
 - **Framework**: [Vitest](https://vitest.dev/), [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/), and [Supertest](https://github.com/ladjs/supertest).
 - **Details**: For setup and environment details, see the [PROD_TESTS_GUIDE.md](./PROD_TESTS_GUIDE.md).

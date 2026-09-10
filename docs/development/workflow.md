@@ -14,7 +14,7 @@ Local development setup and daily workflows for the Assessment Bot LLM Service.
 git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
 cd AssessmentBot-LLM-Service
 npm install
-cp .env.example .env         # Configure GEMINI_API_KEY, API_KEYS, etc.
+cp .env.example .env         # Configure MISTRAL_API_KEY, API_KEYS, etc.
 cp .test.env.example .test.env  # Only needed for live E2E tests
 ```
 
@@ -33,7 +33,7 @@ The server starts on `http://localhost:3000` (configurable via `PORT`). Health c
 npm test                  # Unit + integration tests (Vitest)
 npm run test:cov          # With coverage report
 npm run test:e2e          # Mocked E2E tests (default)
-npm run test:e2e:live     # Live E2E (requires GEMINI_API_KEY)
+npm run test:e2e:live     # Live E2E (requires keys for the configured providers)
 npm run test:debug        # Debug mode for unit tests
 ```
 

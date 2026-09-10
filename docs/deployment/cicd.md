@@ -42,9 +42,9 @@ on:
 
 **Steps**:
 
-1.  **Checkout & Setup**: Checks out the code and sets up the Node.js 22 environment.
-2.  **Install Dependencies**: Runs `npm ci` for fast, reliable package installation.
-3.  **Run Linters**: Executes ESLint for TypeScript checks, Hadolint for Dockerfile best practices, and a script to enforce British English spelling.
+1.  **Checkout & Setup**: Checks out the code and sets up the Node.js 24 environment.
+2.  **Install Dependencies**: Runs `npm install`.
+3.  **Run Linters**: Executes `npm run lint`.
 
 #### Stage 2: Unit Testing (`unit-test`)
 
@@ -53,12 +53,12 @@ on:
 **Steps**:
 
 1.  **Setup**: Prepares the environment and installs dependencies.
-2.  **Execute Tests**: Runs the full unit test suite with `npm test -- --coverage`.
+2.  **Execute Tests**: Runs the full unit test suite with coverage via `npm run test:cov`.
 3.  **Publish Report**: Uploads the test results in JUnit XML format for integration with GitHub's UI.
 
 #### Stage 3: End-to-End Testing (`e2e-test`)
 
-**Purpose**: Validates complete API functionality in a realistic environment. The default E2E run is mocked; the live suite can be run separately when Gemini integration needs verification.
+**Purpose**: Validates complete API functionality in a realistic environment. The default E2E run is mocked; live suites can be run separately when Mistral or Gemini integration needs verification.
 
 **Steps**:
 
@@ -68,10 +68,11 @@ on:
 
 ### Secrets Management
 
-The CI pipeline requires the following secrets to be configured in the repository at **Settings → Secrets and variables → Actions**:
+The default CI workflow runs mocked E2E tests and does not require real provider API keys. Configure provider keys only when a workflow runs live or integration tests against the corresponding API. The workflows use the following secrets when applicable:
 
-- **`GEMINI_API_KEY`**: A valid API key for the Gemini LLM, required only for live E2E tests (`npm run test:e2e:live`) and any integration tests that hit the live API.
-- **`SONAR_TOKEN`**: A token for authenticating with SonarCloud for code analysis.
+- **`MISTRAL_API_KEY`**: A valid API key for Mistral, required when a live test or integration routes to Mistral (including the default Mistral Small models).
+- **`GEMINI_API_KEY`**: A valid API key for Gemini, required when a live test or integration routes to Gemini, such as the Gemini live E2E suite (`npm run test:e2e:live`).
+- **`SONAR_TOKEN`**: A token for authenticating with SonarCloud in the SonarQube workflow.
 
 ### Test Reporting
 
@@ -135,8 +136,9 @@ Standard environment variables used across workflows:
 
 ```bash
 NODE_ENV=test                    # Test environment
-GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}  # Automatic GitHub token
-GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}  # LLM API key
+GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}  # Set by the current unit and E2E jobs
+LLM_BACKOFF_BASE_MS=2000            # Set by the current E2E job
+LLM_MAX_RETRIES=5                   # Set by the current E2E job
 ```
 
 #### Build Environment
@@ -299,7 +301,7 @@ DOCKER_BUILDKIT=1 docker build -f Docker/Dockerfile.prod .
 
 **API quota exceeded**:
 
-- Monitor Gemini API usage
+- Monitor usage for the configured LLM provider
 - Consider using test API keys with higher quotas
 - Implement retry logic in tests
 

@@ -54,7 +54,8 @@ sudo ufw allow 443   # HTTPS
 
     ```bash
     cp .env.example .env
-    # Edit .env with production values, especially API_KEYS and GEMINI_API_KEY
+    # Edit .env with production values, especially API_KEYS and MISTRAL_API_KEY.
+    # Add GEMINI_API_KEY only when selecting a Gemini model.
     ```
 
     Generate secure API keys using the provided generator, e.g. `npm run generate:api-key`.

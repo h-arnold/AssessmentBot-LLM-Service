@@ -8,16 +8,16 @@ We follow a **test-driven development (TDD)** approach, prioritising security, r
 
 ## Running Tests
 
-| Command                   | Description                                          |
-| ------------------------- | ---------------------------------------------------- |
-| `npm test`                | Run all unit and integration tests (`*.spec.ts`).    |
-| `npm run test:watch`      | Run unit/integration tests in watch mode.            |
-| `npm run test:cov`        | Run unit/integration tests and generate coverage.    |
-| `npm run test:e2e`        | Run mocked E2E tests (default).                      |
-| `npm run test:e2e:mocked` | Run mocked E2E tests with the LLM mock shim enabled. |
-| `npm run test:e2e:live`   | Run live E2E tests against the real Gemini API.      |
-| `npm run test:prod`       | Run production image tests (`*.prod-spec.ts`).       |
-| `npm run test:debug`      | Debug tests with the Node.js inspector.              |
+| Command                   | Description                                              |
+| ------------------------- | -------------------------------------------------------- |
+| `npm test`                | Run all unit and integration tests (`*.spec.ts`).        |
+| `npm run test:watch`      | Run unit/integration tests in watch mode.                |
+| `npm run test:cov`        | Run unit/integration tests and generate coverage.        |
+| `npm run test:e2e`        | Run mocked E2E tests (default).                          |
+| `npm run test:e2e:mocked` | Run mocked E2E tests with the LLM mock shim enabled.     |
+| `npm run test:e2e:live`   | Run live E2E tests against the configured provider APIs. |
+| `npm run test:prod`       | Run production image tests (`*.production-spec.ts`).     |
+| `npm run test:debug`      | Debug tests with the Node.js inspector.                  |
 
 ## Test Architecture
 
@@ -39,7 +39,7 @@ Our strategy uses three primary types of tests:
 
 ### 3. Production Image Tests
 
-- **Location**: In the `test/prod-tests/` directory (`*.prod-spec.ts`).
+- **Location**: In the `test/prod-tests/` directory (`*.production-spec.ts`).
 - **Purpose**: To validate the final, production-ready Docker image. These tests build the image, run it, and perform smoke tests to ensure it starts and operates correctly.
 - **Framework**: [Vitest](https://vitest.dev/), [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/), and [Supertest](https://github.com/ladjs/supertest).
 - **Details**: For setup and environment details, see the [PROD_TESTS_GUIDE.md](./PROD_TESTS_GUIDE.md).
@@ -52,15 +52,16 @@ Test environments are designed to be consistent and isolated.
 
 - **Configuration**: Tests are configured via `vitest.config.ts` with a workspace-based approach (unit, mocked E2E, live E2E, and prod test suites).
 - **Environment Variables**: Test-specific environment variables are hardcoded in `test/utils/app-lifecycle.ts` to ensure consistency. This simplifies setup and avoids flaky tests.
-- **Sensitive Keys**: Live E2E tests (`assessor-live.e2e-spec.ts`) call the real Gemini API, so you **must** provide a `GEMINI_API_KEY`. Create a `.test.env` file in the project root:
+- **Sensitive Keys**: Live E2E tests call real provider APIs. Provide the key for each provider used by the live suite in a `.test.env` file in the project root:
   ```
   GEMINI_API_KEY=your_real_api_key_here
+  MISTRAL_API_KEY=your_real_api_key_here
   ```
-  This file is git-ignored and is the **only** place where environment-specific secrets should be managed for testing. Mocked E2E runs do not call the live API.
-- **API Rate Limiting**: E2E tests are configured to avoid hitting Google Gemini API rate limits on the free tier:
+  This file is git-ignored and is the **only** place where environment-specific secrets should be managed for testing. Mocked E2E runs do not call the live APIs.
+- **API Rate Limiting**: E2E tests are configured to avoid hitting upstream provider rate limits:
   - Enhanced retry settings: `LLM_BACKOFF_BASE_MS=2000` (2s), `LLM_MAX_RETRIES=5`
   - Strategic delays between API calls (2s for most tests, 600ms for throttler tests)
-  - Sequential rather than parallel execution of tests that call the Gemini API
+  - Sequential rather than parallel execution of tests that call an upstream provider
   - These settings are automatically applied and don't require manual configuration
 
 ### Test Data & Mocking

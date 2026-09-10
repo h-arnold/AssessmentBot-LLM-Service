@@ -6,24 +6,41 @@
 
 ## Introduction
 
-Welcome to the backend for the Assessment Bot project. This repository contains a stateless, NestJS-based API responsible for receiving assessment tasks, interacting with a Large Language Model (LLM) for evaluation, and returning a structured grade.
+This repository contains the stateless NestJS backend for Assessment Bot. It receives assessment tasks, sends them to a Large Language Model (LLM), and returns structured grades.
 
-This service is the backend component of a larger system. The primary business logic and user interface are managed by the frontend, available at: **[h-arnold/AssessmentBot](https://github.com/h-arnold/AssessmentBot)**.
+The frontend manages the user interface and primary business logic: **[h-arnold/AssessmentBot](https://github.com/h-arnold/AssessmentBot)**.
 
-This README provides a quick start guide and a high-level overview. For detailed information on architecture, development, and API usage, please refer to our comprehensive **[documentation](./docs/README.md)**.
+See the **[documentation hub](./docs/README.md)** for architecture, development, deployment, and API details.
 
 ## ✨ Features
 
 - **Stateless Design**: No user data or session information is stored on the server, ensuring privacy and scalability.
 - **Modular Architecture**: Built with NestJS, following SOLID principles for a clean, maintainable, and scalable codebase.
-- **LLM Integration**: Abstracted service layer for interacting with LLMs (currently Google's Gemini) to perform assessments.
+- **LLM Integration**: Abstracted service layer for interacting with LLMs, using Mistral Small by default with Google Gemini also supported.
 - **Robust Validation**: All inputs are strictly validated using Zod for enhanced security and type safety.
 - **Comprehensive Testing**: Adheres to Test-Driven Development (TDD) with a full suite of unit, integration, and E2E tests.
 - **Containerised**: Ships with Docker and Docker Compose configurations for easy development and production deployment.
 
+## 🔒 Student data safeguarding
+
+Student privacy is central to the intended deployment: **the institution’s Google Workspace is the only retention location**. Workspace is the system of record; this backend processes submissions transiently; and the LLM provider must not retain them. The repository cannot enforce this arrangement automatically.
+
+**Use Mistral by default.** Its verified Zero Data Retention (ZDR) option is a key safeguarding benefit over Gemini.
+
+> **Production gate:** Enable ZDR at the first opportunity. Do not process real student submissions until it is approved and active in the Mistral Admin panel. If ZDR is pending or inactive, use test data only.
+
+Before making the claim that student data is **only saved in the institution’s Google Workspace**, verify:
+
+1. **Storage:** The frontend saves student work in institution-controlled Workspace.
+2. **Backend:** The service does not retain submissions, and `LOG_LLM_CONTENT=false` prevents their content entering application logs.
+3. **Provider:** Mistral ZDR and the separate training/improvement opt-out are active for supported API calls.
+4. **Operations:** The institution has checked its logs, backups, and access controls.
+
+The [provider API-key and privacy guide](./docs/auth/provider-api-keys.md) explains these steps and Gemini Paid Services’ limitations.
+
 ## 🚀 Quick Start
 
-You can get the backend running locally using either Docker Compose (recommended for a full environment) or Node.js directly.
+Run the backend locally with Docker Compose (recommended) or Node.js directly.
 
 ### Prerequisites
 
@@ -31,55 +48,50 @@ You can get the backend running locally using either Docker Compose (recommended
 - **Docker**: Docker Engine and Docker Compose
 - **Git**
 
-### 1. Using Docker Compose (Recommended)
+### 1. Prepare the project
 
-This method starts the application along with a Caddy reverse proxy and Fail2ban for security.
+1. **Clone the repository**:
 
-1.  **Clone the repository**:
+   ```bash
+   git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
+   cd AssessmentBot-LLM-Service
+   ```
 
-    ```bash
-    git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
-    cd AssessmentBot-LLM-Service
-    ```
+2. **Create the environment file**:
 
-2.  **Set up environment variables**:
-    Copy the example environment file. You must provide a `GEMINI_API_KEY` and at least one `API_KEYS` for the application to be functional.
+   ```bash
+   cp .env.example .env
+   ```
 
-    ```bash
-    cp .env.example .env
-    ```
+3. **Add your keys.** The default Mistral Small models require `MISTRAL_API_KEY` and at least one `API_KEYS`. Add `GEMINI_API_KEY` only when configuring a Gemini model. See the [provider API-key guide](./docs/auth/provider-api-keys.md) before using real student data.
 
-    Now, open `.env` in your editor and add your keys.
+### 2. Start with Docker Compose
 
-3.  **Start the services**:
-    ```bash
-    docker-compose up -d
-    ```
+Docker Compose starts the application with a Caddy reverse proxy and Fail2ban.
+
+1. **Start the services**:
+
+   ```bash
+   docker-compose up -d
+   ```
 
 The API will be available at `http://localhost:80`. For more details, see the [Docker Deployment Guide](./docs/deployment/docker.md).
 
-### 2. Using Node.js
+### 3. Start with Node.js
 
-1.  **Clone and install**:
+1. **Install dependencies**:
 
-    ```bash
-    git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
-    cd AssessmentBot-LLM-Service
-    npm install
-    ```
+   ```bash
+   npm install
+   ```
 
-2.  **Set up environment variables**:
+2. **Start the development server**:
 
-    ```bash
-    cp .env.example .env
-    # Open .env and add your GEMINI_API_KEY and API_KEYS
-    ```
+   ```bash
+   npm run start:dev
+   ```
 
-3.  **Start the development server**:
-    ```bash
-    npm run start:dev
-    ```
-    The API will be available at `http://localhost:3000`.
+   The API will be available at `http://localhost:3000`.
 
 ## 🛠️ Tech Stack
 
@@ -90,7 +102,7 @@ The API will be available at `http://localhost:80`. For more details, see the [D
 - **Authentication**: [Passport.js](http://www.passportjs.org/) (`passport-http-bearer`)
 - **Validation**: [Zod](https://zod.dev/)
 - **Testing**: [Vitest](https://vitest.dev/) & [Supertest](https://github.com/ladjs/supertest)
-- **LLM**: [Google Gemini](https://ai.google.dev/)
+- **LLM**: [Mistral AI](https://mistral.ai/) by default; [Google Gemini](https://ai.google.dev/) is also supported.
 
 ## 🔌 API Overview
 

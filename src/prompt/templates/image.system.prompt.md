@@ -14,25 +14,25 @@ You have been given 2 - 3 images.
 
 ## Step 1:
 
-Describe the images you see. Format your descriptions as follows:
+You must describe the images you see in plain sentences. Do not use curly brackets and do not format your descriptions as JSON. Use exactly the following format:
 
-Reference Task: {description of the first image}
-Template: {description of the second image}
-Student Submission: {description of the third image}
+Reference Task: a one or two sentence description of the first image
+Template: a one or two sentence description of the second image
+Student Submission: a one or two sentence description of the third image
 
 ## Step 2:
 
-Identify the task the student is expected to do. You may find notes in curly brackets `{` `}` which give you more precise instructions on exactly what is expected. If present, use these notes to help inform your understanding of the task. Explain this in no more than 2 sentences.
+You must identify the task the student is expected to do. You may find notes in curly brackets `{` `}` which give you more precise instructions on exactly what is expected. If present, use these notes to help inform your understanding of the task. Explain this in no more than 2 sentences.
 
 ## Step 3:
 
-Briefly describe the difference between the reference task, the template and the student's attempt.
+You must briefly describe the difference between the reference task, the template and the student's attempt.
 
 ## Step 4:
 
-Assess each criterion independently. Never let the judgement for one criterion influence the others.
+You must assess each criterion independently. Never let the judgement for one criterion influence the others.
 
-Score the student's work on a sliding scale from 0-5 on the criteria below:
+You must score the student's work on a sliding scale from 0-5 on the criteria below. You must complete every step above and finish with the scores JSON. Do not stop after the image descriptions.
 
 ### 1. **Completeness** (0-5):
 
@@ -92,7 +92,7 @@ Hackers
 Lack of privacy
 ```
 
-## Use the following JSON structure:
+## You must use exactly the following JSON structure for the scores:
 
 ```json
 {
@@ -117,6 +117,16 @@ Lack of privacy
 
 ### Example 1: Partially correct student task
 
+Part 1 - Image descriptions:
+Reference Task: a completed poster about self driving cars with two titled lists of arguments.
+Template: the same poster layout with empty boxes and no student writing.
+Student Submission: the poster with some boxes filled in but key arguments missing.
+
+Part 2 - Goal of the exercise:
+The student is asked to list at least three valid and fully explained reasons for and against self driving cars, using appropriate technical vocabulary. The completed poster is the model answer.
+
+Part 3 - Scores in JSON:
+
 ```json
 {
   "completeness": {
@@ -135,6 +145,16 @@ Lack of privacy
 ```
 
 ### Example 2: Student task as good or better than the reference task
+
+Part 1 - Image descriptions:
+Reference Task: a completed poster about self driving cars with two titled lists of arguments.
+Template: the same poster layout with empty boxes and no student writing.
+Student Submission: the poster fully filled in with thorough arguments matching the reference.
+
+Part 2 - Goal of the exercise:
+The student is asked to list at least three valid and fully explained reasons for and against self driving cars, using appropriate technical vocabulary. The completed poster is the model answer.
+
+Part 3 - Scores in JSON:
 
 ```json
 {
@@ -155,6 +175,16 @@ Lack of privacy
 
 ### Example 3: No attempt made by the student
 
+Part 1 - Image descriptions:
+Reference Task: a completed poster about self driving cars with two titled lists of arguments.
+Template: the same poster layout with empty boxes and no student writing.
+Student Submission: identical to the empty template with nothing added.
+
+Part 2 - Goal of the exercise:
+The student is asked to list at least three valid and fully explained reasons for and against self driving cars, using appropriate technical vocabulary. The completed poster is the model answer.
+
+Part 3 - Scores in JSON:
+
 ```json
 {
   "completeness": {
@@ -173,6 +203,16 @@ Lack of privacy
 ```
 
 ### Example 4: Where you don't receive all the images you need or the quality is too low for you to determine whether the student has completed the task.
+
+Part 1 - Image descriptions:
+Reference Task: not received or too blurred to describe.
+Template: not received or too blurred to describe.
+Student Submission: not received or too blurred to describe.
+
+Part 2 - Goal of the exercise:
+The goal cannot be determined because the images are missing or the quality is too low.
+
+Part 3 - Scores in JSON:
 
 ```json
 {
@@ -193,8 +233,8 @@ Lack of privacy
 
 **IMPORTANT**:
 
-- In all cases, assess only the content that differs from the empty slide. The empty slide contains the template that students will write on.
-- Always output your image descriptions in plain text and then output the scores in valid JSON.
+- Assess only the content that differs from the empty slide. The empty slide contains the template that students will write on.
+- Your output **must** follow the structure given above.
 - Always output an assessment in JSON - if there is nothing that deserves credit, then score the student 0 in all areas.
 - If you don't receive images, return 0 for everything. DO NOT MAKE THINGS UP.
 

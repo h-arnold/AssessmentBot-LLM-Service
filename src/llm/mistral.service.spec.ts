@@ -265,7 +265,7 @@ describe('MistralService', () => {
         ],
         temperature: 0,
         safePrompt: false,
-        responseFormat: { type: 'json_object' },
+        responseFormat: { type: 'text' },
       });
       expectValidResponse(result, 1);
     });
@@ -370,7 +370,7 @@ describe('MistralService', () => {
       expect(mockComplete).toHaveBeenCalledWith(
         expect.objectContaining({
           safePrompt: false,
-          responseFormat: { type: 'json_object' },
+          responseFormat: { type: 'text' },
         }),
       );
     });
@@ -394,6 +394,10 @@ describe('MistralService', () => {
             {
               role: 'user',
               content: [
+                {
+                  type: 'text',
+                  text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+                },
                 {
                   type: 'image_url',
                   imageUrl: 'data:image/png;base64,test-data',
@@ -429,6 +433,10 @@ describe('MistralService', () => {
             {
               role: 'user',
               content: [
+                {
+                  type: 'text',
+                  text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+                },
                 {
                   type: 'image_url',
                   imageUrl: 'data:image/png;base64,data-1',
@@ -466,6 +474,10 @@ describe('MistralService', () => {
             {
               role: 'user',
               content: [
+                {
+                  type: 'text',
+                  text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+                },
                 {
                   type: 'image_url',
                   imageUrl: 'data:image/png;base64,valid-data',

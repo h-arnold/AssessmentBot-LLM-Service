@@ -7,17 +7,14 @@ import {
   normaliseStatusCode,
   probeStatusCode,
 } from './llm-error-mapper.js';
-import {
-  AuthenticationError,
-  ContentFilteredError,
-  ContextLengthExceededError,
-  InvalidRequestError,
-  type LlmError,
-  NetworkError,
-  ProviderServerError,
-  RateLimitError,
-  ResourceExhaustedError,
-} from '../common/errors/index.js';
+import { AuthenticationError } from '../common/errors/authentication.error.js';
+import { ContentFilteredError } from '../common/errors/content-filtered.error.js';
+import { ContextLengthExceededError } from '../common/errors/context-length-exceeded.error.js';
+import { InvalidRequestError } from '../common/errors/invalid-request.error.js';
+import { NetworkError } from '../common/errors/network.error.js';
+import { ProviderServerError } from '../common/errors/provider-server.error.js';
+import { RateLimitError } from '../common/errors/rate-limit.error.js';
+import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -431,10 +428,13 @@ describe('statusCode: 0 handling', () => {
     const probes = buildProbes({
       extractStatusCode: (error: unknown): number | undefined =>
         probeStatusCode(error, [['statusCode'], ['status']]),
-      isHttpClientError: (error: unknown): boolean =>
-        typeof error === 'object' &&
-        error !== null &&
-        (error as Record<string, unknown>).name === 'ConnectionError',
+      isHttpClientError: (error: unknown): boolean => {
+        return (
+          typeof error === 'object' &&
+          error !== null &&
+          (error as Record<string, unknown>).name === 'ConnectionError'
+        );
+      },
     });
     const error = {
       name: 'ConnectionError',

@@ -60,10 +60,12 @@ export class ZodValidationPipe implements PipeTransform {
     const errors =
       nodeEnvironment === 'production'
         ? [{ message: 'Invalid input' }]
-        : error.issues.map((issue) => ({
-            message: issue.message,
-            path: issue.path,
-          }));
+        : error.issues.map((issue) => {
+            return {
+              message: issue.message,
+              path: issue.path,
+            };
+          });
 
     this.logger.warn({ errors }, 'Validation failed');
 

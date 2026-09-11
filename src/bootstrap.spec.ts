@@ -11,20 +11,28 @@ class LoggerErrorInterceptor {}
 class AppModule {}
 class ConfigService {}
 
-vi.mock('@nestjs/core', () => ({
-  NestFactory: { create: nestFactoryCreate },
-}));
+vi.mock('@nestjs/core', () => {
+  return {
+    NestFactory: { create: nestFactoryCreate },
+  };
+});
 vi.mock('express', () => ({ json }));
-vi.mock('nestjs-pino', () => ({
-  Logger,
-  LoggerErrorInterceptor,
-}));
-vi.mock('./app.module', () => ({
-  AppModule,
-}));
-vi.mock('./config/config.service', () => ({
-  ConfigService,
-}));
+vi.mock('nestjs-pino', () => {
+  return {
+    Logger,
+    LoggerErrorInterceptor,
+  };
+});
+vi.mock('./app.module', () => {
+  return {
+    AppModule,
+  };
+});
+vi.mock('./config/config.service', () => {
+  return {
+    ConfigService,
+  };
+});
 
 describe('bootstrap', () => {
   const originalEnvironment = process.env;

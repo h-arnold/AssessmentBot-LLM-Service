@@ -9,9 +9,11 @@ import { PromptInputSchema, type PromptInput } from './prompt.base.js';
 import { TextPrompt } from './text.prompt.js';
 import { isSystemUserMessage } from '../common/utils/type-guards.js';
 
-vi.mock('node:fs/promises', () => ({
-  readFile: vi.fn(),
-}));
+vi.mock('node:fs/promises', () => {
+  return {
+    readFile: vi.fn(),
+  };
+});
 
 const mockedReadFile = vi.mocked(readFile);
 

@@ -70,9 +70,10 @@ function configureMockConfigService(keys: string[]): {
     ['API_KEYS', keys],
     ['API_KEY_PREFIX', PREFIX],
   ]);
-  const getMock = vi.fn((key: keyof Config): string[] | string | null => {
-    return mockValues.get(key) ?? null;
-  });
+  const getMock = vi.fn(
+    (key: keyof Config): string[] | string | null =>
+      mockValues.get(key) ?? null,
+  );
   return { get: getMock };
 }
 

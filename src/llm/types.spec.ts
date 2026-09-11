@@ -20,33 +20,33 @@ describe('LlmResponseSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should reject a payload with an invalid score', () => {
-    const invalidPayload = {
-      completeness: { score: 6, reasoning: 'Too high' },
-      accuracy: { score: 4, reasoning: 'Good' },
-      spag: { score: 3, reasoning: 'Okay' },
-    };
-    const result = LlmResponseSchema.safeParse(invalidPayload);
-    expect(result.success).toBe(false);
-  });
-
-  it('should reject a payload with a non-integer score', () => {
-    const invalidPayload = {
-      completeness: { score: 4.5, reasoning: 'Not an integer' },
-      accuracy: { score: 4, reasoning: 'Good' },
-      spag: { score: 3, reasoning: 'Okay' },
-    };
-    const result = LlmResponseSchema.safeParse(invalidPayload);
-    expect(result.success).toBe(false);
-  });
-
-  it('should reject a payload with empty reasoning', () => {
-    const invalidPayload = {
-      completeness: { score: 5, reasoning: '' },
-      accuracy: { score: 4, reasoning: 'Good' },
-      spag: { score: 3, reasoning: 'Okay' },
-    };
-    const result = LlmResponseSchema.safeParse(invalidPayload);
+  it.each([
+    {
+      description: 'an invalid score',
+      payload: {
+        completeness: { score: 6, reasoning: 'Too high' },
+        accuracy: { score: 4, reasoning: 'Good' },
+        spag: { score: 3, reasoning: 'Okay' },
+      },
+    },
+    {
+      description: 'a non-integer score',
+      payload: {
+        completeness: { score: 4.5, reasoning: 'Not an integer' },
+        accuracy: { score: 4, reasoning: 'Good' },
+        spag: { score: 3, reasoning: 'Okay' },
+      },
+    },
+    {
+      description: 'empty reasoning',
+      payload: {
+        completeness: { score: 5, reasoning: '' },
+        accuracy: { score: 4, reasoning: 'Good' },
+        spag: { score: 3, reasoning: 'Okay' },
+      },
+    },
+  ])('should reject a payload with $description', ({ payload }) => {
+    const result = LlmResponseSchema.safeParse(payload);
     expect(result.success).toBe(false);
   });
 

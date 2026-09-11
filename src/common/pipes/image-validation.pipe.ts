@@ -1,6 +1,6 @@
 import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
 import { detectBufferMime } from 'mime-detect';
-import validator from 'validator';
+import * as validator from 'validator';
 
 import { ConfigService } from '../../config/config.service.js';
 
@@ -103,7 +103,7 @@ export class ImageValidationPipe implements PipeTransform {
     }
 
     const header = value.slice(5, commaIndex);
-    const [mimeType, encoding] = header.split(';');
+    const [mimeType, encoding] = header.split(';', 2);
     if (encoding !== 'base64') {
       throw new BadRequestException('Invalid base64 image format.');
     }
@@ -119,7 +119,7 @@ export class ImageValidationPipe implements PipeTransform {
       throw new BadRequestException('Empty image data is not allowed.');
     }
 
-    if (!validator.isBase64(base64Data)) {
+    if (!validator.default.isBase64(base64Data)) {
       throw new BadRequestException('Invalid base64 string format.');
     }
 

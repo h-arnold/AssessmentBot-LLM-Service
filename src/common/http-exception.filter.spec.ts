@@ -6,15 +6,13 @@ import {
 } from '@nestjs/common';
 import { Mock, MockInstance } from 'vitest';
 
+import { AuthenticationError } from './errors/authentication.error.js';
+import { ContentFilteredError } from './errors/content-filtered.error.js';
+import { LlmServiceError } from './errors/llm-service.error.js';
+import { ProviderServerError } from './errors/provider-server.error.js';
+import { RateLimitError } from './errors/rate-limit.error.js';
+import { ResourceExhaustedError } from './errors/resource-exhausted.error.js';
 import { HttpExceptionFilter } from './http-exception.filter.js';
-import {
-  AuthenticationError,
-  ContentFilteredError,
-  LlmServiceError,
-  ProviderServerError,
-  RateLimitError,
-  ResourceExhaustedError,
-} from '../common/errors/index.js';
 
 /**
  * Creates a mock ConfigService for testing.
@@ -104,16 +102,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test-resource-exhausted',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test-resource-exhausted',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -163,16 +165,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test-original-stack',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test-original-stack',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -216,16 +222,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -279,16 +289,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -342,16 +356,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -403,16 +421,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -464,16 +486,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -525,16 +551,20 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -581,17 +611,21 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test-large',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-      getNext: vi.fn(),
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test-large',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+        getNext: vi.fn(),
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -632,20 +666,26 @@ describe('HttpExceptionFilter', () => {
     );
     // Mock the response object's json and status methods
     const mockJson: Mock = vi.fn();
-    const mockStatus: Mock = vi.fn().mockImplementation(() => ({
-      json: mockJson,
-    }));
+    const mockStatus: Mock = vi.fn().mockImplementation(() => {
+      return {
+        json: mockJson,
+      };
+    });
     // Mock the getResponse method to return the mocked status
-    const mockGetResponse: Mock = vi.fn().mockImplementation(() => ({
-      status: mockStatus,
-    }));
+    const mockGetResponse: Mock = vi.fn().mockImplementation(() => {
+      return {
+        status: mockStatus,
+      };
+    });
     // Mock the getRequest method to return a fake request object
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
     /**
      * Mocks the `ArgumentsHost` interface for HTTP requests in NestJS unit tests.
      *
@@ -653,11 +693,13 @@ describe('HttpExceptionFilter', () => {
      * allowing tests to simulate the behaviour of the HTTP context within exception filters or interceptors.
      * @returns An object with mocked `getResponse`, `getRequest`, and `getNext` methods.
      */
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-      getNext: vi.fn(() => {}),
-    }));
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+        getNext: vi.fn(() => {}),
+      };
+    });
     /**
      * A mock implementation of the NestJS `ArgumentsHost` interface for use in unit tests.
      *
@@ -687,15 +729,19 @@ describe('HttpExceptionFilter', () => {
       >(): TContext {
         return 'http' as TContext;
       },
-      switchToRpc: vi.fn(() => ({
-        getData: vi.fn(),
-        getContext: vi.fn(),
-      })),
-      switchToWs: vi.fn(() => ({
-        getData: vi.fn(),
-        getClient: vi.fn(),
-        getPattern: vi.fn(),
-      })),
+      switchToRpc: vi.fn(() => {
+        return {
+          getData: vi.fn(),
+          getContext: vi.fn(),
+        };
+      }),
+      switchToWs: vi.fn(() => {
+        return {
+          getData: vi.fn(),
+          getClient: vi.fn(),
+          getPattern: vi.fn(),
+        };
+      }),
     };
     // Call the filter's catch method with the mocked exception and arguments host
     filter['catch'](exception, mockArgumentsHost);
@@ -736,17 +782,21 @@ describe('HttpExceptionFilter', () => {
      * - `headers`: An object containing request headers (with `'user-agent': 'jest'`).
      * @returns An object representing a mock HTTP request.
      */
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-      getNext: vi.fn(),
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+        getNext: vi.fn(),
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -778,17 +828,21 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/test',
-      method: 'POST',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-      getNext: vi.fn(),
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/test',
+        method: 'POST',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+        getNext: vi.fn(),
+      };
+    });
     const mockArgumentsHost: ArgumentsHost = {
       switchToHttp: mockHttpArgumentsHost,
       getArgByIndex: vi.fn(),
@@ -818,17 +872,21 @@ describe('HttpExceptionFilter', () => {
     const mockGetResponse: Mock = vi
       .fn()
       .mockImplementation(() => ({ status: mockStatus }));
-    const mockGetRequest: Mock = vi.fn().mockImplementation(() => ({
-      url: '/not-found',
-      method: 'GET',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'jest' },
-    }));
-    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => ({
-      getResponse: mockGetResponse,
-      getRequest: mockGetRequest,
-      getNext: vi.fn(),
-    }));
+    const mockGetRequest: Mock = vi.fn().mockImplementation(() => {
+      return {
+        url: '/not-found',
+        method: 'GET',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest' },
+      };
+    });
+    const mockHttpArgumentsHost: Mock = vi.fn().mockImplementation(() => {
+      return {
+        getResponse: mockGetResponse,
+        getRequest: mockGetRequest,
+        getNext: vi.fn(),
+      };
+    });
     /**
      * Mock implementation of the `ArgumentsHost` interface used for testing purposes.
      *

@@ -57,7 +57,8 @@ The distinction is made by checking whether the payload has an `images` array. T
 
 All LLM-domain error classes now reside in `src/common/errors/` as a shared library,
 extending the abstract `LlmError` (which itself extends `HttpException`). The barrel
-`src/common/errors/index.ts` re-exports all nine subclasses for static import.
+has been removed; import each class from its concrete module, for example
+`src/common/errors/resource-exhausted.error.ts`.
 
 **`ResourceExhaustedError`** has migrated from `src/llm/resource-exhausted.error.ts` to
 `src/common/errors/resource-exhausted.error.ts`. It now extends `LlmError` (not `Error`)

@@ -29,9 +29,7 @@ const defaults = {
 };
 
 const mockConfigService = {
-  get: vi.fn((key: string) => {
-    return defaults[key as keyof typeof defaults];
-  }),
+  get: vi.fn((key: string) => defaults[key as keyof typeof defaults]),
 };
 
 /**
@@ -45,9 +43,7 @@ const mockConfigService = {
  * as input and returns the parsed JavaScript object.
  */
 const mockJsonParserUtility = {
-  parse: vi.fn((jsonString: string) => {
-    return JSON.parse(jsonString) as unknown;
-  }),
+  parse: vi.fn((jsonString: string) => JSON.parse(jsonString) as unknown),
 };
 
 /**
@@ -55,18 +51,20 @@ const mockJsonParserUtility = {
  * using the module-level mockConfigService and mockJsonParserUtility.
  * @returns A compiled TestingModule instance.
  */
-const buildModule = async (): Promise<TestingModule> =>
-  Test.createTestingModule({
+const buildModule = async (): Promise<TestingModule> => {
+  return Test.createTestingModule({
     imports: [
       LlmModule,
       LoggerModule.forRootAsync({
         imports: [ConfigModule],
         inject: [ConfigService],
-        useFactory: (configService: ConfigService) => ({
-          pinoHttp: {
-            level: configService.get('LOG_LEVEL'),
-          },
-        }),
+        useFactory: (configService: ConfigService) => {
+          return {
+            pinoHttp: {
+              level: configService.get('LOG_LEVEL'),
+            },
+          };
+        },
       }),
     ],
     providers: [Logger],
@@ -76,6 +74,7 @@ const buildModule = async (): Promise<TestingModule> =>
     .overrideProvider(JsonParserUtility)
     .useValue(mockJsonParserUtility)
     .compile();
+};
 
 describe('LlmModule', () => {
   it('should compile the module', async () => {

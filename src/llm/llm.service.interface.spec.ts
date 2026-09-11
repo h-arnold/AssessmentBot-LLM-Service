@@ -3,18 +3,18 @@ import { ZodError } from 'zod';
 
 import { LLMService, LlmPayload } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
-import {
-  LlmError,
-  RateLimitError,
-  ResourceExhaustedError,
-  LlmServiceError,
-} from '../common/errors/index.js';
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { LlmServiceError } from '../common/errors/llm-service.error.js';
+import { RateLimitError } from '../common/errors/rate-limit.error.js';
+import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { ConfigService } from '../config/config.service.js';
 
 // Fix randomInt jitter to zero so backoff delays are deterministic
-vi.mock('node:crypto', () => ({
-  randomInt: vi.fn(() => 0),
-}));
+vi.mock('node:crypto', () => {
+  return {
+    randomInt: vi.fn(() => 0),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Test subclass implementing the NEW LLMService contract (Section 2)
@@ -22,7 +22,9 @@ vi.mock('node:crypto', () => ({
 class ExposedLLMService extends LLMService {
   protected readonly providerName = 'test-provider';
 
-  /** Configurable mock for mapError(). */
+  /**
+  Configurable mock for mapError().
+   */
   public mapErrorFn: (error: unknown) => LlmError | undefined = () => {};
 
   /**

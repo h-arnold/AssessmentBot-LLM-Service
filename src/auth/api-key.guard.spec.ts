@@ -31,11 +31,15 @@ describe('ApiKeyGuard', () => {
     const mockExecutionContext = {
       switchToHttp: (): {
         getRequest: () => { headers: { authorization: string } };
-      } => ({
-        getRequest: (): { headers: { authorization: string } } => ({
-          headers: { authorization: 'Bearer test-token' },
-        }),
-      }),
+      } => {
+        return {
+          getRequest: (): { headers: { authorization: string } } => {
+            return {
+              headers: { authorization: 'Bearer test-token' },
+            };
+          },
+        };
+      },
     } as unknown as ExecutionContext;
 
     // For a failing test, we expect canActivate to return false or throw an error.
@@ -55,11 +59,15 @@ describe('ApiKeyGuard', () => {
     const mockExecutionContext = {
       switchToHttp: (): {
         getRequest: () => { headers: { authorization: string } };
-      } => ({
-        getRequest: (): { headers: { authorization: string } } => ({
-          headers: { authorization: 'Bearer invalid-token' },
-        }),
-      }),
+      } => {
+        return {
+          getRequest: (): { headers: { authorization: string } } => {
+            return {
+              headers: { authorization: 'Bearer invalid-token' },
+            };
+          },
+        };
+      },
     } as unknown as ExecutionContext;
 
     let thrownError: unknown;

@@ -4,7 +4,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import { LlmResponse } from './types.js';
-import { LlmError, LlmServiceError } from '../common/errors/index.js';
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { LlmServiceError } from '../common/errors/llm-service.error.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
@@ -26,22 +27,34 @@ export interface ILlmService {
   send(payload: LlmPayload): Promise<LlmResponse>;
 }
 
-/** String token for injecting the LLM service dispatcher. */
+/**
+String token for injecting the LLM service dispatcher.
+ */
 export const LLM_SERVICE_TOKEN = 'LLM_SERVICE';
 
 /**
  * Represents the payload for a simple text-based prompt.
  */
 export type StringPromptPayload = {
-  /** The system instruction or context for the LLM. */
+  /**
+  The system instruction or context for the LLM.
+   */
   system: string;
-  /** The user-provided prompt or question. */
+  /**
+  The user-provided prompt or question.
+   */
   user: string;
-  /** Optional temperature for sampling (default: 0). */
+  /**
+  Optional temperature for sampling (default: 0).
+   */
   temperature?: number;
-  /** Optional model override; provider falls back to its own default if absent. */
+  /**
+  Optional model override; provider falls back to its own default if absent.
+   */
   model?: string;
-  /** Optional reasoning-effort level; provider maps to its native parameter. */
+  /**
+  Optional reasoning-effort level; provider maps to its native parameter.
+   */
   reasoningEffort?: ReasoningEffort;
 };
 
@@ -49,15 +62,25 @@ export type StringPromptPayload = {
  * Represents the payload for a multimodal prompt including images.
  */
 export type ImagePromptPayload = {
-  /** The system instruction or context for the LLM. */
+  /**
+  The system instruction or context for the LLM.
+   */
   system: string;
-  /** Array of images with their metadata. */
+  /**
+  Array of images with their metadata.
+   */
   images: Array<{ mimeType: string; data?: string }>;
-  /** Optional temperature for sampling (default: 0). */
+  /**
+  Optional temperature for sampling (default: 0).
+   */
   temperature?: number;
-  /** Optional model override; provider falls back to its own default if absent. */
+  /**
+  Optional model override; provider falls back to its own default if absent.
+   */
   model?: string;
-  /** Optional reasoning-effort level; provider maps to its native parameter. */
+  /**
+  Optional reasoning-effort level; provider maps to its native parameter.
+   */
   reasoningEffort?: ReasoningEffort;
 };
 
@@ -162,7 +185,7 @@ export abstract class LLMService implements ILlmService {
           classifiedError = this.classifyError(error);
         }
 
-        if (!classifiedError.retryable || attempt === maxRetries) {
+        if (attempt === maxRetries || !classifiedError.retryable) {
           throw classifiedError;
         }
 

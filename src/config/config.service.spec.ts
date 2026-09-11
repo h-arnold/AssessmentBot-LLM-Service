@@ -5,20 +5,22 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { ConfigService } from './config.service.js';
 
-vi.mock('node:fs', () => ({
-  existsSync: vi.fn<(path: PathLike) => boolean>(),
-  readFileSync:
-    vi.fn<
-      (
-        path: PathOrFileDescriptor,
-        options?:
-          | BufferEncoding
-          | { encoding?: BufferEncoding | null; flag?: string }
-          | null,
-      ) => string
-    >(),
-  unlinkSync: vi.fn<(path: PathLike) => void>(),
-}));
+vi.mock('node:fs', () => {
+  return {
+    existsSync: vi.fn<(path: PathLike) => boolean>(),
+    readFileSync:
+      vi.fn<
+        (
+          path: PathOrFileDescriptor,
+          options?:
+            | BufferEncoding
+            | { encoding?: BufferEncoding | null; flag?: string }
+            | null,
+        ) => string
+      >(),
+    unlinkSync: vi.fn<(path: PathLike) => void>(),
+  };
+});
 
 const mockExistsSync = vi.mocked(fs.existsSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
@@ -65,9 +67,7 @@ describe('ConfigService', () => {
     mockUnlinkSync.mockReset();
 
     mockExistsSync.mockReturnValue(false);
-    mockReadFileSync.mockImplementation(() => {
-      return '';
-    });
+    mockReadFileSync.mockImplementation(() => '');
     mockUnlinkSync.mockImplementation(() => {
       return;
     });
@@ -110,9 +110,9 @@ describe('ConfigService', () => {
 
     it('should load variables from .env file', async () => {
       // Mock .env file existence and content
-      mockExistsSync.mockImplementation((filePath: PathLike) => {
-        return normalisePath(filePath).includes('.env');
-      });
+      mockExistsSync.mockImplementation((filePath: PathLike) =>
+        normalisePath(filePath).includes('.env'),
+      );
       mockReadFileSync.mockImplementation((filePath: PathOrFileDescriptor) => {
         if (normalisePath(filePath).includes('.env')) {
           return 'APP_NAME=TestAppNameFromDotEnv';
@@ -132,9 +132,9 @@ describe('ConfigService', () => {
 
     it('should prioritise process.env over .env file', async () => {
       // Mock .env file existence and content
-      mockExistsSync.mockImplementation((filePath: PathLike) => {
-        return normalisePath(filePath).includes('.env');
-      });
+      mockExistsSync.mockImplementation((filePath: PathLike) =>
+        normalisePath(filePath).includes('.env'),
+      );
       mockReadFileSync.mockImplementation((filePath: PathOrFileDescriptor) => {
         if (normalisePath(filePath).includes('.env')) {
           return 'APP_VERSION=dotenv_version';
@@ -332,9 +332,9 @@ describe('ConfigService', () => {
 
     beforeEach(() => {
       // Ensure .env.example exists for these tests
-      mockExistsSync.mockImplementation((filePath: PathLike) => {
-        return normalisePath(filePath).includes('.env.example');
-      });
+      mockExistsSync.mockImplementation((filePath: PathLike) =>
+        normalisePath(filePath).includes('.env.example'),
+      );
       mockReadFileSync.mockImplementation((filePath: PathOrFileDescriptor) => {
         if (normalisePath(filePath).includes('.env.example')) {
           return `

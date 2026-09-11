@@ -1,9 +1,11 @@
 import { Mock } from 'vitest';
 
-const { dotenvConfig, bootstrap } = vi.hoisted(() => ({
-  dotenvConfig: vi.fn() as Mock,
-  bootstrap: vi.fn() as Mock,
-}));
+const { dotenvConfig, bootstrap } = vi.hoisted(() => {
+  return {
+    dotenvConfig: vi.fn() as Mock,
+    bootstrap: vi.fn() as Mock,
+  };
+});
 
 vi.mock('dotenv', () => ({ config: dotenvConfig }));
 vi.mock('./bootstrap.js', () => ({ bootstrap }));

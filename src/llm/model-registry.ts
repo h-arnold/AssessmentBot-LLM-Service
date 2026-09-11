@@ -17,7 +17,9 @@ export type ProviderId = 'gemini' | 'mistral';
  * The first entry whose `prefix` is a prefix of the model name wins.
  */
 export interface ModelEntry {
-  /** The provider that handles models matching this entry. */
+  /**
+  The provider that handles models matching this entry.
+   */
   provider: ProviderId;
   /**
    * The model name must start with this string (case-sensitive) to match.

@@ -9,18 +9,16 @@ import {
 } from './llm.service.interface.js';
 import type { LlmPayload } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
-import {
-  AuthenticationError,
-  ContentFilteredError,
-  ContextLengthExceededError,
-  InvalidRequestError,
-  LlmError,
-  LlmServiceError,
-  NetworkError,
-  ProviderServerError,
-  RateLimitError,
-  ResourceExhaustedError,
-} from '../common/errors/index.js';
+import { AuthenticationError } from '../common/errors/authentication.error.js';
+import { ContentFilteredError } from '../common/errors/content-filtered.error.js';
+import { ContextLengthExceededError } from '../common/errors/context-length-exceeded.error.js';
+import { InvalidRequestError } from '../common/errors/invalid-request.error.js';
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { LlmServiceError } from '../common/errors/llm-service.error.js';
+import { NetworkError } from '../common/errors/network.error.js';
+import { ProviderServerError } from '../common/errors/provider-server.error.js';
+import { RateLimitError } from '../common/errors/rate-limit.error.js';
+import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 
@@ -45,19 +43,25 @@ mockGoogleGenAI.mockImplementation(function () {
 });
 
 // Test fixtures and utilities
-const createValidResponse = (score: number): { text: string } => ({
-  text: `{"completeness": {"score": ${score}, "reasoning": "Test"}, "accuracy": {"score": ${score}, "reasoning": "Test"}, "spag": {"score": ${score}, "reasoning": "Test"}}`,
-});
+const createValidResponse = (score: number): { text: string } => {
+  return {
+    text: `{"completeness": {"score": ${score}, "reasoning": "Test"}, "accuracy": {"score": ${score}, "reasoning": "Test"}, "spag": {"score": ${score}, "reasoning": "Test"}}`,
+  };
+};
 
-const createStringPayload = (user: string = 'test'): StringPromptPayload => ({
-  system: 'system prompt',
-  user,
-});
+const createStringPayload = (user: string = 'test'): StringPromptPayload => {
+  return {
+    system: 'system prompt',
+    user,
+  };
+};
 
-const createImagePayload = (): ImagePromptPayload => ({
-  system: 'system prompt',
-  images: [{ mimeType: 'image/png', data: 'test-data' }],
-});
+const createImagePayload = (): ImagePromptPayload => {
+  return {
+    system: 'system prompt',
+    images: [{ mimeType: 'image/png', data: 'test-data' }],
+  };
+};
 
 const expectValidResponse = (result: LlmResponse, score: number): void => {
   expect(result).toEqual({
@@ -383,94 +387,34 @@ describe('GeminiService', () => {
       expectValidResponse(result, 3);
     });
 
-    it('should map reasoningEffort "off" to thinkingBudget 0', async () => {
-      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+    it.each([
+      { reasoningEffort: 'off' as const, thinkingBudget: 0 },
+      { reasoningEffort: 'low' as const, thinkingBudget: 0 },
+      { reasoningEffort: 'high' as const, thinkingBudget: 1024 },
+      { reasoningEffort: 'max' as const, thinkingBudget: 8192 },
+    ])(
+      'should map reasoningEffort "$reasoningEffort" to thinkingBudget $thinkingBudget',
+      async ({ reasoningEffort, thinkingBudget }) => {
+        mockGenerateContent.mockResolvedValue(createValidResponse(1));
 
-      const payload: StringPromptPayload = {
-        ...createStringPayload('test prompt'),
-        reasoningEffort: 'off',
-      };
-      const result = await service.send(payload);
+        const payload: StringPromptPayload = {
+          ...createStringPayload('test prompt'),
+          reasoningEffort,
+        };
+        const result = await service.send(payload);
 
-      expect(mockGenerateContent).toHaveBeenCalledWith({
-        model: 'gemini-2.5-flash-lite',
-        contents: ['test prompt'],
-        config: {
-          systemInstruction: 'system prompt',
-          temperature: 0,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      });
-      expectValidResponse(result, 1);
-    });
-
-    it('should map reasoningEffort "low" to thinkingBudget 0', async () => {
-      // Note: 'low' maps to 0, deliberately indistinguishable from 'off' at
-      // the request level. This is a known v1 limitation — the router
-      // correctly passes the abstract level 'low'; the 0-mapping is
-      // GeminiService's responsibility because Gemini has no native
-      // low-effort equivalent.
-      mockGenerateContent.mockResolvedValue(createValidResponse(1));
-
-      const payload: StringPromptPayload = {
-        ...createStringPayload('test prompt'),
-        reasoningEffort: 'low',
-      };
-      const result = await service.send(payload);
-
-      expect(mockGenerateContent).toHaveBeenCalledWith({
-        model: 'gemini-2.5-flash-lite',
-        contents: ['test prompt'],
-        config: {
-          systemInstruction: 'system prompt',
-          temperature: 0,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      });
-      expectValidResponse(result, 1);
-    });
-
-    it('should map reasoningEffort "high" to thinkingBudget 1024', async () => {
-      mockGenerateContent.mockResolvedValue(createValidResponse(1));
-
-      const payload: StringPromptPayload = {
-        ...createStringPayload('test prompt'),
-        reasoningEffort: 'high',
-      };
-      const result = await service.send(payload);
-
-      expect(mockGenerateContent).toHaveBeenCalledWith({
-        model: 'gemini-2.5-flash-lite',
-        contents: ['test prompt'],
-        config: {
-          systemInstruction: 'system prompt',
-          temperature: 0,
-          thinkingConfig: { thinkingBudget: 1024 },
-        },
-      });
-      expectValidResponse(result, 1);
-    });
-
-    it('should map reasoningEffort "max" to thinkingBudget 8192', async () => {
-      mockGenerateContent.mockResolvedValue(createValidResponse(1));
-
-      const payload: StringPromptPayload = {
-        ...createStringPayload('test prompt'),
-        reasoningEffort: 'max',
-      };
-      const result = await service.send(payload);
-
-      expect(mockGenerateContent).toHaveBeenCalledWith({
-        model: 'gemini-2.5-flash-lite',
-        contents: ['test prompt'],
-        config: {
-          systemInstruction: 'system prompt',
-          temperature: 0,
-          thinkingConfig: { thinkingBudget: 8192 },
-        },
-      });
-      expectValidResponse(result, 1);
-    });
+        expect(mockGenerateContent).toHaveBeenCalledWith({
+          model: 'gemini-2.5-flash-lite',
+          contents: ['test prompt'],
+          config: {
+            systemInstruction: 'system prompt',
+            temperature: 0,
+            thinkingConfig: { thinkingBudget },
+          },
+        });
+        expectValidResponse(result, 1);
+      },
+    );
 
     it('should default thinkingBudget to 0 when reasoningEffort is absent (regression)', async () => {
       mockGenerateContent.mockResolvedValue(createValidResponse(1));
@@ -968,41 +912,33 @@ describe('GeminiService', () => {
     });
 
     describe('InvalidRequestError', () => {
-      it('should return InvalidRequestError for generic 400', () => {
-        const error = new ApiError({
+      it.each([
+        {
+          description: 'generic 400',
           message: 'Invalid argument',
           status: 400,
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(InvalidRequestError);
-        expect(result!.getStatus()).toBe(400);
-        expect(result!.retryable).toBe(false);
-        expect(result!.providerName).toBe('gemini');
-      });
-
-      it('should return InvalidRequestError for unrecognised 4xx (418)', () => {
-        const error = new ApiError({
+        },
+        {
+          description: 'unrecognised 4xx (418)',
           message: "I'm a teapot",
           status: 418,
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(InvalidRequestError);
-        expect(result!.getStatus()).toBe(400);
-        expect(result!.retryable).toBe(false);
-        expect(result!.providerName).toBe('gemini');
-      });
-
-      it('should return InvalidRequestError for unrecognised 4xx (422)', () => {
-        const error = new ApiError({
+        },
+        {
+          description: 'unrecognised 4xx (422)',
           message: 'Unprocessable entity',
           status: 422,
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(InvalidRequestError);
-        expect(result!.getStatus()).toBe(400);
-        expect(result!.retryable).toBe(false);
-        expect(result!.providerName).toBe('gemini');
-      });
+        },
+      ])(
+        'should return InvalidRequestError for $description',
+        ({ message, status }) => {
+          const error = new ApiError({ message, status });
+          const result = callMapError(error);
+          expect(result).toBeInstanceOf(InvalidRequestError);
+          expect(result!.getStatus()).toBe(400);
+          expect(result!.retryable).toBe(false);
+          expect(result!.providerName).toBe('gemini');
+        },
+      );
 
       it('should set originalError to undefined when the source error is a non-Error object', () => {
         const result = callMapError({
@@ -1015,52 +951,24 @@ describe('GeminiService', () => {
     });
 
     describe('NetworkError', () => {
-      it('should return NetworkError for ECONNREFUSED error', () => {
-        const result = callMapError(new Error('connect ECONNREFUSED'));
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('gemini');
-      });
-
-      it('should return NetworkError for ETIMEDOUT error', () => {
-        const result = callMapError(new Error('ETIMEDOUT'));
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('gemini');
-      });
-
-      it('should return NetworkError for plain fetch failure with no status', () => {
-        const result = callMapError(new Error('fetch failed'));
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('gemini');
-      });
-
-      it('should return NetworkError for ECONNRESET error', () => {
-        const result = callMapError(new Error('read ECONNRESET'));
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('gemini');
-      });
-
-      it('should return NetworkError for ENOTFOUND error', () => {
-        const result = callMapError(
-          new Error('getaddrinfo ENOTFOUND api.gemini'),
-        );
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('gemini');
-      });
-
-      it('should return NetworkError for a generic network message', () => {
-        const result = callMapError(
-          new Error('network timeout while connecting'),
-        );
+      it.each([
+        { description: 'ECONNREFUSED error', message: 'connect ECONNREFUSED' },
+        { description: 'ETIMEDOUT error', message: 'ETIMEDOUT' },
+        {
+          description: 'plain fetch failure with no status',
+          message: 'fetch failed',
+        },
+        { description: 'ECONNRESET error', message: 'read ECONNRESET' },
+        {
+          description: 'ENOTFOUND error',
+          message: 'getaddrinfo ENOTFOUND api.gemini',
+        },
+        {
+          description: 'a generic network message',
+          message: 'network timeout while connecting',
+        },
+      ])('should return NetworkError for $description', ({ message }) => {
+        const result = callMapError(new Error(message));
         expect(result).toBeInstanceOf(NetworkError);
         expect(result!.getStatus()).toBe(502);
         expect(result!.retryable).toBe(true);

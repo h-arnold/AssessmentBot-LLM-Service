@@ -11,9 +11,10 @@ logic to work against a standard `retryable` contract and gives the HTTP layer
 (the global `HttpExceptionFilter`) a single point of recognition for LLM-domain
 errors.
 
-**Location:** `src/common/errors/` — barrel re-export at `src/common/errors/index.ts`.  
-**Base class:** `LlmError` (abstract, extends `HttpException`).  
-**Consumer import:** `import { LlmError, ProviderServerError } from '../common/errors/index.js';`
+**Location:** `src/common/errors/` — each error class is defined in its own module.
+**Base class:** `LlmError` (abstract, extends `HttpException`).
+**Consumer imports:** `import { LlmError } from '../common/errors/llm-error.base.js';` and
+`import { ProviderServerError } from '../common/errors/provider-server.error.js';`
 
 ---
 

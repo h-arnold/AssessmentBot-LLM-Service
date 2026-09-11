@@ -13,11 +13,13 @@ const VALID_IMAGE_MODEL = 'gemini-2.5-flash';
 const LOW_EFFORT = 'low';
 const HIGH_EFFORT = 'high';
 
-const createMockLlmResponse = (): LlmResponse => ({
-  completeness: { score: 5, reasoning: 'Good completeness' },
-  accuracy: { score: 4, reasoning: 'Reasonable accuracy' },
-  spag: { score: 5, reasoning: 'Excellent SPAG' },
-});
+const createMockLlmResponse = (): LlmResponse => {
+  return {
+    completeness: { score: 5, reasoning: 'Good completeness' },
+    accuracy: { score: 4, reasoning: 'Reasonable accuracy' },
+    spag: { score: 5, reasoning: 'Excellent SPAG' },
+  };
+};
 
 interface MockProvider {
   send: ReturnType<typeof vi.fn>;
@@ -29,27 +31,29 @@ interface MockConfigService {
 
 const createMockConfig = (
   overrides: Record<string, string> = {},
-): MockConfigService => ({
-  get: vi.fn((key: string) => {
-    switch (key) {
-      case 'DEFAULT_TEXT_TABLE_MODEL': {
-        return overrides.DEFAULT_TEXT_TABLE_MODEL ?? VALID_TEXT_MODEL;
+): MockConfigService => {
+  return {
+    get: vi.fn((key: string) => {
+      switch (key) {
+        case 'DEFAULT_TEXT_TABLE_MODEL': {
+          return overrides.DEFAULT_TEXT_TABLE_MODEL ?? VALID_TEXT_MODEL;
+        }
+        case 'DEFAULT_IMAGE_MODEL': {
+          return overrides.DEFAULT_IMAGE_MODEL ?? VALID_IMAGE_MODEL;
+        }
+        case 'TEXT_REASONING_EFFORT': {
+          return overrides.TEXT_REASONING_EFFORT ?? LOW_EFFORT;
+        }
+        case 'IMAGE_REASONING_EFFORT': {
+          return overrides.IMAGE_REASONING_EFFORT ?? HIGH_EFFORT;
+        }
+        default: {
+          return;
+        }
       }
-      case 'DEFAULT_IMAGE_MODEL': {
-        return overrides.DEFAULT_IMAGE_MODEL ?? VALID_IMAGE_MODEL;
-      }
-      case 'TEXT_REASONING_EFFORT': {
-        return overrides.TEXT_REASONING_EFFORT ?? LOW_EFFORT;
-      }
-      case 'IMAGE_REASONING_EFFORT': {
-        return overrides.IMAGE_REASONING_EFFORT ?? HIGH_EFFORT;
-      }
-      default: {
-        return;
-      }
-    }
-  }),
-});
+    }),
+  };
+};
 
 const createMockGemini = (): MockProvider => ({ send: vi.fn() });
 
@@ -67,12 +71,13 @@ const createRoutingService = (
   config: MockConfigService = createMockConfig(),
   gemini: MockProvider = createMockGemini(),
   mistral: MockProvider = createMockMistral(),
-): RoutingLLMService =>
-  new RoutingLLMService(
+): RoutingLLMService => {
+  return new RoutingLLMService(
     config as unknown as ConfigService,
     gemini as unknown as GeminiService,
     mistral as unknown as MistralService,
   );
+};
 
 describe('RoutingLLMService', () => {
   describe('constructor validation', () => {
@@ -114,34 +119,34 @@ describe('RoutingLLMService', () => {
 
     it('does not throw when both models are valid, regardless of provider combination', () => {
       // Gemini for text, Gemini for image
-      expect(() =>
-        createRoutingService(
+      expect(() => {
+        return createRoutingService(
           createMockConfig({
             DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
             DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash',
           }),
-        ),
-      ).not.toThrow();
+        );
+      }).not.toThrow();
 
       // Mistral for text, Mistral for image
-      expect(() =>
-        createRoutingService(
+      expect(() => {
+        return createRoutingService(
           createMockConfig({
             DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
             DEFAULT_IMAGE_MODEL: 'pixtral-12b',
           }),
-        ),
-      ).not.toThrow();
+        );
+      }).not.toThrow();
 
       // Gemini for text, Mistral for image (mixed)
-      expect(() =>
-        createRoutingService(
+      expect(() => {
+        return createRoutingService(
           createMockConfig({
             DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
             DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
           }),
-        ),
-      ).not.toThrow();
+        );
+      }).not.toThrow();
     });
   });
 

@@ -5,7 +5,8 @@ import { LoggerModule } from 'nestjs-pino';
 import { AssessorController } from './assessor.controller.js';
 import { AssessorModule } from './assessor.module.js';
 import { AssessorService } from './assessor.service.js';
-import { ConfigModule, ConfigService } from '../../config/index.js';
+import { ConfigModule } from '../../config/config.module.js';
+import { ConfigService } from '../../config/config.service.js';
 
 const getMockConfigValue = (key: string): unknown => {
   switch (key) {
@@ -52,11 +53,13 @@ describe('AssessorModule', () => {
         LoggerModule.forRootAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
-          useFactory: (configService: ConfigService) => ({
-            pinoHttp: {
-              level: configService.get('LOG_LEVEL'),
-            },
-          }),
+          useFactory: (configService: ConfigService) => {
+            return {
+              pinoHttp: {
+                level: configService.get('LOG_LEVEL'),
+              },
+            };
+          },
         }),
       ],
       providers: [Logger],

@@ -9,17 +9,15 @@ import {
 } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
 import { LlmResponse } from './types.js';
-import {
-  AuthenticationError,
-  ContentFilteredError,
-  ContextLengthExceededError,
-  InvalidRequestError,
-  LlmError,
-  NetworkError,
-  ProviderServerError,
-  RateLimitError,
-  ResourceExhaustedError,
-} from '../common/errors/index.js';
+import { AuthenticationError } from '../common/errors/authentication.error.js';
+import { ContentFilteredError } from '../common/errors/content-filtered.error.js';
+import { ContextLengthExceededError } from '../common/errors/context-length-exceeded.error.js';
+import { InvalidRequestError } from '../common/errors/invalid-request.error.js';
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { NetworkError } from '../common/errors/network.error.js';
+import { ProviderServerError } from '../common/errors/provider-server.error.js';
+import { RateLimitError } from '../common/errors/rate-limit.error.js';
+import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 
@@ -29,10 +27,14 @@ import { ConfigService } from '../config/config.service.js';
  * @param result - The mock provider result to extract text from.
  * @returns The extracted text string.
  */
-const callExtractResponseText = (instance: unknown, result: unknown): string =>
-  (
+const callExtractResponseText = (
+  instance: unknown,
+  result: unknown,
+): string => {
+  return (
     instance as unknown as { extractResponseText: (r: unknown) => string }
   ).extractResponseText(result);
+};
 
 // ---------------------------------------------------------------------------
 // Mock the Mistral SDK
@@ -65,46 +67,54 @@ mockMistral.mockImplementation(function () {
  * @param score - The score to use for all three criteria (0–5).
  * @returns A mock ChatCompletionResponse-like object.
  */
-const createValidResponse = (score: number): unknown => ({
-  choices: [
-    {
-      message: {
-        content: `{"completeness": {"score": ${score}, "reasoning": "Test"}, "accuracy": {"score": ${score}, "reasoning": "Test"}, "spag": {"score": ${score}, "reasoning": "Test"}}`,
+const createValidResponse = (score: number): unknown => {
+  return {
+    choices: [
+      {
+        message: {
+          content: `{"completeness": {"score": ${score}, "reasoning": "Test"}, "accuracy": {"score": ${score}, "reasoning": "Test"}, "spag": {"score": ${score}, "reasoning": "Test"}}`,
+        },
       },
-    },
-  ],
-});
+    ],
+  };
+};
 
 /**
  * Creates a text payload for testing.
  * @param user - The user message content.
  * @returns A StringPromptPayload.
  */
-const createStringPayload = (user: string = 'test'): StringPromptPayload => ({
-  system: 'system prompt',
-  user,
-});
+const createStringPayload = (user: string = 'test'): StringPromptPayload => {
+  return {
+    system: 'system prompt',
+    user,
+  };
+};
 
 /**
  * Creates an image payload for testing.
  * @returns An ImagePromptPayload.
  */
-const createImagePayload = (): ImagePromptPayload => ({
-  system: 'system prompt',
-  images: [{ mimeType: 'image/png', data: 'test-data' }],
-});
+const createImagePayload = (): ImagePromptPayload => {
+  return {
+    system: 'system prompt',
+    images: [{ mimeType: 'image/png', data: 'test-data' }],
+  };
+};
 
 /**
  * Creates an image payload with multiple images.
  * @returns An ImagePromptPayload with two images.
  */
-const createMultiImagePayload = (): ImagePromptPayload => ({
-  system: 'system prompt',
-  images: [
-    { mimeType: 'image/png', data: 'data-1' },
-    { mimeType: 'image/jpeg', data: 'data-2' },
-  ],
-});
+const createMultiImagePayload = (): ImagePromptPayload => {
+  return {
+    system: 'system prompt',
+    images: [
+      { mimeType: 'image/png', data: 'data-1' },
+      { mimeType: 'image/jpeg', data: 'data-2' },
+    ],
+  };
+};
 
 /**
  * Asserts that a result matches the expected LlmResponse shape.
@@ -299,47 +309,26 @@ describe('MistralService', () => {
       );
     });
 
-    it('should map reasoningEffort low to none', async () => {
-      mockComplete.mockResolvedValue(createValidResponse(1));
+    it.each([
+      { reasoningEffort: 'low' as const, expected: 'none' as const },
+      { reasoningEffort: 'high' as const, expected: 'high' as const },
+      { reasoningEffort: 'max' as const, expected: 'high' as const },
+    ])(
+      'should map reasoningEffort $reasoningEffort to $expected',
+      async ({ reasoningEffort, expected }) => {
+        mockComplete.mockResolvedValue(createValidResponse(1));
 
-      const payload = {
-        ...createStringPayload(),
-        reasoningEffort: 'low' as const,
-      };
-      await service.send(payload);
+        const payload = {
+          ...createStringPayload(),
+          reasoningEffort,
+        };
+        await service.send(payload);
 
-      expect(mockComplete).toHaveBeenCalledWith(
-        expect.objectContaining({ reasoningEffort: 'none' }),
-      );
-    });
-
-    it('should map reasoningEffort high to high', async () => {
-      mockComplete.mockResolvedValue(createValidResponse(1));
-
-      const payload = {
-        ...createStringPayload(),
-        reasoningEffort: 'high' as const,
-      };
-      await service.send(payload);
-
-      expect(mockComplete).toHaveBeenCalledWith(
-        expect.objectContaining({ reasoningEffort: 'high' }),
-      );
-    });
-
-    it('should map reasoningEffort max to high', async () => {
-      mockComplete.mockResolvedValue(createValidResponse(1));
-
-      const payload = {
-        ...createStringPayload(),
-        reasoningEffort: 'max' as const,
-      };
-      await service.send(payload);
-
-      expect(mockComplete).toHaveBeenCalledWith(
-        expect.objectContaining({ reasoningEffort: 'high' }),
-      );
-    });
+        expect(mockComplete).toHaveBeenCalledWith(
+          expect.objectContaining({ reasoningEffort: expected }),
+        );
+      },
+    );
 
     it('should extract choices[0].message.content and pass it through JsonParserUtility', async () => {
       const rawJson =
@@ -691,41 +680,32 @@ describe('MistralService', () => {
     });
 
     describe('InvalidRequestError', () => {
-      it('should return InvalidRequestError for generic 400', () => {
-        const error = Object.assign(new Error('Invalid argument'), {
-          statusCode: 400,
-          body: 'Invalid argument',
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(InvalidRequestError);
-        expect(result!.getStatus()).toBe(400);
-        expect(result!.retryable).toBe(false);
-        expect(result!.providerName).toBe('mistral');
-      });
-
-      it('should return InvalidRequestError for 418 status', () => {
-        const error = Object.assign(new Error("I'm a teapot"), {
-          statusCode: 418,
-          body: "I'm a teapot",
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(InvalidRequestError);
-        expect(result!.getStatus()).toBe(400);
-        expect(result!.retryable).toBe(false);
-        expect(result!.providerName).toBe('mistral');
-      });
-
-      it('should return InvalidRequestError for 422 status', () => {
-        const error = Object.assign(new Error('Unprocessable entity'), {
-          statusCode: 422,
-          body: 'Unprocessable entity',
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(InvalidRequestError);
-        expect(result!.getStatus()).toBe(400);
-        expect(result!.retryable).toBe(false);
-        expect(result!.providerName).toBe('mistral');
-      });
+      it.each([
+        {
+          description: 'generic 400',
+          message: 'Invalid argument',
+          status: 400,
+        },
+        { description: '418 status', message: "I'm a teapot", status: 418 },
+        {
+          description: '422 status',
+          message: 'Unprocessable entity',
+          status: 422,
+        },
+      ])(
+        'should return InvalidRequestError for $description',
+        ({ message, status }) => {
+          const error = Object.assign(new Error(message), {
+            statusCode: status,
+            body: message,
+          });
+          const result = callMapError(error);
+          expect(result).toBeInstanceOf(InvalidRequestError);
+          expect(result!.getStatus()).toBe(400);
+          expect(result!.retryable).toBe(false);
+          expect(result!.providerName).toBe('mistral');
+        },
+      );
     });
 
     describe('ProviderServerError', () => {
@@ -755,64 +735,40 @@ describe('MistralService', () => {
     });
 
     describe('NetworkError', () => {
-      it('should return NetworkError for ConnectionError instance', () => {
-        const error = new Error('Connection refused');
-        Object.defineProperty(error, 'name', {
-          value: 'ConnectionError',
-          configurable: true,
-          writable: true,
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('mistral');
-      });
-
-      it('should return NetworkError for RequestTimeoutError instance', () => {
-        const error = new Error('Request timed out');
-        Object.defineProperty(error, 'name', {
-          value: 'RequestTimeoutError',
-          configurable: true,
-          writable: true,
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('mistral');
-      });
-
-      it('should return NetworkError for RequestAbortedError instance', () => {
-        const error = new Error('Request aborted');
-        Object.defineProperty(error, 'name', {
-          value: 'RequestAbortedError',
-          configurable: true,
-          writable: true,
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('mistral');
-      });
-
-      it('should return NetworkError for UnexpectedClientError instance', () => {
-        const error = new Error('Unexpected client error');
-        Object.defineProperty(error, 'name', {
-          value: 'UnexpectedClientError',
-          configurable: true,
-          writable: true,
-        });
-        const result = callMapError(error);
-        expect(result).toBeInstanceOf(NetworkError);
-        expect(result!.getStatus()).toBe(502);
-        expect(result!.retryable).toBe(true);
-        expect(result!.providerName).toBe('mistral');
-      });
-
-      it('should return NetworkError for ECONNREFUSED error with no HTTP status', () => {
-        const error = new Error('connect ECONNREFUSED');
+      it.each([
+        {
+          description: 'ConnectionError instance',
+          message: 'Connection refused',
+          name: 'ConnectionError',
+        },
+        {
+          description: 'RequestTimeoutError instance',
+          message: 'Request timed out',
+          name: 'RequestTimeoutError',
+        },
+        {
+          description: 'RequestAbortedError instance',
+          message: 'Request aborted',
+          name: 'RequestAbortedError',
+        },
+        {
+          description: 'UnexpectedClientError instance',
+          message: 'Unexpected client error',
+          name: 'UnexpectedClientError',
+        },
+        {
+          description: 'ECONNREFUSED error with no HTTP status',
+          message: 'connect ECONNREFUSED',
+        },
+      ])('should return NetworkError for $description', ({ message, name }) => {
+        const error = new Error(message);
+        if (name !== undefined) {
+          Object.defineProperty(error, 'name', {
+            value: name,
+            configurable: true,
+            writable: true,
+          });
+        }
         const result = callMapError(error);
         expect(result).toBeInstanceOf(NetworkError);
         expect(result!.getStatus()).toBe(502);

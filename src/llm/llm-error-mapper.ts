@@ -1,14 +1,12 @@
-import {
-  AuthenticationError,
-  ContentFilteredError,
-  ContextLengthExceededError,
-  InvalidRequestError,
-  type LlmError,
-  NetworkError,
-  ProviderServerError,
-  RateLimitError,
-  ResourceExhaustedError,
-} from '../common/errors/index.js';
+import { AuthenticationError } from '../common/errors/authentication.error.js';
+import { ContentFilteredError } from '../common/errors/content-filtered.error.js';
+import { ContextLengthExceededError } from '../common/errors/context-length-exceeded.error.js';
+import { InvalidRequestError } from '../common/errors/invalid-request.error.js';
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { NetworkError } from '../common/errors/network.error.js';
+import { ProviderServerError } from '../common/errors/provider-server.error.js';
+import { RateLimitError } from '../common/errors/rate-limit.error.js';
+import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +18,9 @@ import { isErrorObject } from '../common/utils/type-guards.js';
  * Each provider supplies its own probe implementation; the cascade is shared.
  */
 export interface LlmErrorMapperProbes {
-  /** Provider identifier embedded in every produced `LlmError` instance. */
+  /**
+  Provider identifier embedded in every produced `LlmError` instance.
+   */
   providerName: string;
 
   /**
@@ -205,15 +205,21 @@ const CONTEXT_LENGTH_PATTERN = /context[ _]?length/i;
 // the produced errors instead; the raw upstream detail is logged server-side by
 // each provider (see `logProviderError`).
 
-/** Client-facing message for `ResourceExhaustedError`. */
+/**
+Client-facing message for `ResourceExhaustedError`.
+ */
 const RESOURCE_EXHAUSTED_MESSAGE =
   'The LLM provider resource quota was exhausted';
 
-/** Client-facing message for `ProviderServerError`. */
+/**
+Client-facing message for `ProviderServerError`.
+ */
 const PROVIDER_SERVER_ERROR_MESSAGE =
   'The upstream LLM provider returned a server error';
 
-/** Client-facing message for `NetworkError`. */
+/**
+Client-facing message for `NetworkError`.
+ */
 const NETWORK_ERROR_MESSAGE =
   'A network error occurred while contacting the LLM provider';
 

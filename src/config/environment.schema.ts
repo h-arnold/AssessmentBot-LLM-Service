@@ -75,13 +75,11 @@ export const configObjectSchema = z.object({
   TEXT_REASONING_EFFORT: z.enum(['off', 'low', 'high', 'max']).default('low'),
   IMAGE_REASONING_EFFORT: z.enum(['off', 'low', 'high', 'max']).default('high'),
   LOG_LLM_CONTENT: z
-    .preprocess(
-      (value) =>
-        typeof value === 'string'
-          ? value.trim().toLowerCase() === 'true' || value.trim() === '1'
-          : Boolean(value),
-      z.boolean(),
-    )
+    .preprocess((value) => {
+      return typeof value === 'string'
+        ? value.trim().toLowerCase() === 'true' || value.trim() === '1'
+        : Boolean(value);
+    }, z.boolean())
     .default(false),
   LOG_LEVEL: z
     .enum(['info', 'error', 'warn', 'debug', 'verbose', 'fatal'])

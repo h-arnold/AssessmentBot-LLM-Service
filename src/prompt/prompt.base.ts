@@ -13,11 +13,17 @@ import { LlmPayload } from '../llm/llm.service.interface.js';
  * empty task template.
  */
 export const PromptInputSchema = z.object({
-  /** The reference or model solution for the task. */
+  /**
+  The reference or model solution for the task.
+   */
   referenceTask: z.string(),
-  /** The student's submitted response to the task. */
+  /**
+  The student's submitted response to the task.
+   */
   studentTask: z.string(),
-  /** The original task prompt or template given to the student. */
+  /**
+  The original task prompt or template given to the student.
+   */
   emptyTask: z.string(),
 });
 

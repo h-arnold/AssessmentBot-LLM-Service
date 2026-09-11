@@ -15,7 +15,7 @@ import {
   ReasoningEffort,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
-import { LlmError } from '../common/errors/index.js';
+import type { LlmError } from '../common/errors/llm-error.base.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
@@ -25,10 +25,14 @@ import { ConfigService } from '../config/config.service.js';
 // do not rely on internal SDK subpath imports).
 // ---------------------------------------------------------------------------
 
-/** The request shape accepted by `Mistral.chat.complete()`. */
+/**
+The request shape accepted by `Mistral.chat.complete()`.
+ */
 type MistralCompleteRequest = Parameters<Mistral['chat']['complete']>[0];
 
-/** The response shape returned by `Mistral.chat.complete()`. */
+/**
+The response shape returned by `Mistral.chat.complete()`.
+ */
 type MistralCompleteResponse = Awaited<ReturnType<Mistral['chat']['complete']>>;
 
 // ---------------------------------------------------------------------------

@@ -69,9 +69,11 @@ function hasRequestId(
 const customProperties = (
   request: IncomingMessage,
   _response: ServerResponse<IncomingMessage>,
-): { reqId: string | number | undefined } => ({
-  reqId: hasRequestId(request) ? request.id : undefined,
-});
+): { reqId: string | number | undefined } => {
+  return {
+    reqId: hasRequestId(request) ? request.id : undefined,
+  };
+};
 
 @Module({
   imports: [

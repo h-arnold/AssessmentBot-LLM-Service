@@ -44,32 +44,32 @@ describe('Environment schema', () => {
     });
 
     it('should reject a key missing the prefix', () => {
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           API_KEYS: `ghp_${validBody}`,
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
 
     it('should reject a key with the prefix but a body of 31 base64url chars', () => {
       const shortBody = validBody.slice(0, 31);
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           API_KEYS: `abt_${shortBody}`,
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
 
     it('should reject a key with the prefix but a body containing a non-base64url character', () => {
       const badBody = `${validBody.slice(0, 31)}!`;
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           API_KEYS: `abt_${badBody}`,
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
 
     it('should be a no-op when API_KEYS is undefined', () => {
@@ -90,24 +90,24 @@ describe('Environment schema', () => {
     });
 
     it('should reject a key with the custom prefix but a bad body', () => {
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           API_KEY_PREFIX: 'custom_',
           API_KEYS: 'custom_badbody',
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
 
     it('should reject a key with the default prefix when a custom prefix is configured', () => {
       const otherBody = randomBytes(24).toString('base64url');
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           API_KEY_PREFIX: 'custom_',
           API_KEYS: `abt_${otherBody}`,
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
   });
 
@@ -129,21 +129,21 @@ describe('Environment schema', () => {
     });
 
     it('should reject TEXT_REASONING_EFFORT with invalid value', () => {
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           TEXT_REASONING_EFFORT: 'nonsense',
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
 
     it('should reject IMAGE_REASONING_EFFORT with invalid value', () => {
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           IMAGE_REASONING_EFFORT: 'nonsense',
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
 
     it('should apply defaults for omitted model and effort variables', () => {
@@ -155,35 +155,35 @@ describe('Environment schema', () => {
     });
 
     it('should reject a config with empty MISTRAL_API_KEY when a model routes to mistral', () => {
-      expect(() =>
-        configSchema.parse({
+      expect(() => {
+        return configSchema.parse({
           ...validEnvironment,
           MISTRAL_API_KEY: '',
-        }),
-      ).toThrow(z.ZodError);
+        });
+      }).toThrow(z.ZodError);
     });
 
     describe('conditional provider API keys', () => {
       it('should require GEMINI_API_KEY when a configured model routes to gemini', () => {
-        expect(() =>
-          configSchema.parse({
+        expect(() => {
+          return configSchema.parse({
             ...validEnvironment,
             GEMINI_API_KEY: '',
             DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
             DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash-lite',
-          }),
-        ).toThrow(z.ZodError);
+          });
+        }).toThrow(z.ZodError);
       });
 
       it('should require MISTRAL_API_KEY when a configured model routes to mistral', () => {
-        expect(() =>
-          configSchema.parse({
+        expect(() => {
+          return configSchema.parse({
             ...validEnvironment,
             MISTRAL_API_KEY: '',
             DEFAULT_TEXT_TABLE_MODEL: 'mistral-small-latest',
             DEFAULT_IMAGE_MODEL: 'mistral-small-latest',
-          }),
-        ).toThrow(z.ZodError);
+          });
+        }).toThrow(z.ZodError);
       });
 
       it('should allow an omitted MISTRAL_API_KEY when both models route to gemini', () => {
@@ -227,26 +227,26 @@ describe('Environment schema', () => {
       });
 
       it('should require a key only for the provider actually routed to', () => {
-        expect(() =>
-          configSchema.parse({
+        expect(() => {
+          return configSchema.parse({
             ...validEnvironment,
             MISTRAL_API_KEY: '',
             DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
             DEFAULT_IMAGE_MODEL: 'gemini-2.5-flash-lite',
-          }),
-        ).not.toThrow();
+          });
+        }).not.toThrow();
       });
 
       it('should ignore the empty key requirement for an unrecognised model prefix', () => {
-        expect(() =>
-          configSchema.parse({
+        expect(() => {
+          return configSchema.parse({
             ...validEnvironment,
             GEMINI_API_KEY: '',
             MISTRAL_API_KEY: '',
             DEFAULT_TEXT_TABLE_MODEL: 'openai-gpt-4o',
             DEFAULT_IMAGE_MODEL: 'openai-gpt-4o',
-          }),
-        ).not.toThrow();
+          });
+        }).not.toThrow();
       });
     });
 

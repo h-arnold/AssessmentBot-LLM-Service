@@ -12,13 +12,15 @@ interface BunFileShim {
   text: () => Promise<string>;
 }
 
-const bunFileShim = (filePath: string): BunFileShim => ({
-  async stat(): Promise<{ size: number }> {
-    const fileStat = await stat(filePath);
-    return { size: fileStat.size };
-  },
-  text: async (): Promise<string> => await readFile(filePath, 'utf8'),
-});
+const bunFileShim = (filePath: string): BunFileShim => {
+  return {
+    async stat(): Promise<{ size: number }> {
+      const fileStat = await stat(filePath);
+      return { size: fileStat.size };
+    },
+    text: async (): Promise<string> => await readFile(filePath, 'utf8'),
+  };
+};
 
 // Worktree root: three levels up from this file (.opencode/plugins/tests/ -> repo root).
 const WORKTREE =

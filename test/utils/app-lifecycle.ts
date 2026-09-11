@@ -208,9 +208,12 @@ export async function startApp(
     await Promise.race([
       waitForLog(
         logFilePath,
-        (log) =>
-          typeof log.msg === 'string' &&
-          log.msg.includes('Nest application successfully started'),
+        (log) => {
+          return (
+            typeof log.msg === 'string' &&
+            log.msg.includes('Nest application successfully started')
+          );
+        },
         30000,
         ac.signal,
       ),
@@ -249,7 +252,7 @@ export async function startApp(
   }
 
   // Derive return values from the final, effective environment
-  const [apiKey, apiKey2] = testEnvironment.API_KEYS!.split(',');
+  const [apiKey, apiKey2] = testEnvironment.API_KEYS!.split(',', 2);
 
   return {
     appProcess,
@@ -272,7 +275,7 @@ export async function startApp(
  *   running the application.
  */
 export function stopApp(appProcess: ChildProcessWithoutNullStreams): void {
-  if (!(appProcess && !appProcess.killed)) {
+  if (!appProcess || appProcess.killed) {
     return;
   }
 

@@ -8,21 +8,37 @@ import * as packageJson from '../../package.json' with { type: 'json' };
  * Interface representing system information for health checks.
  */
 interface SystemInfo {
-  /** Operating system platform. */
+  /**
+  Operating system platform.
+   */
   platform: string;
-  /** System architecture. */
+  /**
+  System architecture.
+   */
   arch: string;
-  /** Operating system release version. */
+  /**
+  Operating system release version.
+   */
   release: string;
-  /** System uptime in seconds. */
+  /**
+  System uptime in seconds.
+   */
   uptime: number;
-  /** System hostname. */
+  /**
+  System hostname.
+   */
   hostname: string;
-  /** Total system memory in bytes. */
+  /**
+  Total system memory in bytes.
+   */
   totalMemory: number;
-  /** Free system memory in bytes. */
+  /**
+  Free system memory in bytes.
+   */
   freeMemory: number;
-  /** Number of CPU cores. */
+  /**
+  Number of CPU cores.
+   */
   cpus: number;
 }
 
@@ -30,13 +46,21 @@ interface SystemInfo {
  * Interface representing the complete health check response.
  */
 export interface HealthCheckResponse {
-  /** Overall application status. */
+  /**
+  Overall application status.
+   */
   status: string;
-  /** Application version from package.json. */
+  /**
+  Application version from package.json.
+   */
   version: string;
-  /** ISO timestamp of when the health check was performed. */
+  /**
+  ISO timestamp of when the health check was performed.
+   */
   timestamp: string;
-  /** Detailed system information. */
+  /**
+  Detailed system information.
+   */
   systemInfo: SystemInfo;
 }
 

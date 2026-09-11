@@ -90,13 +90,14 @@ describe('Logging (True E2E)', () => {
     let logObjects = getLogObjects(logFilePath);
     // Find the highest req.id for POST /v1/assessor logs (most recent request)
     const postRequestIds = logObjects
-      .filter(
-        (object) =>
+      .filter((object) => {
+        return (
           object.req &&
           object.req.method === 'POST' &&
           object.req.url === '/v1/assessor' &&
-          object.req.id !== undefined,
-      )
+          object.req.id !== undefined
+        );
+      })
       .map((object) => object.req!.id)
       .filter((id) => typeof id === 'number' || typeof id === 'string');
     const expectedRequestId =
@@ -104,28 +105,30 @@ describe('Logging (True E2E)', () => {
     expect(expectedRequestId).toBeDefined();
 
     // Wait for the 'request completed' log for this req.id
-    await waitForLog(
-      logFilePath,
-      (log) =>
+    await waitForLog(logFilePath, (log) => {
+      return (
         typeof log.msg === 'string' &&
         log.msg.includes('request completed') &&
-        log.req?.id === expectedRequestId,
-    );
+        log.req?.id === expectedRequestId
+      );
+    });
 
     logObjects = getLogObjects(logFilePath);
     // Find the logs for this request id
-    const requestCompletedLog = logObjects.find(
-      (object) =>
+    const requestCompletedLog = logObjects.find((object) => {
+      return (
         object.msg &&
         object.msg.includes('request completed') &&
-        object.req?.id === expectedRequestId,
-    );
-    const serviceLog = logObjects.find(
-      (object) =>
+        object.req?.id === expectedRequestId
+      );
+    });
+    const serviceLog = logObjects.find((object) => {
+      return (
         object.msg &&
         object.msg.includes('API key authentication attempt successful') &&
-        object.req?.id === expectedRequestId,
-    );
+        object.req?.id === expectedRequestId
+      );
+    });
 
     expect(requestCompletedLog).toBeDefined();
     expect(serviceLog).toBeDefined();

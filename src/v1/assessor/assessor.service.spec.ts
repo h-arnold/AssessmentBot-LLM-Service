@@ -5,7 +5,8 @@ import { Mock } from 'vitest';
 import { AssessorService } from './assessor.service.js';
 import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto.js';
 import { JsonParserUtility } from '../../common/json-parser.utility.js';
-import { ConfigModule, ConfigService } from '../../config/index.js';
+import { ConfigModule } from '../../config/config.module.js';
+import { ConfigService } from '../../config/config.service.js';
 import { GeminiService } from '../../llm/gemini.service.js';
 import { LlmModule } from '../../llm/llm.module.js';
 import {
@@ -18,20 +19,22 @@ import { Prompt } from '../../prompt/prompt.base.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
 import { PromptModule } from '../../prompt/prompt.module.js';
 
-const createMockLlmResponse = (score: number): LlmResponse => ({
-  completeness: {
-    score,
-    reasoning: 'Completeness reasoning',
-  },
-  accuracy: {
-    score,
-    reasoning: 'Accuracy reasoning',
-  },
-  spag: {
-    score,
-    reasoning: 'SPAG reasoning',
-  },
-});
+const createMockLlmResponse = (score: number): LlmResponse => {
+  return {
+    completeness: {
+      score,
+      reasoning: 'Completeness reasoning',
+    },
+    accuracy: {
+      score,
+      reasoning: 'Accuracy reasoning',
+    },
+    spag: {
+      score,
+      reasoning: 'SPAG reasoning',
+    },
+  };
+};
 
 // ALLOWED_IMAGE_MIME_TYPES is now supplied via ConfigService (not process.env)
 const getMockEnvironmentValue = (key: string): string | string[] => {
@@ -125,11 +128,13 @@ describe('AssessorService', () => {
         LoggerModule.forRootAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
-          useFactory: (configService: ConfigService) => ({
-            pinoHttp: {
-              level: configService.get('LOG_LEVEL'),
-            },
-          }),
+          useFactory: (configService: ConfigService) => {
+            return {
+              pinoHttp: {
+                level: configService.get('LOG_LEVEL'),
+              },
+            };
+          },
         }),
       ],
       providers: [

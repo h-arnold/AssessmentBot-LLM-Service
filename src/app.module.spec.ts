@@ -18,9 +18,11 @@ forRootAsync.mockImplementation((options: LoggerModuleAsyncOptions) => {
   forRootAsync.lastOptions = options;
 });
 
-vi.mock('nestjs-pino', () => ({
-  LoggerModule: { forRootAsync },
-}));
+vi.mock('nestjs-pino', () => {
+  return {
+    LoggerModule: { forRootAsync },
+  };
+});
 
 const getLoggerModuleOptions = (): LoggerModuleAsyncOptions => {
   if (forRootAsync.lastOptions === undefined) {
@@ -32,19 +34,21 @@ const getLoggerModuleOptions = (): LoggerModuleAsyncOptions => {
 
 const buildConfigService = (
   overrides: Partial<Record<string, string>>,
-): { get: Mock } => ({
-  get: vi.fn((key: string) => {
-    const defaults = new Map<string, string>([
-      ['LOG_LEVEL', 'debug'],
-      ['NODE_ENV', 'development'],
-      ...Object.entries(overrides).filter(
-        (entry): entry is [string, string] => entry[1] !== undefined,
-      ),
-    ]);
+): { get: Mock } => {
+  return {
+    get: vi.fn((key: string) => {
+      const defaults = new Map<string, string>([
+        ['LOG_LEVEL', 'debug'],
+        ['NODE_ENV', 'development'],
+        ...Object.entries(overrides).filter(
+          (entry): entry is [string, string] => entry[1] !== undefined,
+        ),
+      ]);
 
-    return defaults.get(key);
-  }),
-});
+      return defaults.get(key);
+    }),
+  };
+};
 
 const loadModule = async (): Promise<{ AppModule: unknown }> => {
   vi.resetModules();

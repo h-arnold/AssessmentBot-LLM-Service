@@ -3,19 +3,21 @@ import type { PathLike, PathOrFileDescriptor } from 'node:fs';
 
 import * as dotenv from 'dotenv';
 
-vi.mock('node:fs', () => ({
-  existsSync: vi.fn<(path: PathLike) => boolean>(),
-  readFileSync:
-    vi.fn<
-      (
-        path: PathOrFileDescriptor,
-        options?:
-          | BufferEncoding
-          | { encoding?: BufferEncoding | null; flag?: string }
-          | null,
-      ) => string
-    >(),
-}));
+vi.mock('node:fs', () => {
+  return {
+    existsSync: vi.fn<(path: PathLike) => boolean>(),
+    readFileSync:
+      vi.fn<
+        (
+          path: PathOrFileDescriptor,
+          options?:
+            | BufferEncoding
+            | { encoding?: BufferEncoding | null; flag?: string }
+            | null,
+        ) => string
+      >(),
+  };
+});
 
 const mockExistsSync = vi.mocked(fs.existsSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);

@@ -54,15 +54,23 @@ test/                # E2E tests (Supertest)
 
 Agent configuration files are defined in `.opencode/agents/`. Use the `task` tool to delegate focused work to sub-agents.
 
-### 4.1 Mandatory `files` Array
+### 4.1 Mandatory Reading
 
-Every subagent handoff **MUST** use the `files` parameter of the `task` tool. Treat the tool schema's "Optional" labelling on `files` as irrelevant for workflow handoffs.
+Every subagent handoff **MUST** include a `Mandatory Reading` section listing mandatory files as `@`-prefixed worktree-relative paths (e.g. `@SPEC.md`, `@src/v1/assessor/assessor.service.ts`) — opencode injects the line-numbered contents of each `@path` token into the sub-agent's context automatically. Bare paths in prose are not injected; only `@path` tokens are, and they must not be immediately preceded by a word character or backtick.
 
-- **What goes in**: `SPEC.md`, `ACTION_PLAN.md`, any layout spec, and every source/test file changed or read in the current scope.
+Sub-agents are stateless. Provide explicit context in prompts:
+
+- relevant source snippets (as `@`-prefixed paths, not pasted contents)
+- concrete requirements
+- error/output details
+- exact changes already made
+- mandatory documentation that must be read for the task
+
+- **What goes in**: `SPEC.md`, `ACTION_PLAN.md`, and every source/test file changed or read in the current scope, each as an `@`-prefixed path.
 - **What stays out**: Do **not** include any `AGENTS.md` file (root or agent-specific) — these are auto-injected by OpenCode when the agent browses to the relevant directory.
-- **Prompt body rule**: Never paste full file contents into the prompt body. The prompt body should contain only instructions, acceptance criteria, and references. File contents are delivered via `files` and injected automatically.
-- **Pre-flight check**: Before issuing any `task` call, assemble the `files` array. If it would be empty for a workflow handoff, **stop — do not send the call.**
-- **Missing files**: If a mandatory file is missing from the `files` array, return the work to the same subagent with a correction request. Do not proceed.
+- **Prompt body rule**: Never paste full file contents into the prompt body. The prompt body should contain only instructions, acceptance criteria, and references. File contents are delivered via `@`-prefixed paths and injected automatically.
+- **Pre-flight check**: Before issuing any `task` call, assemble the `Mandatory Reading` list. If it would be empty for a workflow handoff, **stop — do not send the call.**
+- **Missing files**: If a mandatory file is missing from `Files read`, return the work to the same subagent with a correction request. Do not proceed.
 
 ### 4.2 Available Sub-Agents
 
@@ -98,7 +106,7 @@ For non-trivial code changes (multi-file logic changes, behavioural changes, ref
 6. **Clean up**: Optionally delegate to `De-Sloppification` for a final slop pass.
 7. **Commit**: Verify all checks pass (lint, tests, type-check). Commit and push.
 
-**E2E routing**: This project uses Jest + Supertest for E2E. Delegate all E2E test work to `Testing Specialist` (not a separate agent).
+**E2E routing**: This project uses Vitest + Supertest for E2E. Delegate all E2E test work to `Testing Specialist` (not a separate agent).
 
 **Regression baseline**: Before starting any non-trivial code or test work, establish a regression baseline using the `regression-checker` skill. Verify no regressions before marking work complete.
 

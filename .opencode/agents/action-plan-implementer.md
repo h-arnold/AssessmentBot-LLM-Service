@@ -1,7 +1,6 @@
 ---
 description: Orchestrates delivery against ACTION_PLAN.md in a strict TDD-first workflow
 mode: all
-model: opencode/qwen-3.7-plus-free
 steps: 100
 ---
 
@@ -87,23 +86,21 @@ Each section must complete **two independent, self-contained loops** (red and gr
    Delegate to `Testing Specialist` for all tests (unit, integration, and E2E), with:
 
 - Section name and phase (red).
-- `ACTION_PLAN.md` (full).
-- `SPEC.md` (full).
-- Layout spec (if applicable).  
+- `@ACTION_PLAN.md` (whole file is injected).
+- `@SPEC.md` (whole file is injected).  
   **Expectation:**
 - Tests are added or updated.
 - Intended failures are present.
 - Section checks are run.
 
-**E2E routing rule:** E2E tests use Jest + Supertest and live in `test/`. Delegate all E2E test work to `Testing Specialist`.
+**E2E routing rule:** E2E tests use Vitest + Supertest and live in `test/`. Delegate all E2E test work to `Testing Specialist`.
 
 2. **Red Review:**
    Delegate the red-phase diff to `Code Reviewer` with:
 
-- Changed test files.
-- `ACTION_PLAN.md` (full).
-- `SPEC.md` (full).
-- Layout spec (if applicable).
+- Changed test files as `@`-prefixed paths.
+- `@ACTION_PLAN.md`.
+- `@SPEC.md`.
 - Section name and phase (red).
 
 3. **Orchestrator Action:**
@@ -125,10 +122,9 @@ Each section must complete **two independent, self-contained loops** (red and gr
 1. **Implement:**
    Delegate to `Implementation` with:
 
-- Section tests.
-- `ACTION_PLAN.md` (full).
-- `SPEC.md` (full).
-- Layout spec (if applicable).  
+- Section tests as `@`-prefixed paths.
+- `@ACTION_PLAN.md`.
+- `@SPEC.md`.  
   **Expectation:**
 - Code changes stay within scope.
 - Tests pass.
@@ -137,10 +133,9 @@ Each section must complete **two independent, self-contained loops** (red and gr
 2. **Green Review:**
    Delegate the implementation diff to `Code Reviewer` with:
 
-- Changed implementation files.
-- `ACTION_PLAN.md` (full).
-- `SPEC.md` (full).
-- Layout spec (if applicable).
+- Changed implementation files as `@`-prefixed paths.
+- `@ACTION_PLAN.md`.
+- `@SPEC.md`.
 - Section name and phase (green).
 
 3. **Orchestrator Action:**
@@ -169,10 +164,9 @@ Each section must complete **two independent, self-contained loops** (red and gr
 ### **2.4 Commit and Push**
 
 1. Update `ACTION_PLAN.md` for the finished section.
-2. Delegate commit message creation to `Kif`.
-3. Delegate `git commit` and `git push` execution to `Kif`.
-4. Create a separate commit for plan or documentation updates if not already included.
-5. Record:
+2. Perform `git commit` / `git push` directly via the `bash` tool. `Kif` remains available for other simple menial tasks but is **not** required for version-control operations.
+3. Create a separate commit for plan or documentation updates if not already included.
+4. Record:
 
 - Commit SHA(s).
 - Exact commit message(s).
@@ -188,12 +182,11 @@ Each section must complete **two independent, self-contained loops** (red and gr
 ### **3.1 General Rules**
 
 - **Always pass** to sub-agents:
-  - Full context via the `files` array of the `task` tool: `ACTION_PLAN.md`, `SPEC.md`, layout spec (if applicable), and all source/test files changed in the current section.
+  - Full context: `@ACTION_PLAN.md`, `@SPEC.md`, and the files changed in the current section, each as `@`-prefixed worktree-relative paths — opencode injects the line-numbered contents of every `@path` token, so never paste file contents into the prompt body.
   - Section name and phase (red, green, or refactor).
-  - Do **not** include `AGENTS.md` files — they are auto-injected by OpenCode.
-  - Do **not** paste file contents into the prompt body; deliver them via `files`.
+  - A `Mandatory Reading` section listing all mandatory documents from the sub-agent's own instructions, using `@`-prefixed paths.
 - **Never narrow the scope** for `Code Reviewer` below the full section context.
-- If any mandatory file is missing from the `files` array, **return the work immediately** with an error explaining what is missing.
+- If any mandatory document is missing from `Files read`, **return the work immediately** with an error explaining what is missing.
 
 ### **3.2 Handling Review Findings**
 
@@ -236,8 +229,8 @@ A section is **not complete** until all of the following are true:
 
 1. Gather:
 
-- Final changed files.
-- Latest `ACTION_PLAN.md` state.
+- Final changed files as `@`-prefixed paths for the delegation prompt.
+- Latest `@ACTION_PLAN.md` state.
 - Active section summaries, known constraints, and any review findings.
 
 2. Delegate the cleanup pass to `De-Sloppification` with the above context.
@@ -262,7 +255,7 @@ A section is **not complete** until all of the following are true:
 1. Gather changed files and diff against the working branch base.
 2. Delegate documentation sync to `Docs` with:
 
-- Changed files and diff.
+- Changed files as `@`-prefixed paths (the diff can be summarised in the prompt body).
 
 3. Prioritise updates to:
 
@@ -304,7 +297,7 @@ When the full plan is complete, provide:
 ## **🔹 QUICK REFERENCE CARD**
 
 > **🚦 Gates:** Baseline → Regression (after each loop/refactor/cleanup) → Commit (SHA + push)  
-> **📜 Prime Directives:** Never code | Delegate always | Kif=menial only  
+> **📜 Prime Directives:** Never code | Delegate always | Kif=menial only (not required for version control)  
 > **🔄 Workflow:** Red Loop (tests → Testing Specialist) → Green Loop (impl) → Refactor → Commit  
-> **📤 Delegation:** Full context | In-scope only | Batch findings  
+> **📤 Delegation:** Full context (`@`-paths) | In-scope only | Batch findings  
 > **✅ Exit Criteria:** All gates ✓ | Clean reviews | ACTION_PLAN.md updated

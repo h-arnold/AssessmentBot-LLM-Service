@@ -34,7 +34,8 @@ the branch name and `main` are detected automatically.
 
 - Delegate outcomes, not implementation. Review sub-agents contain their own methodology.
 - Sub-agents cannot spawn sub-agents. The skill coordinates all parallel calls.
-- Only task-specific files appear in a sub-agent's `files` array; agents read their own
+- Only task-specific files appear in a sub-agent's `Mandatory Reading` list as `@`-prefixed
+  worktree-relative paths; agents read their own
   standards (AGENTS.md, module docs) per their own instructions.
 - British English in all outputs and the synthesised document.
 - Stay within scope: no auto-fix, no commit/push, no CI wiring.
@@ -91,8 +92,9 @@ run in parallel. The skill owns all coordination; never instruct a sub-agent to 
 
 For every focus, the handoff prompt MUST include:
 
-- The changed files (and changed test files) for that focus via the `files` parameter — file contents
-  are injected automatically into the sub-agent's prompt; do not rely on the sub-agent to read them itself.
+- The changed files (and changed test files) for that focus as `@`-prefixed worktree-relative
+  paths — opencode injects the line-numbered contents into the sub-agent's prompt; do not rely
+  on the sub-agent to read them itself.
 - The explicit constraint: _"Do NOT run lint, type-check, or tests. All automated checks are expected
   to pass already and are verified by the regression gate before this review began."_
   - The instruction to focus primarily on the diff findings, but also to report incidental issues
@@ -141,8 +143,7 @@ Enable each only if its layer appears in the Step 2 classification.
   - Changed logic with no corresponding test, per `docs/developer/backend/backend-testing.md` and
     `docs/developer/frontend/frontend-testing.md`. Flag untested paths; do not write tests.
 - **British-English consistency** → `code-reviewer`
-  - American-English leaks in user-facing strings, identifiers, and comments (`color`→`colour`,
-    `center`→`centre`, `normalize`→`normalise`, etc.).
+  - American-English spellings in user-facing strings, identifiers, and comments — use the British forms (`colour`, `centre`, `normalise`, etc.).
 - **Error-handling robustness** → `code-reviewer`
   - Broad `catch`/swallow, missing rethrow at boundaries, and missing `Validate.requireParams` on
     public backend methods.

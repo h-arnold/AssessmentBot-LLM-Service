@@ -49,6 +49,14 @@ class TestPrompt extends Prompt {
   }
 }
 
+// Concrete subclass that deliberately does not override `buildMessage`, so the
+// inherited base (default text/table) population path is exercised directly.
+class InheritedBuildMessagePrompt extends Prompt {
+  constructor(inputs: unknown, logger: Logger) {
+    super(inputs, logger);
+  }
+}
+
 describe('Prompt Base Class', (): void => {
   let logger: Logger;
 
@@ -106,6 +114,42 @@ describe('Prompt Base Class', (): void => {
     it('should throw a ZodError via the constructor with invalid input', (): void => {
       const invalidInput = { ...validInput, studentTask: false };
       expect(() => new TestPrompt(invalidInput, logger)).toThrow(ZodError);
+    });
+  });
+
+  describe('Prompt.buildMessage promptCacheKey population', (): void => {
+    it('should derive promptCacheKey from the reference task on the default payload', async (): Promise<void> => {
+      const prompt = new InheritedBuildMessagePrompt(validInput, logger);
+      const payload = await prompt.buildMessage();
+
+      expect(payload.promptCacheKey).toBe(
+        buildPromptCacheKey(validInput.referenceTask),
+      );
+    });
+
+    it('should derive the same promptCacheKey when only the student task changes', async (): Promise<void> => {
+      const firstPrompt = new InheritedBuildMessagePrompt(
+        { ...validInput, studentTask: 'First student response.' },
+        logger,
+      );
+      const secondPrompt = new InheritedBuildMessagePrompt(
+        {
+          ...validInput,
+          studentTask: 'A completely different student response.',
+        },
+        logger,
+      );
+
+      const firstPayload = await firstPrompt.buildMessage();
+      const secondPayload = await secondPrompt.buildMessage();
+
+      expect(firstPayload.promptCacheKey).toBe(
+        buildPromptCacheKey(validInput.referenceTask),
+      );
+      expect(secondPayload.promptCacheKey).toBe(
+        buildPromptCacheKey(validInput.referenceTask),
+      );
+      expect(secondPayload.promptCacheKey).toBe(firstPayload.promptCacheKey);
     });
   });
 

@@ -1,6 +1,6 @@
 import { Logger, BadRequestException } from '@nestjs/common';
 
-import { Prompt, PromptInput } from './prompt.base.js';
+import { buildPromptCacheKey, Prompt, PromptInput } from './prompt.base.js';
 import { LlmPayload } from '../llm/llm.service.interface.js';
 
 /**
@@ -47,6 +47,7 @@ export class ImagePrompt extends Prompt {
     return {
       system: this.systemPrompt ?? '',
       images: images,
+      promptCacheKey: buildPromptCacheKey(this.referenceTask),
     };
   }
 

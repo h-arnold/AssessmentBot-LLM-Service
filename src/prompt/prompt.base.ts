@@ -168,6 +168,7 @@ export abstract class Prompt {
     return {
       system: this.systemPrompt ?? '',
       user: userMessage,
+      promptCacheKey: buildPromptCacheKey(this.referenceTask),
     };
   }
 }

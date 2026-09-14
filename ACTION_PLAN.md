@@ -2,8 +2,8 @@
 
 ## Delivery status
 
-- Current section: Section 2 — Shared derivation helper with golden-value pin (complete)
-- Current phase: Commit gate — Section 2
+- Current section: Section 3 — Prompt-layer payload population (complete)
+- Current phase: Commit gate — Section 3
 - Baseline: `npm run test` and `npm run test:e2e:mocked` passed on 2026-09-14; the repository regression-checker script is unavailable in this repository.
 
 ## Read-First Context
@@ -295,8 +295,8 @@ Backend unit tests:
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _to be completed during implementation._
-- **Deviations from plan:** _to be completed during implementation._
+- **Implementation notes:** `Prompt.buildMessage()` now adds `buildPromptCacheKey(this.referenceTask)` to the shared text/table payload, and `ImagePrompt.buildMessage()` adds the same derived key from its reference data URI. The required text, student-task invariance, image, and table inheritance tests pass; existing prompt content and message ordering are unchanged. The authorised substitute regression gate (`npm run test` and `npm run test:e2e:mocked`) passed, alongside build, type-check, lint, and British English checks.
+- **Deviations from plan:** None.
 - **Follow-up implications for later sections:** payloads in flight now carry the key; Section 4 consumes it.
 
 ---

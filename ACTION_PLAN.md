@@ -2,8 +2,8 @@
 
 ## Delivery status
 
-- Current section: Section 1 — Payload contract extension (complete)
-- Current phase: Commit gate — Section 1
+- Current section: Section 2 — Shared derivation helper with golden-value pin (complete)
+- Current phase: Commit gate — Section 2
 - Baseline: `npm run test` and `npm run test:e2e:mocked` passed on 2026-09-14; the repository regression-checker script is unavailable in this repository.
 
 ## Read-First Context
@@ -196,7 +196,7 @@ Code Reviewer mandatory docs:
 
 ### Shared helper plan
 
-- Helper introduced here per the global helper decision entry (`new`, owned by `src/prompt/prompt.base.ts`); canonical doc entry added with status `Not implemented` in this section.
+- Helper introduced here per the global helper decision entry (`new`, owned by `src/prompt/prompt.base.ts`); implementation is delivered, with the canonical `docs/modules/llm.md` entry scheduled for the Section 5 documentation reconciliation.
 
 ### Acceptance criteria
 
@@ -226,8 +226,8 @@ Backend unit tests (extend `src/prompt/prompt.base.spec.ts`):
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _to be completed during implementation._
-- **Deviations from plan:** _to be completed during implementation._
+- **Implementation notes:** Added the module-level `buildPromptCacheKey(referenceTask)` helper using exactly `createHash('sha256').update(referenceTask).digest('hex')`. The golden-value, determinism, format, distinct-content, and independently anchored plain-text/data-URI pathway tests pass. The helper JSDoc records the single-input contract, prefix-cache routing-hint role, and intentional cross-task-type sharing. The authorised substitute regression gate (`npm run test` and `npm run test:e2e:mocked`) passed, alongside build, type-check, lint, and British English checks.
+- **Deviations from plan:** The canonical `docs/modules/llm.md` helper entry is deferred to Section 5 so the complete provider support matrix, derivation rule, and EU endpoint documentation can be reconciled in one documentation pass; no behaviour or acceptance criteria are deferred.
 - **Follow-up implications for later sections:** Sections 3's call sites depend on this export.
 
 ---

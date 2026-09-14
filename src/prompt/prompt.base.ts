@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { Logger } from '@nestjs/common';
 import Mustache from 'mustache';
 import { z } from 'zod';
@@ -31,6 +33,28 @@ export const PromptInputSchema = z.object({
  * Type representing validated prompt input data.
  */
 export type PromptInput = z.infer<typeof PromptInputSchema>;
+
+/**
+ * Derives the provider-agnostic prompt cache key for a reference task.
+ *
+ * The key is the lowercase hexadecimal SHA-256 digest of the raw
+ * `referenceTask` string, giving a fixed-length 64-character routing hint that
+ * avoids leaking reference content into provider metadata. The same string
+ * always produces the same key, whether the reference is plain text or an
+ * image data URI.
+ * @param {string} referenceTask - The raw reference task content to hash.
+ * @returns {string} The 64-character lowercase hexadecimal SHA-256 digest.
+ * @remarks
+ * The single-input `sha256(referenceTask)` rule is a documented contract (see
+ * `SPEC.md`): no separator, prefix, or task-type input is added. Mistral prefix
+ * caching is prefix-content-based, so this key is a best-effort routing hint
+ * that groups requests sharing the same reference prefix. Sharing keys across
+ * task types is therefore intentional — the task type is deliberately excluded
+ * because differing task types have differing reference content anyway.
+ */
+export function buildPromptCacheKey(referenceTask: string): string {
+  return createHash('sha256').update(referenceTask).digest('hex');
+}
 
 /**
  * Abstract base class for all prompt implementations.

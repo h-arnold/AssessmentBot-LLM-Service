@@ -2,8 +2,8 @@
 
 ## Delivery status
 
-- Current section: Section 3 — Prompt-layer payload population (complete)
-- Current phase: Commit gate — Section 3
+- Current section: Section 4 — Provider forwarding and routing preservation (complete)
+- Current phase: Commit gate — Section 4
 - Baseline: `npm run test` and `npm run test:e2e:mocked` passed on 2026-09-14; the repository regression-checker script is unavailable in this repository.
 
 ## Read-First Context
@@ -368,8 +368,8 @@ Backend unit tests:
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _to be completed during implementation._
-- **Deviations from plan:** _to be completed during implementation._
+- **Implementation notes:** `MistralService.buildRequest()` now assigns the SDK `promptCacheKey` property only when the payload field is defined; the SDK serialises it to provider-native `prompt_cache_key`. Text and image forwarding, absent-field omission, routing spread preservation, and Gemini tolerance tests pass. The authorised substitute regression gate (`npm run test` and `npm run test:e2e:mocked`) passed, alongside build, type-check, lint, and British English checks.
+- **Deviations from plan:** None.
 - **Follow-up implications for later sections:** feature code complete pending Sections 5, regression, and docs.
 
 ---

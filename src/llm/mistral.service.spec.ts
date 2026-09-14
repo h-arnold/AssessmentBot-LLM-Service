@@ -492,6 +492,53 @@ describe('MistralService', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // C1. promptCacheKey forwarding
+  // ---------------------------------------------------------------------------
+
+  describe('promptCacheKey forwarding', () => {
+    const promptCacheKey = 'a'.repeat(64);
+
+    it('forwards promptCacheKey on a text payload request when present', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload(),
+        promptCacheKey,
+      };
+      await service.send(payload);
+
+      const request = mockComplete.mock.calls[0][0] as Record<string, unknown>;
+      expect(request.promptCacheKey).toBe(promptCacheKey);
+    });
+
+    it('forwards promptCacheKey on an image payload request when present', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      const payload: ImagePromptPayload = {
+        ...createImagePayload(),
+        promptCacheKey,
+      };
+      await service.send(payload);
+
+      const request = mockComplete.mock.calls[0][0] as Record<string, unknown>;
+      expect(request.promptCacheKey).toBe(promptCacheKey);
+    });
+
+    it('omits promptCacheKey entirely when the payload does not carry one', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      await service.send(createStringPayload());
+
+      const request = mockComplete.mock.calls[0][0] as Record<string, unknown>;
+      // The field must be absent from the built request — not present as
+      // `undefined`/`null`, and never sent under the provider-native spelling.
+      expect('promptCacheKey' in request).toBe(false);
+      expect('prompt_cache_key' in request).toBe(false);
+      expect(request.promptCacheKey).toBeUndefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // C2. Malformed payload dispatch
   // ---------------------------------------------------------------------------
 

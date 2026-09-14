@@ -299,9 +299,14 @@ export class MistralService extends LLMService {
    * `chat.complete()` call.
    * @param model - The model name.
    * @param messages - The messages array.
-   * @param payload - The original LLM payload (for temperature and reasoning
-   *   effort).
+   * @param payload - The original LLM payload (for temperature, reasoning
+   *   effort, and prompt cache key).
    * @returns A plain object compatible with the Mistral SDK's request shape.
+   * @remarks The optional payload `promptCacheKey` maps to the provider-native
+   *   `promptCacheKey` request field (serialised as `prompt_cache_key`). It is
+   *   omitted entirely when the payload does not carry one — never sent as
+   *   `null`. The key is a best-effort hint: a prefix mismatch still yields a
+   *   cache miss, never an incorrect assessment.
    */
   private buildRequest(
     model: string,
@@ -323,6 +328,10 @@ export class MistralService extends LLMService {
       request.reasoningEffort = this.mapReasoningEffort(
         payload.reasoningEffort,
       );
+    }
+
+    if (payload.promptCacheKey !== undefined) {
+      request.promptCacheKey = payload.promptCacheKey;
     }
 
     return request;

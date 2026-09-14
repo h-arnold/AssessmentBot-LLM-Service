@@ -469,6 +469,33 @@ describe('GeminiService', () => {
     });
   });
 
+  describe('promptCacheKey tolerance', () => {
+    const promptCacheKey = 'a'.repeat(64);
+
+    it('accepts a text payload carrying promptCacheKey without throwing and leaves the request unchanged', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(2));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload('test prompt'),
+        promptCacheKey,
+      };
+      const result = await service.send(payload);
+
+      // The cache key is provider-agnostic metadata that Gemini ignores: the
+      // generated request must be identical to the keyless case.
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 2);
+    });
+  });
+
   describe('error handling', () => {
     it('should throw an error if the SDK fails', async () => {
       mockGenerateContent.mockRejectedValue(new Error('SDK Error'));

@@ -12,6 +12,7 @@ const VALID_TEXT_MODEL = 'gemini-2.5-flash-lite';
 const VALID_IMAGE_MODEL = 'gemini-2.5-flash';
 const LOW_EFFORT = 'low';
 const HIGH_EFFORT = 'high';
+const PROMPT_CACHE_KEY = 'a'.repeat(64);
 
 const createMockLlmResponse = (): LlmResponse => {
   return {
@@ -369,6 +370,24 @@ describe('RoutingLLMService', () => {
       expect(sent).not.toBe(original);
       expect(sent.model).toBe('gemini-2.5-flash-lite');
       expect(sent.reasoningEffort).toBe('high');
+    });
+
+    it('preserves promptCacheKey through the payload spread', async () => {
+      const mockConfig = createMockConfig({
+        DEFAULT_TEXT_TABLE_MODEL: 'gemini-2.5-flash-lite',
+      });
+      mockGemini.send.mockResolvedValue(createMockLlmResponse());
+
+      const service = createRoutingService(mockConfig, mockGemini, mockMistral);
+
+      await service.send({
+        system: 's',
+        user: 'u',
+        promptCacheKey: PROMPT_CACHE_KEY,
+      });
+
+      const sent = mockGemini.send.mock.calls[0][0] as LlmPayload;
+      expect(sent.promptCacheKey).toBe(PROMPT_CACHE_KEY);
     });
   });
 });

@@ -3,7 +3,7 @@
 ## Delivery status
 
 - Current section: All planned sections
-- Current phase: Complete — commit gate pending
+- Current phase: Complete
 - Baseline: `npm run test` and `npm run test:e2e:mocked` passed on 2026-09-14; the repository regression-checker script is unavailable in this repository.
 
 ## Read-First Context

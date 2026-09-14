@@ -2,8 +2,8 @@
 
 ## Delivery status
 
-- Current section: Section 4 — Provider forwarding and routing preservation (complete)
-- Current phase: Commit gate — Section 4
+- Current section: Section 5 — Mistral EU endpoint pinning (complete)
+- Current phase: Commit gate — Section 5
 - Baseline: `npm run test` and `npm run test:e2e:mocked` passed on 2026-09-14; the repository regression-checker script is unavailable in this repository.
 
 ## Read-First Context
@@ -445,8 +445,8 @@ Backend unit tests (extend `src/llm/mistral.service.spec.ts`):
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _to be completed during implementation._
-- **Deviations from plan:** _to be completed during implementation._
+- **Implementation notes:** `MistralService.getClient()` now constructs the shared lazy SDK client with `{ apiKey, server: 'eu' }`, resolving to `https://api.eu.mistral.ai`. The existing API-key guard and lazy-construction path are unchanged, and the constructor-spy and request-building tests pass. The authorised substitute regression gate (`npm run test` and `npm run test:e2e:mocked`) passed, alongside build, type-check, lint, and British English checks.
+- **Deviations from plan:** None.
 - **Follow-up implications for later sections:** none — purely a client-construction change.
 
 ---

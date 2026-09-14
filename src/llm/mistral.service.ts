@@ -132,6 +132,12 @@ export class MistralService extends LLMService {
    * defensive backstop for direct-instantiation paths.
    * @returns The cached or newly constructed Mistral SDK client.
    * @throws {Error} When `MISTRAL_API_KEY` is absent or empty.
+   * @remarks The client is pinned to the EU production server via the SDK's
+   *   `server` option (`'global' | 'eu' | 'us'`), which resolves to
+   *   `https://api.eu.mistral.ai` instead of the global default. This is a
+   *   deliberate data-residency product decision, not configuration: no
+   *   environment override exists by design, and every Mistral request —
+   *   chat completions included — is served by the pinned client.
    */
   private getClient(): Mistral {
     if (this.client) {
@@ -141,7 +147,7 @@ export class MistralService extends LLMService {
     if (!apiKey) {
       throw new Error('MISTRAL_API_KEY is not set in environment');
     }
-    this.client = new Mistral({ apiKey });
+    this.client = new Mistral({ apiKey, server: 'eu' });
     return this.client;
   }
 

@@ -194,8 +194,26 @@ describe('MistralService', () => {
       await service.send(createStringPayload());
 
       expect(configService.get).toHaveBeenCalledWith('MISTRAL_API_KEY');
-      expect(mockMistral).toHaveBeenCalledWith({ apiKey: 'test-mistral-key' });
+      // The full constructor options are pinned by the EU-server test below;
+      // here we assert the key is supplied on the lazy-construction path.
+      expect(mockMistral).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: 'test-mistral-key' }),
+      );
       expect(mockMistral).toHaveBeenCalledTimes(1);
+    });
+
+    it('should pin the SDK client to the EU server on the lazy construction path', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      await service.send(createStringPayload());
+
+      // EU pinning is fixed policy (SPEC product decision #8): the client is
+      // constructed with `server: 'eu'`, resolving to
+      // https://api.eu.mistral.ai rather than the global default.
+      expect(mockMistral).toHaveBeenCalledWith({
+        apiKey: 'test-mistral-key',
+        server: 'eu',
+      });
     });
 
     it('should construct the SDK client only once across multiple sends', async () => {

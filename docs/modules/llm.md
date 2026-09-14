@@ -82,6 +82,29 @@ For detailed documentation on the error hierarchy, mapping contracts, classifica
 priority rules, and how to add a new provider, see the dedicated guide:
 **[`docs/llm/error-handling.md`](../llm/error-handling.md)**.
 
+## Prompt Cache Key
+
+Both payload variants — `StringPromptPayload` and `ImagePromptPayload` — accept an optional `promptCacheKey?: string`. It is a provider-agnostic prefix-cache routing hint that groups repeated requests for the same reference task. The key is derived server-side and is never accepted from clients.
+
+### Derivation
+
+The prompt layer owns derivation. `buildPromptCacheKey(referenceTask)` in `src/prompt/prompt.base.ts` returns the lowercase hexadecimal SHA-256 digest of the raw reference task string (64 characters). `Prompt.buildMessage()` (text and table) and `ImagePrompt.buildMessage()` both call it; for image payloads the reference task is the data-URI string held by the prompt, so multimodal payloads use the same rule as text payloads.
+
+The rule is a single input — `sha256(referenceTask)` with no separator, prefix, or task-type component — and forms part of the documented contract. Changing it changes every effective cache key and therefore requires a deliberate contract revision. Keys are shared across task types by design: differing task types have differing reference content anyway.
+
+### Provider Forwarding
+
+| Provider         | Behaviour                                                                                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MistralService` | Forwards the key when present as the SDK `promptCacheKey` property (serialised to provider-native `prompt_cache_key`); omits the field entirely when absent — never sends `null`. |
+| `GeminiService`  | Ignores the field: no request change, and no error when it is present.                                                                                                            |
+
+`RoutingLLMService` preserves the field unchanged through its payload spread. Cache hits are best-effort: a prefix mismatch still yields a miss, never an incorrect assessment. Mistral reports hit counts externally via `usage.prompt_tokens_details.cached_tokens`; this service neither logs nor exposes them.
+
+### EU Endpoint Pinning
+
+`MistralService.getClient()` constructs the SDK client with `server: 'eu'`, resolving to `https://api.eu.mistral.ai` instead of the global default. This is fixed data-residency policy, not configuration: no environment variable overrides it, and every Mistral request — chat completions included — uses the pinned client.
+
 ## Dependencies
 
 - **@google/genai** — Google Gemini API client

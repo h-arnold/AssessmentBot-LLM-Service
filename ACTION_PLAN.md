@@ -2,8 +2,8 @@
 
 ## Delivery status
 
-- Current section: Section 5 — Mistral EU endpoint pinning (complete)
-- Current phase: Commit gate — Section 5
+- Current section: All planned sections
+- Current phase: Complete — commit gate pending
 - Baseline: `npm run test` and `npm run test:e2e:mocked` passed on 2026-09-14; the repository regression-checker script is unavailable in this repository.
 
 ## Read-First Context
@@ -83,7 +83,7 @@ Helper decision entries:
    - Owning module/path: `src/prompt/prompt.base.ts` (exported at module level)
    - Call-site rationale: single derivation owned in one place, consumed by both `Prompt.buildMessage()` and `ImagePrompt.buildMessage()`; no duplicate local implementations.
    - Relevant canonical doc target: `docs/modules/llm.md`
-   - Planned doc status: `Not implemented` (added to `docs/modules/llm.md` during Section 5 reconciliation)
+   - Planned doc status: `Implemented` in `docs/modules/llm.md` during the final documentation pass
 
 ### Regression baseline (mandatory before implementation starts)
 
@@ -481,8 +481,9 @@ Backend unit tests (extend `src/llm/mistral.service.spec.ts`):
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _to be completed during implementation._
-- **Deviations from plan:** _note any additional work discovered or done._
+- **Implementation notes:** Full unit tests (530 passed), mocked E2E tests (52 passed and 1 todo), build, type-check, lint, and British English checks passed after Sections 1–5. The repository regression-checker is unavailable; the authorised substitute regression evidence is the repeated `npm run test` and `npm run test:e2e:mocked` runs after each section.
+- **Deviations from plan:** The unavailable repository regression-checker was replaced by the regular unit suite and mocked E2E suite at the user's direction; no feature behaviour or acceptance criteria were changed.
+- **De-sloppification:** Completed review found no cleanup-worthy sloppiness; two cosmetic documentation/test observations were intentionally left unchanged to avoid churn.
 
 ---
 
@@ -498,7 +499,7 @@ Backend unit tests (extend `src/llm/mistral.service.spec.ts`):
 
 ### Acceptance criteria
 
-- `docs/modules/llm.md` documents: the optional `promptCacheKey` field on both payload variants, the `sha256(referenceTask)` derivation rule (single input, contract-level), the `buildPromptCacheKey` helper (reconcile the planned `Not implemented` status against the delivered implementation), the provider matrix (Mistral: forwarded via `prompt_cache_key`; Gemini: ignored), and the EU-only endpoint pinning (`server: 'eu'`, fixed policy, no environment override).
+- `docs/modules/llm.md` documents: the optional `promptCacheKey` field on both payload variants, the `sha256(referenceTask)` derivation rule (single input, contract-level), the delivered `buildPromptCacheKey` helper, the provider matrix (Mistral: forwarded via `prompt_cache_key`; Gemini: ignored), and the EU-only endpoint pinning (`server: 'eu'`, fixed policy, no environment override).
 - Documentation notes that cache hits are best-effort and externally observable via Mistral's `usage.prompt_tokens_details.cached_tokens`; the service does not log them.
 - Any deviations or caveats from the SPEC are recorded here.
 
@@ -508,7 +509,7 @@ Backend unit tests (extend `src/llm/mistral.service.spec.ts`):
 2. Verify docs list the provider support matrix.
 3. Confirm notes/deviations fields are filled during implementation.
 4. Verify mandatory-read evidence (`Files read`) is complete for delegated docs/review handoffs.
-5. Reconcile planned shared-helper entries in `docs/modules/llm.md`: update the `Not implemented` entry to reflect delivery.
+5. Add the shared-helper and prompt-cache-key entry to `docs/modules/llm.md` and verify that it reflects delivery.
 
 ### Optional `@remarks` JSDoc review
 
@@ -516,5 +517,6 @@ Backend unit tests (extend `src/llm/mistral.service.spec.ts`):
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _to be completed during implementation._
-- **Deviations from plan:** _to be completed during implementation._
+- **Implementation notes:** Added a focused `Prompt Cache Key` section to `docs/modules/llm.md` covering the payload contract, shared SHA-256 helper, provider forwarding matrix, best-effort observability, and fixed Mistral EU endpoint.
+- **Deviations from plan:** No documentation scope deviation. The plan referred to reconciling a pre-existing `Not implemented` entry, but no such entry existed; the required documentation was added as a new section instead. The optional JSDoc review found existing coverage sufficient, so no code documentation changes were needed.
+- **Final verification:** 530 unit tests passed; 52 mocked E2E tests passed with 1 todo; build, type-check, lint, British English, and Prettier checks passed. The final documentation review was clean, and de-sloppification found no cleanup-worthy issues.

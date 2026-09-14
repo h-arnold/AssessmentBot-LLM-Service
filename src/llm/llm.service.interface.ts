@@ -56,6 +56,15 @@ export type StringPromptPayload = {
   Optional reasoning-effort level; provider maps to its native parameter.
    */
   reasoningEffort?: ReasoningEffort;
+  /**
+  Optional provider-agnostic prompt cache key, derived from the payload as the
+  lowercase-hex SHA-256 of the reference task. Forwarded only to providers that
+  support prompt caching; providers without support ignore it.
+  @remarks Server-derived in the prompt layer and never accepted from clients.
+  Changing the single-input derivation rule changes every effective cache key,
+  so it is a documented contract revision rather than an implementation detail.
+   */
+  promptCacheKey?: string;
 };
 
 /**
@@ -82,6 +91,16 @@ export type ImagePromptPayload = {
   Optional reasoning-effort level; provider maps to its native parameter.
    */
   reasoningEffort?: ReasoningEffort;
+  /**
+  Optional provider-agnostic prompt cache key, derived from the payload as the
+  lowercase-hex SHA-256 of the reference task. Forwarded only to providers that
+  support prompt caching; providers without support ignore it. For image
+  payloads the reference task is the data-URI form held by the prompt.
+  @remarks Server-derived in the prompt layer and never accepted from clients.
+  Changing the single-input derivation rule changes every effective cache key,
+  so it is a documented contract revision rather than an implementation detail.
+   */
+  promptCacheKey?: string;
 };
 
 /**

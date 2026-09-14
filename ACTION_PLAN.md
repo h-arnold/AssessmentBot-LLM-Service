@@ -1,5 +1,11 @@
 # Feature Delivery Plan (TDD-First) — Prompt Cache Key
 
+## Delivery status
+
+- Current section: Section 1 — Payload contract extension (complete)
+- Current phase: Commit gate — Section 1
+- Baseline: `npm run test` and `npm run test:e2e:mocked` passed on 2026-09-14; the repository regression-checker script is unavailable in this repository.
+
 ## Read-First Context
 
 Before writing or executing this plan:
@@ -152,8 +158,8 @@ Backend type/contract tests (extend `src/llm/llm.service.interface.spec.ts` or t
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** _to be completed during implementation._
-- **Deviations from plan:** _to be completed during implementation._
+- **Implementation notes:** Red-phase type assertions were added to `src/llm/llm.service.interface.spec.ts`. Because Vitest transpiles tests without type-checking, the intended red signal was verified with `npx tsc --noEmit -p tsconfig.json`, which reported four `TS2353` excess-property errors for `promptCacheKey` at the new assertions. The production contract now declares the optional field on both payload variants; type-checking, unit tests, mocked E2E tests, build, lint, and British English checks pass. The repository regression-checker is unavailable, so the authorised substitute regression gate used `npm run test` and `npm run test:e2e:mocked`.
+- **Deviations from plan:** None.
 - **Follow-up implications for later sections:** the field must exist before Sections 2–4 can compile.
 
 ---

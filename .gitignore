@@ -31,3 +31,6 @@ coverage/
 
 # SonarLint Connected Mode config
 .sonarlint/
+
+# OpenCode scratchpad
+.opencode/scratchpad/

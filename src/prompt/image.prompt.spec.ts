@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 
 import { ImagePrompt } from './image.prompt.js';
+import { buildPromptCacheKey } from './prompt.base.js';
 import { ImagePromptPayload } from '../llm/llm.service.interface.js';
 
 describe('ImagePrompt', () => {
@@ -25,6 +26,21 @@ describe('ImagePrompt', () => {
       { data: 'EMPTYDATA', mimeType: 'image/png' },
       { data: 'STUDENTDATA', mimeType: 'image/png' },
     ]);
+  });
+
+  it('should derive promptCacheKey from the reference data URI', async () => {
+    const inputs = {
+      referenceTask: 'data:image/png;base64,REFDATA',
+      studentTask: 'data:image/png;base64,STUDENTDATA',
+      emptyTask: 'data:image/png;base64,EMPTYDATA',
+    };
+
+    const prompt = new ImagePrompt(inputs, logger);
+    const message = (await prompt.buildMessage()) as ImagePromptPayload;
+
+    expect(message.promptCacheKey).toBe(
+      buildPromptCacheKey(inputs.referenceTask),
+    );
   });
 
   it('should throw when a data URI is malformed', async () => {

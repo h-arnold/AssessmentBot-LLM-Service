@@ -1,7 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
-import { LLMService, LlmPayload } from './llm.service.interface.js';
+import {
+  ImagePromptPayload,
+  LLMService,
+  LlmPayload,
+  StringPromptPayload,
+} from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
 import { LlmServiceError } from '../common/errors/llm-service.error.js';
@@ -359,4 +364,68 @@ describe('LLMService retry-loop (Section 2 contract)', () => {
       expect((thrown as LlmServiceError).providerName).toBe('test-provider');
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Payload contract: optional promptCacheKey
+// ---------------------------------------------------------------------------
+describe('LlmPayload optional promptCacheKey contract', () => {
+  const promptCacheKey = 'a'.repeat(64);
+
+  it('should type-check a StringPromptPayload carrying a promptCacheKey', () => {
+    const payload = {
+      system: 'system instruction',
+      user: 'user prompt',
+      promptCacheKey,
+    } satisfies StringPromptPayload;
+
+    expect(payload.system).toBe('system instruction');
+    expect(payload.user).toBe('user prompt');
+    expect(payload.promptCacheKey).toBe(promptCacheKey);
+  });
+
+  it('should type-check an ImagePromptPayload carrying a promptCacheKey', () => {
+    const payload = {
+      system: 'system instruction',
+      images: [{ mimeType: 'image/png', data: 'base64-data' }],
+      promptCacheKey,
+    } satisfies ImagePromptPayload;
+
+    expect(payload.system).toBe('system instruction');
+    expect(payload.images).toEqual([
+      { mimeType: 'image/png', data: 'base64-data' },
+    ]);
+    expect(payload.promptCacheKey).toBe(promptCacheKey);
+  });
+
+  it('should keep promptCacheKey optional on StringPromptPayload', () => {
+    const payload = {
+      system: 'system instruction',
+      user: 'user prompt',
+    } satisfies StringPromptPayload;
+
+    expect('promptCacheKey' in payload).toBe(false);
+  });
+
+  it('should keep promptCacheKey optional on ImagePromptPayload', () => {
+    const payload = {
+      system: 'system instruction',
+      images: [{ mimeType: 'image/png', data: 'base64-data' }],
+    } satisfies ImagePromptPayload;
+
+    expect('promptCacheKey' in payload).toBe(false);
+  });
+
+  it('should type-check both payload variants in the LlmPayload union carrying a promptCacheKey', () => {
+    const payloads = [
+      { system: 'system instruction', user: 'user prompt', promptCacheKey },
+      {
+        system: 'system instruction',
+        images: [{ mimeType: 'image/png', data: 'base64-data' }],
+        promptCacheKey,
+      },
+    ] satisfies LlmPayload[];
+
+    expect(payloads).toHaveLength(2);
+  });
 });

@@ -5,7 +5,11 @@ import path from 'node:path';
 import { Logger } from '@nestjs/common';
 import mustache from 'mustache';
 
-import { PromptInputSchema, type PromptInput } from './prompt.base.js';
+import {
+  buildPromptCacheKey,
+  PromptInputSchema,
+  type PromptInput,
+} from './prompt.base.js';
 import { TablePrompt } from './table.prompt.js';
 import { isSystemUserMessage } from '../common/utils/type-guards.js';
 
@@ -96,5 +100,25 @@ describe('TablePrompt', () => {
       emptyTask: tableTask.emptyTask,
     });
     expect(message.user).toBe(expectedUser);
+  });
+
+  it('should populate promptCacheKey from the reference task via the inherited base path', async () => {
+    const inputs = {
+      referenceTask: tableTask.referenceTask,
+      studentTask: tableTask.studentTask,
+      emptyTask: tableTask.emptyTask,
+    };
+
+    const prompt = new TablePrompt(
+      inputs,
+      logger,
+      'table.user.prompt.md',
+      systemTemplate,
+    );
+    const message = await prompt.buildMessage();
+
+    expect(message.promptCacheKey).toBe(
+      buildPromptCacheKey(inputs.referenceTask),
+    );
   });
 });

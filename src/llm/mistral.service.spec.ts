@@ -194,8 +194,26 @@ describe('MistralService', () => {
       await service.send(createStringPayload());
 
       expect(configService.get).toHaveBeenCalledWith('MISTRAL_API_KEY');
-      expect(mockMistral).toHaveBeenCalledWith({ apiKey: 'test-mistral-key' });
+      // The full constructor options are pinned by the EU-server test below;
+      // here we assert the key is supplied on the lazy-construction path.
+      expect(mockMistral).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: 'test-mistral-key' }),
+      );
       expect(mockMistral).toHaveBeenCalledTimes(1);
+    });
+
+    it('should pin the SDK client to the EU server on the lazy construction path', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      await service.send(createStringPayload());
+
+      // EU pinning is fixed policy (SPEC product decision #8): the client is
+      // constructed with `server: 'eu'`, resolving to
+      // https://api.eu.mistral.ai rather than the global default.
+      expect(mockMistral).toHaveBeenCalledWith({
+        apiKey: 'test-mistral-key',
+        server: 'eu',
+      });
     });
 
     it('should construct the SDK client only once across multiple sends', async () => {
@@ -488,6 +506,53 @@ describe('MistralService', () => {
         }),
       );
       expectValidResponse(result, 3);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // C1. promptCacheKey forwarding
+  // ---------------------------------------------------------------------------
+
+  describe('promptCacheKey forwarding', () => {
+    const promptCacheKey = 'a'.repeat(64);
+
+    it('forwards promptCacheKey on a text payload request when present', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      const payload: StringPromptPayload = {
+        ...createStringPayload(),
+        promptCacheKey,
+      };
+      await service.send(payload);
+
+      const request = mockComplete.mock.calls[0][0] as Record<string, unknown>;
+      expect(request.promptCacheKey).toBe(promptCacheKey);
+    });
+
+    it('forwards promptCacheKey on an image payload request when present', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      const payload: ImagePromptPayload = {
+        ...createImagePayload(),
+        promptCacheKey,
+      };
+      await service.send(payload);
+
+      const request = mockComplete.mock.calls[0][0] as Record<string, unknown>;
+      expect(request.promptCacheKey).toBe(promptCacheKey);
+    });
+
+    it('omits promptCacheKey entirely when the payload does not carry one', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+
+      await service.send(createStringPayload());
+
+      const request = mockComplete.mock.calls[0][0] as Record<string, unknown>;
+      // The field must be absent from the built request — not present as
+      // `undefined`/`null`, and never sent under the provider-native spelling.
+      expect('promptCacheKey' in request).toBe(false);
+      expect('prompt_cache_key' in request).toBe(false);
+      expect(request.promptCacheKey).toBeUndefined();
     });
   });
 

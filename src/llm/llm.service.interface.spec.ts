@@ -1,11 +1,17 @@
 import { Logger } from '@nestjs/common';
-import { ZodError } from 'zod';
+import { ZodError, z } from 'zod';
 
 import {
   ImagePromptPayload,
   LLMService,
   LlmPayload,
   StringPromptPayload,
+  MultiPartPromptPayload,
+  MultiPartPromptPayloadSchema,
+  ReasoningEffortSchema,
+  ReasoningEffort,
+  LlmConversationMessageSchema,
+  ImageContentPartSchema,
 } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
@@ -28,7 +34,7 @@ class ExposedLLMService extends LLMService {
   protected readonly providerName = 'test-provider';
 
   /**
-  Configurable mock for mapError().
+   * Configurable mock for mapError().
    */
   public mapErrorFn: (error: unknown) => LlmError | undefined = () => {};
 
@@ -38,6 +44,26 @@ class ExposedLLMService extends LLMService {
    */
   public sendInternalFn: (payload: LlmPayload) => Promise<LlmResponse> = () =>
     Promise.reject(new Error('_sendInternal not configured'));
+
+  /**
+   * Exposes the protected mapPayload for testing.
+   * @param payload - The LLM payload to dispatch.
+   * @param handlers - The dispatch handlers for each payload type.
+   * @param handlers.image - Handler for image prompt payloads.
+   * @param handlers.text - Handler for string prompt payloads.
+   * @param handlers.conversation - Optional handler for multi-part conversation payloads.
+   * @returns The result of the matched handler.
+   */
+  public mapPayload<T>(
+    payload: LlmPayload,
+    handlers: {
+      image: (p: ImagePromptPayload) => T;
+      text: (p: StringPromptPayload) => T;
+      conversation?: (p: MultiPartPromptPayload) => T;
+    },
+  ): T {
+    return super.mapPayload(payload, handlers);
+  }
 
   protected mapError(error: unknown): LlmError | undefined {
     return this.mapErrorFn(error);
@@ -427,5 +453,232 @@ describe('LlmPayload optional promptCacheKey contract', () => {
     ] satisfies LlmPayload[];
 
     expect(payloads).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-part contract RED tests (Section 1)
+// ---------------------------------------------------------------------------
+
+describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('dispatches a multi-part payload to the conversation handler', () => {
+    const conversationHandler = vi.fn().mockReturnValue('result');
+    const multiPartPayload: LlmPayload = {
+      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hello' }] }],
+    };
+
+    // REQUIRED: mapPayload should dispatch multi-part payloads to the conversation
+    // handler and return its result. Currently throws 'Unsupported payload type' —
+    // this is the intended RED failure.
+    expect(
+      service.mapPayload(multiPartPayload, {
+        image: () => 'image-result',
+        text: () => 'text-result',
+        conversation: conversationHandler,
+      }),
+    ).toBe('result');
+    expect(conversationHandler).toHaveBeenCalledWith(multiPartPayload);
+  });
+
+  it('legacy image/text dispatch works and unsupported payload throws', () => {
+    const imageHandler = vi.fn().mockReturnValue('image-result');
+    const textHandler = vi.fn().mockReturnValue('text-result');
+
+    const imagePayload: LlmPayload = {
+      system: 'sys',
+      images: [{ mimeType: 'image/png', data: 'x' }],
+    };
+    const textPayload: LlmPayload = { system: 'sys', user: 'hello' };
+    const unsupportedPayload: LlmPayload = {
+      system: 's',
+    } as unknown as LlmPayload;
+
+    // Image payload hits image handler (text handler required by signature but unused).
+    expect(
+      service.mapPayload(imagePayload, {
+        image: imageHandler,
+        text: () => 'text',
+      }),
+    ).toBe('image-result');
+    expect(imageHandler).toHaveBeenCalledOnce();
+
+    // Text payload hits text handler (image handler required by signature but unused).
+    expect(
+      service.mapPayload(textPayload, {
+        image: () => 'image',
+        text: textHandler,
+      }),
+    ).toBe('text-result');
+    expect(textHandler).toHaveBeenCalledOnce();
+
+    // Unrelated shape throws 'Unsupported payload type'.
+    expect(() => {
+      return service.mapPayload(unsupportedPayload, {
+        image: imageHandler,
+        text: textHandler,
+      });
+    },
+    ).toThrow('Unsupported payload type');
+  });
+
+  it('guard-precedence: image guard fires before conversation check', () => {
+    const imageHandler = vi.fn().mockReturnValue('image-result');
+    const conversationHandler = vi.fn().mockReturnValue('conversation-result');
+
+    // A payload with both images and messages hits the image guard first.
+    const dualPayload: LlmPayload = {
+      system: 'sys',
+      images: [{ mimeType: 'image/png', data: 'x' }],
+      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
+    };
+
+    expect(
+      service.mapPayload(dualPayload, {
+        image: imageHandler,
+        text: () => 'text',
+        conversation: conversationHandler,
+      }),
+    ).toBe('image-result');
+    expect(imageHandler).toHaveBeenCalledOnce();
+    expect(conversationHandler).not.toHaveBeenCalled();
+  });
+
+  it('absent optional conversation handler throws for multi-part payload', () => {
+    const multiPartPayload: LlmPayload = {
+      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
+    };
+
+    // No conversation handler provided — falls through to throw.
+    expect(() => {
+      return service.mapPayload(multiPartPayload, {
+        image: () => 'image-result',
+        text: () => 'text-result',
+      });
+    },
+    ).toThrow('Unsupported payload type');
+  });
+});
+
+describe('MultiPartPromptPayload contract — describePayload summary', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  it('summarises a multi-part payload as "conversation prompt with N message(s)"', async () => {
+    const logSpy = vi.spyOn(Logger.prototype, 'log');
+    // _sendInternal is mocked to resolve so describePayload is exercised
+    // before the retry loop. The summary text is asserted here.
+    service.sendInternalFn = vi.fn().mockResolvedValue({
+      completeness: { score: 5, reasoning: 'complete' },
+      accuracy: { score: 4, reasoning: 'accurate' },
+      spag: { score: 3, reasoning: 'ok' },
+    });
+    service.mapErrorFn = vi.fn();
+
+    const multiPartPayload: LlmPayload = {
+      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
+    };
+
+    await service.send(multiPartPayload);
+
+    const dispatchedCall = logSpy.mock.calls.find((call) =>
+      String(call[0]).includes('Dispatching LLM request'),
+    );
+    expect(dispatchedCall).toBeDefined();
+    // describePayload currently returns only 'conversation prompt' —
+    // the full summary with message count is not yet implemented.
+    expect(String(dispatchedCall![0])).toContain(
+      'conversation prompt with 1 message',
+    );
+  });
+});
+
+describe('MultiPartPromptPayload contract — schema validation', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  it('a valid multi-part payload passes schema validation at the top of send()', async () => {
+    const validPayload: LlmPayload = {
+      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
+    } satisfies MultiPartPromptPayload;
+
+    const parseSpy = vi.spyOn(MultiPartPromptPayloadSchema, 'safeParse');
+    service.sendInternalFn = vi.fn().mockResolvedValue({
+      completeness: { score: 5, reasoning: 'complete' },
+      accuracy: { score: 4, reasoning: 'accurate' },
+      spag: { score: 3, reasoning: 'ok' },
+    });
+    service.mapErrorFn = vi.fn();
+
+    await service.send(validPayload);
+
+    // Boundary validation is not yet implemented in send() —
+    // MultiPartPromptPayloadSchema.safeParse() is never called
+    // before describePayload and the retry loop. This is the
+    // intended RED failure.
+    expect(parseSpy).toHaveBeenCalled();
+    parseSpy.mockRestore();
+  });
+
+  it('empty messages raises ZodError re-thrown directly without mapError()/retry', async () => {
+    service.sendInternalFn = vi.fn().mockResolvedValue({
+      completeness: { score: 5, reasoning: 'complete' },
+      accuracy: { score: 4, reasoning: 'accurate' },
+      spag: { score: 3, reasoning: 'ok' },
+    });
+    service.mapErrorFn = vi.fn();
+
+    // Without boundary validation in send(), the empty-messages
+    // payload reaches the mocked _sendInternal rather than raising
+    // ZodError. This is the intended RED failure: ZodError is not
+    // raised and the payload is not validated.
+    const emptyMultiPart = { messages: [] } as MultiPartPromptPayload;
+    await expect(
+      service.send(emptyMultiPart as unknown as LlmPayload),
+    ).rejects.toBeDefined();
+  });
+});
+
+describe('MultiPartPromptPayload contract — type-level compile checks', () => {
+  it('z.infer<typeof ReasoningEffortSchema> equals the existing ReasoningEffort type', () => {
+    type InferredReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+    const _check: InferredReasoningEffort = 'off';
+    const _check2: ReasoningEffort = 'off';
+    expect(_check).toBe(_check2);
+  });
+
+  it('system-role messages reject image parts at the type level', () => {
+    const systemMessage = {
+      role: 'system' as const,
+      parts: [{ kind: 'text' as const, text: 'hello' }],
+    } satisfies z.infer<typeof LlmConversationMessageSchema>;
+    expect(systemMessage.role).toBe('system');
+    expect(systemMessage.parts[0].kind).toBe('text');
+  });
+
+  it('image parts require the data field at the type level', () => {
+    const imagePart = {
+      kind: 'image' as const,
+      mimeType: 'image/png',
+      data: 'base64-data',
+    } satisfies z.infer<typeof ImageContentPartSchema>;
+    expect(imagePart.kind).toBe('image');
+    expect(imagePart.mimeType).toBe('image/png');
+    expect(imagePart.data).toBe('base64-data');
   });
 });

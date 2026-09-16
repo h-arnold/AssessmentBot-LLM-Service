@@ -115,6 +115,10 @@ export class GeminiService extends LLMService {
   }
 
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
+    if ('messages' in payload) {
+      throw new Error('Unsupported payload type');
+    }
+
     const modelParameters: GeminiRequest = this.buildModelParams(payload);
     const contents = this.buildContents(payload);
 
@@ -195,6 +199,11 @@ export class GeminiService extends LLMService {
   }
 
   private buildModelParams(payload: LlmPayload): GeminiRequest {
+    // Guard: multi-part payloads are rejected before this method is reached
+    if ('messages' in payload) {
+      throw new Error('Unsupported payload type');
+    }
+
     // Use payload.model if present; otherwise fall back to the current
     // hardcoded selection based on payload type.
     const modelName =

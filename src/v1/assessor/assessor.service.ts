@@ -73,8 +73,12 @@ export class AssessorService {
    * @returns A human-readable summary string.
    */
   private describePayloadSummary(message: LlmPayload): string {
-    return 'images' in message
-      ? `image payload with ${message.images.length} images`
-      : `text payload with ${message.user.length} characters`;
+    if ('images' in message) {
+      return `image payload with ${message.images.length} images`;
+    }
+    if ('messages' in message) {
+      return `conversation prompt`;
+    }
+    return `text payload with ${message.user.length} characters`;
   }
 }

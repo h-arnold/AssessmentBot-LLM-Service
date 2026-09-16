@@ -162,6 +162,10 @@ export class MistralService extends LLMService {
    * @returns A validated {@link LlmResponse}.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
+    if ('messages' in payload) {
+      throw new Error('Unsupported payload type');
+    }
+
     const model = payload.model ?? 'mistral-small-latest';
     const messages = this.buildMessages(payload);
     const request = this.buildRequest(model, messages, payload);
@@ -267,6 +271,11 @@ export class MistralService extends LLMService {
   private buildMessages(
     payload: LlmPayload,
   ): Array<{ role: string; content: unknown }> {
+    // Guard: multi-part payloads are rejected before this method is reached
+    if ('messages' in payload) {
+      throw new Error('Unsupported payload type');
+    }
+
     const userContent = this.mapPayload<unknown>(payload, {
       image: (p) => [
         {

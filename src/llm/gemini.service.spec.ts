@@ -6,6 +6,7 @@ import { GeminiService } from './gemini.service.js';
 import {
   ImagePromptPayload,
   StringPromptPayload,
+  MultiPartPromptPayload,
 } from './llm.service.interface.js';
 import type { LlmPayload } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
@@ -249,6 +250,26 @@ describe('GeminiService', () => {
       ).rejects.toThrow('Unsupported payload type');
 
       // The SDK must never be called for an unclassifiable payload.
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('provider placeholder gate: multi-part payload throws without touching the mocked SDK', async () => {
+      const multiPartPayload: LlmPayload = {
+        messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
+      } as unknown as MultiPartPromptPayload;
+
+      // _sendInternal hits the interim placeholder guard and
+      // throws 'Unsupported payload type' before reaching the SDK.
+      await expect(
+        (
+          service as unknown as {
+            _sendInternal: (p: LlmPayload) => Promise<unknown>;
+          }
+        )._sendInternal(multiPartPayload),
+      ).rejects.toThrow('Unsupported payload type');
+
+      // The SDK must never be called for a multi-part payload
+      // at this interim stage.
       expect(mockGenerateContent).not.toHaveBeenCalled();
     });
 

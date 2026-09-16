@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
-import { ZodError } from 'zod';
+import { ZodError, z } from 'zod';
 
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
@@ -17,6 +17,60 @@ import { ConfigService } from '../config/config.service.js';
  * - 'max':  Maximum reasoning (may be expensive/slow).
  */
 export type ReasoningEffort = 'off' | 'low' | 'high' | 'max';
+
+// ---------------------------------------------------------------------------
+// Multi-part prompt contract (Section 1 — schema-first, Zod-inferred)
+// ---------------------------------------------------------------------------
+
+export const ReasoningEffortSchema = z.enum(['off', 'low', 'high', 'max']);
+export const TextContentPartSchema = z.object({
+  kind: z.literal('text'),
+  text: z.string(),
+});
+export const ImageContentPartSchema = z.object({
+  kind: z.literal('image'),
+  mimeType: z.string(),
+  data: z.string(),
+});
+export const LlmContentPartSchema = z.discriminatedUnion('kind', [
+  TextContentPartSchema,
+  ImageContentPartSchema,
+]);
+export const LlmConversationMessageSchema = z.discriminatedUnion('role', [
+  z.object({
+    role: z.literal('system'),
+    parts: z.array(TextContentPartSchema).min(1),
+  }),
+  z.object({
+    role: z.enum(['user', 'assistant']),
+    parts: z.array(LlmContentPartSchema).min(1),
+  }),
+]);
+
+export const MultiPartPromptPayloadSchema = z.object({
+  messages: z.array(LlmConversationMessageSchema).min(1),
+  temperature: z.number().optional(),
+  model: z.string().optional(),
+  reasoningEffort: ReasoningEffortSchema.optional(),
+  promptCacheKey: z.string().optional(),
+});
+
+// Derived public types — the contract consumed by callers.
+export type TextContentPart = z.infer<typeof TextContentPartSchema>;
+export type ImageContentPart = z.infer<typeof ImageContentPartSchema>;
+export type LlmContentPart = z.infer<typeof LlmContentPartSchema>;
+export type LlmConversationMessage = z.infer<
+  typeof LlmConversationMessageSchema
+>;
+export type MultiPartPromptPayload = z.infer<
+  typeof MultiPartPromptPayloadSchema
+>;
+
+/**
+ * A union type representing any possible payload structure for the LLM service.
+ */
+export type LlmPayload =
+  ImagePromptPayload | StringPromptPayload | MultiPartPromptPayload;
 
 /**
  * Shared contract for any service capable of sending prompts to an LLM.
@@ -102,11 +156,6 @@ export type ImagePromptPayload = {
    */
   promptCacheKey?: string;
 };
-
-/**
- * A union type representing any possible payload structure for the LLM service.
- */
-export type LlmPayload = ImagePromptPayload | StringPromptPayload;
 
 /**
  * Defines the base class for a generic LLM service with built-in retry logic
@@ -342,17 +391,34 @@ export abstract class LLMService implements ILlmService {
   }
 
   /**
+   * Type guard that checks whether a payload is a {@link MultiPartPromptPayload}.
+   * @param payload - The payload to check.
+   * @returns `true` if the payload contains a `messages` array.
+   */
+  protected isMultiPartPromptPayload(
+    payload: LlmPayload,
+  ): payload is MultiPartPromptPayload {
+    return 'messages' in payload;
+  }
+
+  /**
    * Template-method dispatcher that routes an {@link LlmPayload} to the
-   * appropriate handler based on whether it is an image or a text payload.
+   * appropriate handler based on whether it is an image, text, or
+   * conversation payload.
    *
-   * Throws `'Unsupported payload type'` when the payload matches neither type
-   * (that is, when it is malformed).
+   * Throws `'Unsupported payload type'` when the payload matches none
+   * of the known types (that is, when it is malformed).
    * @param payload - The payload to dispatch.
-   * @param handlers - An object with `image` and `text` handler functions.
+   * @param handlers - An object with `image`, `text`, and optional
+   *   `conversation` handler functions.
    * @param handlers.image - Handler invoked for {@link ImagePromptPayload}
    *   payloads. Receives the narrowed image payload.
    * @param handlers.text - Handler invoked for {@link StringPromptPayload}
    *   payloads. Receives the narrowed text payload.
+   * @param handlers.conversation - Optional handler invoked for
+   *   {@link MultiPartPromptPayload} payloads. Receives the narrowed
+   *   conversation payload. When absent, the multi-part variant falls
+   *   through to the existing final throw.
    * @returns The result of the matched handler.
    */
   protected mapPayload<T>(
@@ -360,6 +426,7 @@ export abstract class LLMService implements ILlmService {
     handlers: {
       image: (payload: ImagePromptPayload) => T;
       text: (payload: StringPromptPayload) => T;
+      conversation?: (payload: MultiPartPromptPayload) => T;
     },
   ): T {
     if (this.isImagePromptPayload(payload)) {
@@ -375,6 +442,9 @@ export abstract class LLMService implements ILlmService {
     if ('images' in payload) {
       const imageCount = payload.images.length;
       return `image prompt with ${imageCount} image${imageCount === 1 ? '' : 's'}`;
+    }
+    if ('messages' in payload) {
+      return 'conversation prompt';
     }
     const userLength = payload.user.length;
     return `text prompt with ${userLength} character${userLength === 1 ? '' : 's'}`;

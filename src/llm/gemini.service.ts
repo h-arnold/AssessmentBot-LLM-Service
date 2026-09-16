@@ -14,7 +14,12 @@ import {
   NETWORK_ERROR_PATTERN,
   probeStatusCode,
 } from './llm-error-mapper.js';
-import { LLMService, LlmPayload } from './llm.service.interface.js';
+import {
+  LLMService,
+  LlmPayload,
+  ImagePromptPayload,
+  StringPromptPayload,
+} from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
@@ -115,7 +120,7 @@ export class GeminiService extends LLMService {
   }
 
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    if ('messages' in payload) {
+    if (this.isMultiPartPromptPayload(payload)) {
       throw new Error('Unsupported payload type');
     }
 
@@ -198,12 +203,9 @@ export class GeminiService extends LLMService {
     return classifyLlmError(GEMINI_PROBES, error);
   }
 
-  private buildModelParams(payload: LlmPayload): GeminiRequest {
-    // Guard: multi-part payloads are rejected before this method is reached
-    if ('messages' in payload) {
-      throw new Error('Unsupported payload type');
-    }
-
+  private buildModelParams(
+    payload: ImagePromptPayload | StringPromptPayload,
+  ): GeminiRequest {
     // Use payload.model if present; otherwise fall back to the current
     // hardcoded selection based on payload type.
     const modelName =

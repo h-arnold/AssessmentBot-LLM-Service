@@ -68,7 +68,8 @@ export class AssessorService {
 
   /**
    * Describes an LLM payload for debug logging — determines whether it is an
-   * image or text payload and returns a human-readable summary string.
+   * image, text, or conversation payload and returns a human-readable summary
+   * string.
    * @param message The LLM payload to describe.
    * @returns A human-readable summary string.
    */
@@ -76,6 +77,8 @@ export class AssessorService {
     if ('images' in message) {
       return `image payload with ${message.images.length} images`;
     }
+    // Branch exists solely for union exhaustiveness after the LlmPayload
+    // widening; the prompt layer never produces multi-part payloads.
     if ('messages' in message) {
       return `conversation prompt`;
     }

@@ -12,6 +12,8 @@ import {
 import {
   LLMService,
   LlmPayload,
+  ImagePromptPayload,
+  StringPromptPayload,
   ReasoningEffort,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
@@ -162,7 +164,7 @@ export class MistralService extends LLMService {
    * @returns A validated {@link LlmResponse}.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    if ('messages' in payload) {
+    if (this.isMultiPartPromptPayload(payload)) {
       throw new Error('Unsupported payload type');
     }
 
@@ -269,13 +271,8 @@ export class MistralService extends LLMService {
    * @returns An array of system and user messages.
    */
   private buildMessages(
-    payload: LlmPayload,
+    payload: ImagePromptPayload | StringPromptPayload,
   ): Array<{ role: string; content: unknown }> {
-    // Guard: multi-part payloads are rejected before this method is reached
-    if ('messages' in payload) {
-      throw new Error('Unsupported payload type');
-    }
-
     const userContent = this.mapPayload<unknown>(payload, {
       image: (p) => [
         {

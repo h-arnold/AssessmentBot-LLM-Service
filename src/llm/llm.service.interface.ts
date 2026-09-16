@@ -1,8 +1,12 @@
 import { randomInt } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
-import { ZodError, z } from 'zod';
+import { ZodError } from 'zod';
 
+import {
+  MultiPartPromptPayloadSchema,
+  type MultiPartPromptPayload,
+} from './multi-part-prompt.schema.js';
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
 import { LlmServiceError } from '../common/errors/llm-service.error.js';
@@ -18,53 +22,19 @@ import { ConfigService } from '../config/config.service.js';
  */
 export type ReasoningEffort = 'off' | 'low' | 'high' | 'max';
 
-// ---------------------------------------------------------------------------
-// Multi-part prompt contract (Section 1 — schema-first, Zod-inferred)
-// ---------------------------------------------------------------------------
-
-export const ReasoningEffortSchema = z.enum(['off', 'low', 'high', 'max']);
-export const TextContentPartSchema = z.object({
-  kind: z.literal('text'),
-  text: z.string(),
-});
-export const ImageContentPartSchema = z.object({
-  kind: z.literal('image'),
-  mimeType: z.string(),
-  data: z.string(),
-});
-export const LlmContentPartSchema = z.discriminatedUnion('kind', [
+export {
+  ReasoningEffortSchema,
   TextContentPartSchema,
   ImageContentPartSchema,
-]);
-export const LlmConversationMessageSchema = z.discriminatedUnion('role', [
-  z.object({
-    role: z.literal('system'),
-    parts: z.array(TextContentPartSchema).min(1),
-  }),
-  z.object({
-    role: z.enum(['user', 'assistant']),
-    parts: z.array(LlmContentPartSchema).min(1),
-  }),
-]);
-
-export const MultiPartPromptPayloadSchema = z.object({
-  messages: z.array(LlmConversationMessageSchema).min(1),
-  temperature: z.number().optional(),
-  model: z.string().optional(),
-  reasoningEffort: ReasoningEffortSchema.optional(),
-  promptCacheKey: z.string().optional(),
-});
-
-// Derived public types — the contract consumed by callers.
-export type TextContentPart = z.infer<typeof TextContentPartSchema>;
-export type ImageContentPart = z.infer<typeof ImageContentPartSchema>;
-export type LlmContentPart = z.infer<typeof LlmContentPartSchema>;
-export type LlmConversationMessage = z.infer<
-  typeof LlmConversationMessageSchema
->;
-export type MultiPartPromptPayload = z.infer<
-  typeof MultiPartPromptPayloadSchema
->;
+  LlmContentPartSchema,
+  LlmConversationMessageSchema,
+  MultiPartPromptPayloadSchema,
+  type TextContentPart,
+  type ImageContentPart,
+  type LlmContentPart,
+  type LlmConversationMessage,
+  type MultiPartPromptPayload,
+} from './multi-part-prompt.schema.js';
 
 /**
  * A union type representing any possible payload structure for the LLM service.
@@ -199,6 +169,8 @@ export abstract class LLMService implements ILlmService {
    * errors where the mapped `LlmError` instance has `retryable === true`.
    * Non-retryable errors are thrown immediately without retry.
    * `ZodError` bypasses `mapError()` and is re-thrown directly.
+   * Multi-part payloads are parsed once before summary and retry; legacy
+   * image/text discriminators take precedence and remain unvalidated.
    *
    * ### Error flow:
    * - `ZodError` is re-thrown without calling `mapError()` and without retry.
@@ -221,6 +193,13 @@ export abstract class LLMService implements ILlmService {
    * @throws {ZodError} If payload validation fails.
    */
   async send(payload: LlmPayload): Promise<LlmResponse> {
+    if (
+      !this.isImagePromptPayload(payload) &&
+      !this.isStringPromptPayload(payload) &&
+      this.isMultiPartPromptPayload(payload)
+    ) {
+      MultiPartPromptPayloadSchema.parse(payload);
+    }
     const maxRetries = Number(this.configService.get('LLM_MAX_RETRIES'));
     const baseBackoffMs = Number(this.configService.get('LLM_BACKOFF_BASE_MS'));
     const payloadSummary = this.describePayload(payload);
@@ -391,9 +370,10 @@ export abstract class LLMService implements ILlmService {
   }
 
   /**
-   * Type guard that checks whether a payload is a {@link MultiPartPromptPayload}.
+   * Presence-only guard for the multi-part discriminator, not validation.
+   * Apply after the legacy image and text guards when selecting a variant.
    * @param payload - The payload to check.
-   * @returns `true` if the payload contains a `messages` array.
+   * @returns `true` if a `messages` property exists, regardless of its value.
    */
   protected isMultiPartPromptPayload(
     payload: LlmPayload,
@@ -435,6 +415,9 @@ export abstract class LLMService implements ILlmService {
     if (this.isStringPromptPayload(payload)) {
       return handlers.text(payload);
     }
+    if (this.isMultiPartPromptPayload(payload) && handlers.conversation) {
+      return handlers.conversation(payload);
+    }
     throw new Error('Unsupported payload type');
   }
 
@@ -443,10 +426,11 @@ export abstract class LLMService implements ILlmService {
       const imageCount = payload.images.length;
       return `image prompt with ${imageCount} image${imageCount === 1 ? '' : 's'}`;
     }
-    if ('messages' in payload) {
-      return 'conversation prompt';
+    if ('user' in payload) {
+      const userLength = payload.user.length;
+      return `text prompt with ${userLength} character${userLength === 1 ? '' : 's'}`;
     }
-    const userLength = payload.user.length;
-    return `text prompt with ${userLength} character${userLength === 1 ? '' : 's'}`;
+    const messageCount = payload.messages.length;
+    return `conversation prompt with ${messageCount} message${messageCount === 1 ? '' : 's'}`;
   }
 }

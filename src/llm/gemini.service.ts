@@ -1,7 +1,9 @@
 import {
   GoogleGenAI,
   ThinkingLevel,
+  type Content,
   type GenerateContentConfig,
+  type GenerateContentParameters,
   type Part,
 } from '@google/genai';
 import { Injectable } from '@nestjs/common';
@@ -17,8 +19,7 @@ import {
 import {
   LLMService,
   LlmPayload,
-  ImagePromptPayload,
-  StringPromptPayload,
+  MultiPartPromptPayload,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
@@ -26,7 +27,10 @@ import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
-type GeminiRequest = { model: string; config: GenerateContentConfig };
+type GeminiRequest = Required<
+  Pick<GenerateContentParameters, 'model' | 'config'>
+>;
+type GeminiContents = Content[] | (string | Part)[];
 
 // ---------------------------------------------------------------------------
 // Gemini-specific probe configuration for the shared classifyLlmError helper
@@ -120,12 +124,14 @@ export class GeminiService extends LLMService {
   }
 
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    if (this.isMultiPartPromptPayload(payload)) {
-      throw new Error('Unsupported payload type');
-    }
-
-    const modelParameters: GeminiRequest = this.buildModelParams(payload);
-    const contents = this.buildContents(payload);
+    const conversation = this.isMultiPartPromptPayload(payload)
+      ? this.mapConversation(payload)
+      : undefined;
+    const modelParameters: GeminiRequest = this.buildModelParams(
+      payload,
+      conversation,
+    );
+    const contents = conversation?.contents ?? this.buildContents(payload);
 
     this.logger.debug(
       `Sending to Gemini with model: ${modelParameters.model}, temperature: ${
@@ -151,7 +157,10 @@ export class GeminiService extends LLMService {
       };
       const statusCode =
         error_?.status ?? error_?.statusCode ?? error_?.response?.status;
-      const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
+      let payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
+      if (this.isMultiPartPromptPayload(payload)) {
+        payloadType = 'conversation';
+      }
       const errorMessage = isErrorObject(error) ? error.message : String(error);
       const errorBody =
         typeof error_?.body === 'string' ? error_.body : undefined;
@@ -204,7 +213,8 @@ export class GeminiService extends LLMService {
   }
 
   private buildModelParams(
-    payload: ImagePromptPayload | StringPromptPayload,
+    payload: LlmPayload,
+    conversation: ReturnType<GeminiService['mapConversation']> | undefined,
   ): GeminiRequest {
     // Use payload.model if present; otherwise fall back to the current
     // hardcoded selection based on payload type.
@@ -214,7 +224,9 @@ export class GeminiService extends LLMService {
         ? 'gemini-2.5-flash'
         : 'gemini-2.5-flash-lite');
 
-    const systemInstruction = payload.system;
+    const systemInstruction = this.isMultiPartPromptPayload(payload)
+      ? conversation?.systemInstruction
+      : payload.system;
     const temperature =
       typeof payload.temperature === 'number' ? payload.temperature : 0;
 
@@ -309,8 +321,40 @@ export class GeminiService extends LLMService {
     }
   }
 
-  private buildContents(payload: LlmPayload): (string | Part)[] {
-    return this.mapPayload<(string | Part)[]>(payload, {
+  /**
+   * Maps validated messages to Gemini turns and consumes the leading system.
+   * @param payload - The validated conversation in caller order.
+   * @returns Native turns and the leading system instruction, computed once.
+   * @remarks Mid-conversation system messages use user turns because Gemini
+   * contents only supports user/model roles; see `docs/modules/llm.md`.
+   */
+  private mapConversation(payload: MultiPartPromptPayload): {
+    contents: Content[];
+    systemInstruction: string | undefined;
+  } {
+    const first = payload.messages[0];
+    const hasLeadingSystem = first.role === 'system';
+    const systemInstruction = hasLeadingSystem
+      ? first.parts.map((part) => part.text).join('\n\n')
+      : undefined;
+    const messages = hasLeadingSystem
+      ? payload.messages.slice(1)
+      : payload.messages;
+    const contents = messages.map((message): Content => {
+      return {
+        role: message.role === 'assistant' ? 'model' : 'user',
+        parts: message.parts.map((part): Part => {
+          return part.kind === 'text'
+            ? { text: part.text }
+            : { inlineData: { mimeType: part.mimeType, data: part.data } };
+        }),
+      };
+    });
+    return { contents, systemInstruction };
+  }
+
+  private buildContents(payload: LlmPayload): GeminiContents {
+    return this.mapPayload<GeminiContents>(payload, {
       image: (p) => this.mapImageParts(p.images),
       text: (p) => [p.user],
     });
@@ -339,13 +383,15 @@ export class GeminiService extends LLMService {
     }) as Part[];
   }
 
-  private logPayload(payload: LlmPayload, contents: (string | Part)[]): void {
+  private logPayload(payload: LlmPayload, contents: GeminiContents): void {
     if (this.isStringPromptPayload(payload)) {
       this.logger.debug({ contents }, 'String payload being sent');
     } else if (this.isImagePromptPayload(payload)) {
       this.logger.debug(
         `Image payload being sent with ${contents.length} content items`,
       );
+    } else if (this.isMultiPartPromptPayload(payload)) {
+      this.logger.debug({ contents }, 'Conversation payload being sent');
     } else {
       this.logger.debug(
         `Unknown payload type being sent with ${contents.length} content items`,
@@ -359,7 +405,7 @@ export class GeminiService extends LLMService {
    * @param {LlmPayload} payload The payload to send.
    * @param {GeminiRequest} modelParameters The pre-built model parameters
    *   (model name and generation config).
-   * @param {(string | Part)[]} contents The pre-built content parts to send.
+   * @param {GeminiContents} contents The pre-built content parts or turns.
    * @returns {Promise<LlmResponse>} A validated assessment response.
    * @remarks
    * - The response text is read via the new SDK's `result.text` getter (the
@@ -370,7 +416,7 @@ export class GeminiService extends LLMService {
   private async generateAndParseResponse(
     payload: LlmPayload,
     modelParameters: GeminiRequest,
-    contents: (string | Part)[],
+    contents: GeminiContents,
   ): Promise<LlmResponse> {
     const { model, config } = modelParameters;
     const result = await this.getClient().models.generateContent({

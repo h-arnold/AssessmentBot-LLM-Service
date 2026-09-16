@@ -1,4 +1,11 @@
-import { GoogleGenAI, ApiError, ThinkingLevel } from '@google/genai';
+import {
+  GoogleGenAI,
+  ApiError,
+  ThinkingLevel,
+  type Content,
+  type GenerateContentParameters,
+  type GenerateContentConfig,
+} from '@google/genai';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
@@ -61,6 +68,25 @@ const createImagePayload = (): ImagePromptPayload => {
   return {
     system: 'system prompt',
     images: [{ mimeType: 'image/png', data: 'test-data' }],
+  };
+};
+
+const createMultiPartPayload = (
+  messages: MultiPartPromptPayload['messages'],
+  extra: Partial<MultiPartPromptPayload> = {},
+): MultiPartPromptPayload => {
+  return {
+    messages,
+    ...extra,
+  };
+};
+
+const expectConversationRequest = (): GenerateContentParameters & {
+  config: GenerateContentConfig;
+} => {
+  expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  return mockGenerateContent.mock.calls[0][0] as GenerateContentParameters & {
+    config: GenerateContentConfig;
   };
 };
 
@@ -253,24 +279,20 @@ describe('GeminiService', () => {
       expect(mockGenerateContent).not.toHaveBeenCalled();
     });
 
-    it('provider placeholder gate: multi-part payload throws without touching the mocked SDK', async () => {
-      const multiPartPayload: LlmPayload = {
+    it('dispatches a multi-part payload through send to the SDK and validates the response', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      const multiPartPayload: MultiPartPromptPayload = {
         messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
-      } as unknown as MultiPartPromptPayload;
+      };
 
-      // _sendInternal hits the interim placeholder guard and
-      // throws 'Unsupported payload type' before reaching the SDK.
-      await expect(
-        (
-          service as unknown as {
-            _sendInternal: (p: LlmPayload) => Promise<unknown>;
-          }
-        )._sendInternal(multiPartPayload),
-      ).rejects.toThrow('Unsupported payload type');
+      const result = await service.send(multiPartPayload);
 
-      // The SDK must never be called for a multi-part payload
-      // at this interim stage.
-      expect(mockGenerateContent).not.toHaveBeenCalled();
+      expect(mockGenerateContent).toHaveBeenCalledExactlyOnceWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+        config: { temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
+      });
+      expectValidResponse(result, 1);
     });
 
     it('should silently drop an invalid image entry (no data) from the content array', async () => {
@@ -514,6 +536,405 @@ describe('GeminiService', () => {
         },
       });
       expectValidResponse(result, 2);
+    });
+  });
+
+  describe('multi-part conversation mapping', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('maps a leading system message to systemInstruction with its text parts joined by blank lines in order', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'system',
+            parts: [
+              { kind: 'text', text: 'First instruction' },
+              { kind: 'text', text: 'Second instruction' },
+            ],
+          },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.config.systemInstruction).toBe(
+        'First instruction\n\nSecond instruction',
+      );
+    });
+
+    it('omits systemInstruction when the conversation has no leading system message', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.config).toEqual({
+        temperature: 0,
+        thinkingConfig: { thinkingBudget: 0 },
+      });
+    });
+
+    it('maps a mid-conversation system message to a user turn at its position', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          {
+            role: 'system',
+            parts: [{ kind: 'text', text: 'Mid instructions' }],
+          },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'user', parts: [{ text: 'Question' }] },
+        { role: 'user', parts: [{ text: 'Mid instructions' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+      ]);
+    });
+
+    it('maps assistant messages to model turns', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'user', parts: [{ text: 'Question' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+      ]);
+    });
+
+    it('maps an assistant-first conversation positionally with the assistant as the leading model turn', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Hello' }] },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'model', parts: [{ text: 'Hello' }] },
+        { role: 'user', parts: [{ text: 'Question' }] },
+      ]);
+    });
+
+    it('maps a mixed-content user message into one turn with text and inlineData parts in caller order', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'Describe this image' },
+              { kind: 'image', mimeType: 'image/png', data: 'abc-base64' },
+              { kind: 'text', text: 'Be concise' },
+            ],
+          },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        {
+          role: 'user',
+          parts: [
+            { text: 'Describe this image' },
+            { inlineData: { mimeType: 'image/png', data: 'abc-base64' } },
+            { text: 'Be concise' },
+          ],
+        },
+      ]);
+    });
+
+    it('produces text-only turns for a text-only conversation without dropping empty text', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'Question' },
+              { kind: 'text', text: '' },
+            ],
+          },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+          { role: 'user', parts: [{ kind: 'text', text: 'Follow-up' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toStrictEqual([
+        { role: 'user', parts: [{ text: 'Question' }, { text: '' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+        { role: 'user', parts: [{ text: 'Follow-up' }] },
+      ]);
+    });
+
+    it('resolves the text model default with per-family thinking config and never forwards promptCacheKey', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload(
+          [{ role: 'user', parts: [{ kind: 'text', text: 'Question' }] }],
+          { temperature: 0.5, promptCacheKey: 'a'.repeat(64) },
+        ),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.model).toBe('gemini-2.5-flash-lite');
+      expect(request.config.temperature).toBe(0.5);
+      expect(request.config.thinkingConfig).toEqual({ thinkingBudget: 0 });
+      expect(JSON.stringify(request)).not.toContain('promptCacheKey');
+    });
+
+    describe.each([
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-3-flash-preview',
+      'gemini-flash-latest',
+    ])('resolved model %s', (model) => {
+      it.each([
+        { effort: undefined, budget: 0, level: ThinkingLevel.MINIMAL },
+        { effort: 'off', budget: 0, level: ThinkingLevel.MINIMAL },
+        { effort: 'low', budget: 0, level: ThinkingLevel.LOW },
+        { effort: 'high', budget: 1024, level: ThinkingLevel.MEDIUM },
+        { effort: 'max', budget: 8192, level: ThinkingLevel.HIGH },
+      ] as const)(
+        'preserves config for effort $effort without forwarding the cache key',
+        async ({ effort, budget, level }) => {
+          mockGenerateContent.mockResolvedValue(createValidResponse(1));
+          const result = await service.send(
+            createMultiPartPayload(
+              [
+                {
+                  role: 'system',
+                  parts: [{ kind: 'text', text: 'Instructions' }],
+                },
+                { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+              ],
+              {
+                model,
+                reasoningEffort: effort,
+                temperature: 0.75,
+                promptCacheKey: 'a'.repeat(64),
+              },
+            ),
+          );
+          const thinkingConfig = model.startsWith('gemini-2.0')
+            ? {}
+            : {
+                thinkingConfig: model.startsWith('gemini-2.5')
+                  ? { thinkingBudget: budget }
+                  : { thinkingLevel: level },
+              };
+          expect(expectConversationRequest()).toStrictEqual({
+            model,
+            contents: [{ role: 'user', parts: [{ text: 'Question' }] }],
+            config: {
+              systemInstruction: 'Instructions',
+              temperature: 0.75,
+              ...thinkingConfig,
+            },
+          });
+          expectValidResponse(result, 1);
+        },
+      );
+    });
+
+    it('labels the multi-part payload as a conversation in debug logging without an unknown-type fall-through', async () => {
+      const loggingConfig = {
+        get: vi.fn((key: string): string | null => {
+          if (key === 'GEMINI_API_KEY') return 'test-api-key';
+          if (key === 'LLM_BACKOFF_BASE_MS') return '100';
+          if (key === 'LLM_MAX_RETRIES') return '2';
+          if (key === 'LOG_LLM_CONTENT') return 'true';
+          return null;
+        }),
+      } as unknown as ConfigService;
+      const loggingService = new GeminiService(loggingConfig, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+      const logger = (
+        loggingService as unknown as {
+          logger: {
+            debug: (...arguments_: unknown[]) => void;
+            log: (...arguments_: unknown[]) => void;
+          };
+        }
+      ).logger;
+      const debugSpy = vi.spyOn(logger, 'debug');
+      const dispatchSpy = vi.spyOn(logger, 'log');
+
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      await loggingService.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      expectConversationRequest();
+      const messages = debugSpy.mock.calls
+        .flat()
+        .filter((value): value is string => typeof value === 'string');
+      expect(messages.join('\n')).not.toMatch(
+        /Unknown payload type|String payload|Image payload/i,
+      );
+      expect(messages.join('\n')).toMatch(/conversation/i);
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Dispatching LLM request \(conversation prompt/),
+      );
+    });
+
+    it('labels the payload as a conversation in the error log rather than as text', async () => {
+      const errorSpy = vi.spyOn(
+        (
+          service as unknown as {
+            logger: { error: (...a: unknown[]) => void };
+          }
+        ).logger,
+        'error',
+      );
+
+      const providerError = new ApiError({
+        message: 'Invalid argument',
+        status: 400,
+      });
+      mockGenerateContent.mockRejectedValue(providerError);
+
+      await expect(
+        service.send(
+          createMultiPartPayload([
+            {
+              role: 'user',
+              parts: [
+                { kind: 'text', text: 'Question' },
+                { kind: 'image', mimeType: 'image/png', data: 'abc-base64' },
+              ],
+            },
+          ]),
+        ),
+      ).rejects.toMatchObject({
+        originalError: providerError,
+        retryable: false,
+      });
+      expectConversationRequest();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'gemini-2.5-flash-lite',
+          payloadType: 'conversation',
+        }),
+        'Error communicating with or validating response from Gemini API',
+      );
+    });
+
+    it('sends role-tagged turn objects to the SDK with no leading-system turn', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'system',
+            parts: [{ kind: 'text', text: 'Instructions' }],
+          },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      const contents: Content[] = [
+        { role: 'user', parts: [{ text: 'Question' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+      ];
+      expect(request.contents).toStrictEqual(contents);
+      expect(request.config.systemInstruction).toBe('Instructions');
+    });
+  });
+
+  describe('legacy payload request-shape regression', () => {
+    it('sends an unchanged legacy text request shape', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload = createStringPayload('test prompt');
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('sends an unchanged legacy image request shape with mixed validity images', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [
+          { mimeType: 'image/png', data: 'valid-data' },
+          { mimeType: 'image/jpeg' }, // no data → silently dropped
+        ],
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash',
+        contents: [
+          { inlineData: { mimeType: 'image/png', data: 'valid-data' } },
+        ],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 3);
+    });
+
+    it('sends an empty contents array when every legacy image lacks data', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [{ mimeType: 'image/png' }],
+      };
+
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [],
+        }),
+      );
+      expectValidResponse(result, 3);
     });
   });
 

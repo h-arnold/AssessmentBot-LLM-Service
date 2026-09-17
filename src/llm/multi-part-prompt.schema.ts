@@ -96,10 +96,11 @@ export type LlmConversationMessage = z.infer<
 
 /**
  * Schema-first conversation payload with shared provider options.
- * @remarks Derived via `z.infer`; base `send()` validates once before summary
- * and retry. Legacy payloads are not validated. Cache-key derivation belongs
- * to the future V2 prompt layer; provider integration is tracked in
- * `docs/modules/llm.md` and `ACTION_PLAN.md`.
+ * @remarks Derived via `z.infer`; validated at each `ILlmService.send()` entry
+ * point — the routing entry before its image-presence inspection, and the base
+ * provider entry before summary and retry. Legacy payloads are not validated.
+ * Cache-key derivation belongs to the future V2 prompt layer; provider
+ * integration is documented in `docs/modules/llm.md`.
  */
 export type MultiPartPromptPayload = z.infer<
   typeof MultiPartPromptPayloadSchema

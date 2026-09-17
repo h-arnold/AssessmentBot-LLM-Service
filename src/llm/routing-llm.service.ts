@@ -33,10 +33,10 @@ import { ConfigService } from '../config/config.service.js';
  * startup feedback for misconfigured environments.
  *
  * The constructor does **not** read or check `GEMINI_API_KEY` or
- * `MISTRAL_API_KEY` — both are already enforced as required and non-empty by
- * the Zod environment schema (see SPEC product decision #4). Provider services
- * retain their existing defensive own-key checks for direct-instantiation
- * paths.
+ * `MISTRAL_API_KEY` — the Zod environment schema requires each key only when a
+ * configured model routes to that provider (see
+ * `docs/configuration/environment.md`). Provider services retain their existing
+ * defensive own-key checks for direct-instantiation paths.
  *
  * ### Configuration lifecycle
  * Configuration is validated at construction time and frozen for the lifetime
@@ -128,20 +128,19 @@ export class RoutingLLMService implements ILlmService {
    *    cached from construction.
    * 3. Build a **new** payload object via spread (never mutates the caller's
    *    payload) and **authoritatively** set `model` and `reasoningEffort`
-   *    from the server config (overwriting any caller-supplied values — see
-   *    SPEC product decision #12).
+   *    from the server config, overwriting any caller-supplied values (see
+   *    `docs/modules/llm.md`).
    * 4. Delegate to the pre-resolved provider's `send()` method.
-   *
-   * Multi-part conversation payloads are detected after the legacy image and
-   * text discriminators (preserving legacy precedence), validated against the
-   * schema before any image-part inspection, and routed by image-part
-   * presence: any image part in any message routes to the image provider,
-   * otherwise to the text provider. A failed parse raises `ZodError` at this
-   * routing entry without contacting any provider. Legacy image/text payloads
-   * are never schema-validated.
    *
    * No retry logic is implemented here — each provider handles its own retries
    * via the base `LLMService` class.
+   * @remarks Multi-part conversation payloads are detected after the legacy
+   * image and text discriminators (preserving legacy precedence), validated
+   * against the schema before any image-part inspection, and routed by
+   * image-part presence: any image part in any message routes to the image
+   * provider, otherwise to the text provider. A failed parse raises `ZodError`
+   * at this routing entry without contacting any provider. Legacy image/text
+   * payloads are never schema-validated. See `docs/modules/llm.md`.
    * @param payload - The payload to send (text/table, image, or conversation).
    * @returns A validated {@link LlmResponse}.
    * @throws {ZodError} If a multi-part payload fails structural validation.

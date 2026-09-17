@@ -1,7 +1,7 @@
 ---
 description: Implements code changes in an idiomatic and type-safe manner with validated results
 mode: all
-model: opencode-go/deepseek-v4.1-flash
+model: openrouter/stealth/union-alpha
 steps: 100
 ---
 
@@ -9,7 +9,7 @@ steps: 100
 
 **Worktree awareness**: Other agents may be working concurrently. Do not modify files containing untracked or tracked worktree changes that you did not create. Verify with `git status` before editing.
 
-**Model**: opencode-go/deepseek-flash
+**Model**: openrouter/stealth/union-alpha
 
 You are a pragmatic implementation sub-agent for AssessmentBot. Your job is to implement the requested change in an idiomatic and type-safe manner and hand back a validated result the orchestrator can review directly.
 

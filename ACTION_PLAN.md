@@ -509,3 +509,10 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 4. Section 4 — Mistral mapping (may start in parallel with Section 3 **only after** the Global shared-helper gate is satisfied: Section 3's Green step has recorded whether an identical part-to-chunk pre-step exists and extraction is refused/confirmed. If both mappings proceed in parallel instead, section-level `@remarks`/docs work confirms shape-locality before any extraction).
 5. Regression and contract hardening (includes regression-checker comparison).
 6. Documentation and rollout notes.
+
+---
+
+## PR review remediation checkpoint — 2026-09-17
+
+- **ReasoningEffort SSoT complete; review clean:** the exported type is derived from the existing `ReasoningEffortSchema` in `multi-part-prompt.schema.ts` and imported/re-exported through the interface, preserving public imports and semantic JSDoc. SPEC decision 12 and recommended shapes now supersede the historical mirrored-union decision and bridge-equality requirement; existing tests remain unchanged and pin the identical public type contract.
+- No schema move, validation-boundary relocation or behavioural change is included. Historical delivery records above are preserved. Other outstanding `PR_REVIEW.md` decisions remain pending and are not implemented by this checkpoint.

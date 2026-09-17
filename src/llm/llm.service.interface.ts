@@ -6,6 +6,7 @@ import { ZodError } from 'zod';
 import {
   MultiPartPromptPayloadSchema,
   type MultiPartPromptPayload,
+  type ReasoningEffort,
 } from './multi-part-prompt.schema.js';
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
@@ -13,17 +14,9 @@ import { LlmServiceError } from '../common/errors/llm-service.error.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
-/**
- * Abstract reasoning-effort level. Each provider maps these to its native parameter.
- * - 'off':  No reasoning — fastest, deterministic.
- * - 'low':  Minimal reasoning.
- * - 'high': Significant reasoning.
- * - 'max':  Maximum reasoning (may be expensive/slow).
- */
-export type ReasoningEffort = 'off' | 'low' | 'high' | 'max';
-
 export {
   ReasoningEffortSchema,
+  type ReasoningEffort,
   TextContentPartSchema,
   ImageContentPartSchema,
   LlmContentPartSchema,

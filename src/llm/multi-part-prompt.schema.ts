@@ -1,9 +1,21 @@
 import { z } from 'zod';
 
 /**
- * Validates the existing provider-neutral reasoning-effort levels.
+ * Validates the existing provider-neutral reasoning-effort levels. Single
+ * source of truth: the shared {@linkcode ReasoningEffort} type is derived
+ * from this schema and re-exported through the service interface.
  */
 export const ReasoningEffortSchema = z.enum(['off', 'low', 'high', 'max']);
+
+/**
+ * Schema-derived reasoning-effort level. Each provider maps these to its
+ * native parameter.
+ * - 'off':  No reasoning — fastest, deterministic.
+ * - 'low':  Minimal reasoning.
+ * - 'high': Significant reasoning.
+ * - 'max':  Maximum reasoning (may be expensive/slow).
+ */
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
 /**
  * Validates a text part; empty text is permitted.

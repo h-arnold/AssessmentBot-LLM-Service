@@ -38,7 +38,7 @@ This feature is **not** intended to:
     - **Gemini**: each message becomes one `Content` turn with role `'user'`/`'model'` (or `systemInstruction` content per decision 8); text parts become text strings in the turn, image parts become `inlineData` Parts (`{ mimeType, data }`). All parts of one message land in the same turn.
     - **Mistral**: **no implied special case for text-only messages** — every multi-part message produces a content **chunk array**, where text parts are `text` chunks and image parts are `image_url` chunks built from the data URI `data:<mimeType>;base64,<data>` (transport-layer construction, as today). The existing injected instruction chunk ("Assess these images per your system instructions…") is **not** applied to the multi-part path — the caller's message content is used verbatim; that injection remains exclusive to `ImagePromptPayload`.
 11. **Routing.** `RoutingLLMService.send()` routes a multi-part payload by whether it contains **any** image part (in any message): any image part → image provider + image model + image reasoning-effort configuration; otherwise → text provider + text model + text reasoning-effort configuration. Caller-supplied `model` / `reasoningEffort` are overwritten authoritatively, exactly as for the existing variants.
-12. **Schema-first for the new variant; plain types for legacy.** The multi-part payload contract is defined as Zod schemas with TypeScript types **derived** via `z.infer` (the schemas are the source of truth — see recommended data shapes). Legacy `StringPromptPayload` / `ImagePromptPayload` remain plain TypeScript types and gain no runtime validation. Validation is a **single schema, validated at every `ILlmService.send()` entry point**:
+12. **Schema-first for the new variant; plain types for legacy.** The multi-part payload contract is defined as Zod schemas with TypeScript types **derived** via `z.infer` (the schemas are the source of truth — see recommended data shapes). **Reasoning-effort revision (2026-09-17, approved in `PR_REVIEW.md`):** `ReasoningEffortSchema` in `src/llm/multi-part-prompt.schema.ts` is the single source of truth for the shared `ReasoningEffort` type, derived there via `z.infer` and imported/re-exported through `llm.service.interface.ts` to retain public import compatibility. This supersedes the mirrored union and its bridge-equality test requirement; existing tests may continue to pin the identical `'off' | 'low' | 'high' | 'max'` public contract. Schema placement and validation boundaries remain unchanged in this remediation. Legacy `StringPromptPayload` / `ImagePromptPayload` remain plain TypeScript types and gain no runtime validation. Validation is a **single schema, validated at every `ILlmService.send()` entry point**:
     - `RoutingLLMService.send()` (the main path) parses the multi-part variant **before** its image-presence inspection, so a structurally invalid payload raises `ZodError` instead of a routing `TypeError`;
     - the base `LLMService.send()` (provider path, incl. direct-instantiation callers) parses the multi-part variant before the retry loop and before `describePayload`, so no multi-part summary code touches an unvalidated payload.
       A failed parse raises `ZodError`, which propagates directly — the same no-`mapError()`, no-retry contract as the existing in-loop `ZodError` bypass (the bypass itself stays where it is; the parse simply sits outside the loop so it runs once per `send()`). Legacy variants are never parsed. Runtime-malformed payloads from non-TypeScript callers therefore **no longer** fall outside the contract: they fail at the first `send()` entry point with a structural `ZodError` rather than a routing or provider-side mystery.
@@ -70,6 +70,9 @@ This feature is **not** intended to:
 Schema-first: Zod schemas are the source of truth; the public types are **derived** via `z.infer` (decision 12).
 
 ```ts
+export const ReasoningEffortSchema = z.enum(['off', 'low', 'high', 'max']);
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+
 const TextContentPartSchema = z.object({
   kind: z.literal('text'),
   text: z.string(),
@@ -99,7 +102,7 @@ const MultiPartPromptPayloadSchema = z.object({
   messages: z.array(LlmConversationMessageSchema).min(1),
   temperature: z.number().optional(),
   model: z.string().optional(),
-  reasoningEffort: ReasoningEffortSchema.optional(), // mirrors the existing type
+  reasoningEffort: ReasoningEffortSchema.optional(), // shared source of truth
   promptCacheKey: z.string().optional(),
 });
 
@@ -166,7 +169,7 @@ Avoid:
 
 ## Backend changes required to support agreed behaviour
 
-1. **Contract change (schema-first)** — new Zod schemas `ReasoningEffortSchema` (mirroring the existing reasoning-effort union) / `TextContentPartSchema` / `ImageContentPartSchema` / `LlmContentPartSchema` / `LlmConversationMessageSchema` / `MultiPartPromptPayloadSchema`; public types derived via `z.infer`; extend the `LlmPayload` union; add the third `mapPayload` branch and the `isMultiPartPromptPayload` guard.
+1. **Contract change (schema-first)** — new Zod schemas `ReasoningEffortSchema` (single source of truth for the derived `ReasoningEffort` type, re-exported through the interface) / `TextContentPartSchema` / `ImageContentPartSchema` / `LlmContentPartSchema` / `LlmConversationMessageSchema` / `MultiPartPromptPayloadSchema`; public types derived via `z.infer`; extend the `LlmPayload` union; add the third `mapPayload` branch and the `isMultiPartPromptPayload` guard.
 2. **Base-class change** — `send()` gains the single boundary parse for the multi-part variant (before the retry loop; `ZodError` bypasses mapping and retry per the existing behaviour); `describePayload` gains a multi-part summary.
 3. **Routing change** — `RoutingLLMService.send()` handles the new variant with image-presence-based routing, and validates the multi-part variant against the schema **before** inspection (decision 12).
 4. **Provider mapping** — `GeminiService.buildContents()`/adjacent helper and `MistralService.buildMessages()` gain multi-part conversation mapping per decisions 8–10; this includes widening Gemini's `buildContents()` return shape from a flat `(string | Part)[]` to role-tagged turn shapes; per-provider request parameters (`buildModelParams`, `buildRequest`, temperature, reasoning effort), `promptCacheKey` forwarding, and response parsing extend to the new variant; provider logging labels the variant accurately.

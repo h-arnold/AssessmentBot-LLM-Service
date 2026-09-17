@@ -70,8 +70,7 @@ const HTTP_CLIENT_ERROR_NAMES = new Set([
  *   `ConnectionError`, `RequestTimeoutError`, `RequestAbortedError`,
  *   `UnexpectedClientError`. It deliberately **excludes**
  *   `InvalidRequestError` to avoid a name collision with our own
- *   `InvalidRequestError` {@link LlmError} subclass — see the SPEC
- *   "InvalidRequestError name-collision" subsection for details.
+ *   `InvalidRequestError` {@link LlmError} subclass.
  */
 const MISTRAL_PROBES: LlmErrorMapperProbes = {
   providerName: 'mistral',
@@ -86,9 +85,6 @@ const MISTRAL_PROBES: LlmErrorMapperProbes = {
   isHttpClientError: (error: unknown): boolean => {
     if (typeof error !== 'object' || error === null) return false;
     const name = (error as Record<string, unknown>).name;
-    // Deliberately excluding 'InvalidRequestError' to avoid name collision
-    // with our LlmError subclass (see SPEC § "InvalidRequestError
-    // name-collision").
     return typeof name === 'string' && HTTP_CLIENT_ERROR_NAMES.has(name);
   },
 };
@@ -104,11 +100,10 @@ const MISTRAL_PROBES: LlmErrorMapperProbes = {
  *
  * ### Reasoning-effort mapping (abstract level → Mistral native):
  * `mistral-small-latest` only accepts the `none` and `high` reasoning-effort
- * values, so the abstract levels are collapsed accordingly:
- * - `'off'` → `'none'` (reasoning disabled)
- * - `'low'` → `'none'`
- * - `'high'` → `'high'`
- * - `'max'` → `'high'`.
+ * values, so the abstract levels are collapsed accordingly; see
+ * {@link mapReasoningEffort} for the per-level mapping. The `'off'` level is
+ * omitted from the request entirely, which the provider treats as reasoning
+ * disabled.
  */
 @Injectable()
 export class MistralService extends LLMService {
@@ -231,14 +226,11 @@ export class MistralService extends LLMService {
       status?: number;
       body?: unknown;
     };
-    const statusCode = error_.statusCode ?? error_.status;
-    const payloadType = this.mapPayload(payload, {
-      image: () => 'image',
-      text: () => 'text',
-      conversation: () => 'conversation',
-    });
+    const statusCode = error_?.statusCode ?? error_?.status;
+    const payloadType = this.payloadTypeName(payload);
     const errorMessage = isErrorObject(error) ? error.message : String(error);
-    const errorBody = typeof error_.body === 'string' ? error_.body : undefined;
+    const errorBody =
+      typeof error_?.body === 'string' ? error_.body : undefined;
     const stack = isErrorObject(error) ? error.stack : undefined;
     this.logger.error(
       { model, payloadType, statusCode, errorMessage, errorBody, stack },
@@ -413,19 +405,20 @@ export class MistralService extends LLMService {
     }
     if (Array.isArray(rawContent)) {
       // Safely concatenate text chunks from the ContentChunk array
-      let result = '';
+      const chunks: string[] = [];
       for (const chunk of rawContent) {
+        const record = chunk as Record<string, unknown>;
         if (
           typeof chunk === 'object' &&
           chunk != null &&
           'type' in chunk &&
-          (chunk as Record<string, unknown>).type === 'text' &&
-          typeof (chunk as Record<string, unknown>).text === 'string'
+          record.type === 'text' &&
+          typeof record.text === 'string'
         ) {
-          result += (chunk as Record<string, unknown>).text;
+          chunks.push(record.text);
         }
       }
-      return result;
+      return chunks.join('');
     }
     return '';
   }

@@ -480,10 +480,6 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
     service = createService();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('dispatches a multi-part payload to the conversation handler', () => {
     const conversationHandler = vi.fn().mockReturnValue('result');
     const multiPartPayload: LlmPayload = {
@@ -611,10 +607,7 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
       const handlers = {
         image: vi.fn(() => result),
         text: vi.fn(() => result),
-        conversation: vi.fn((conversation: MultiPartPromptPayload) => {
-          expectTypeOf(conversation).toEqualTypeOf<MultiPartPromptPayload>();
-          return result;
-        }),
+        conversation: vi.fn(() => result),
       };
 
       expect(service.mapPayload(payload, handlers)).toBe(result);
@@ -636,6 +629,101 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
         text: () => 'text-result',
       });
     }).toThrow('Unsupported payload type');
+  });
+});
+
+describe('MultiPartPromptPayload contract — payloadTypeName helper', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  /**
+   * Exposes the protected diagnostic label for assertions.
+   * @param payload - The payload to classify.
+   * @returns The diagnostic payload label.
+   */
+  function callPayloadTypeName(payload: LlmPayload): string {
+    return (
+      service as unknown as {
+        payloadTypeName(payload: LlmPayload): string;
+      }
+    ).payloadTypeName(payload);
+  }
+
+  it.each([
+    {
+      label: 'legacy image payload',
+      payload: {
+        system: 'sys',
+        images: [{ mimeType: 'image/png', data: 'x' }],
+      },
+      expected: 'image',
+    },
+    {
+      label: 'legacy text payload',
+      payload: { system: 'sys', user: 'hello' },
+      expected: 'text',
+    },
+    {
+      label: 'conversation payload',
+      payload: conversationPayload,
+      expected: 'conversation',
+    },
+    {
+      label: 'image-over-messages precedence',
+      payload: {
+        system: 'sys',
+        images: [{ mimeType: 'image/png', data: 'x' }],
+        messages: [],
+      },
+      expected: 'image',
+    },
+    {
+      label: 'text-over-messages precedence',
+      payload: { system: 'sys', user: 'hello', messages: [] },
+      expected: 'text',
+    },
+    { label: 'empty object', payload: {}, expected: 'unknown' },
+    { label: 'unmatched shape', payload: { system: 's' }, expected: 'unknown' },
+    { label: 'null payload', payload: null, expected: 'unknown' },
+    { label: 'undefined payload', payload: undefined, expected: 'unknown' },
+    { label: 'string payload', payload: 'not an object', expected: 'unknown' },
+    { label: 'number payload', payload: 42, expected: 'unknown' },
+  ])('classifies $label as $expected', ({ payload, expected }) => {
+    expect(callPayloadTypeName(payload as unknown as LlmPayload)).toBe(
+      expected,
+    );
+  });
+});
+
+describe('LLMService send with unsupported payload shape', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  it('throws "Unsupported payload type" for {} without contacting the provider', async () => {
+    service.sendInternalFn = vi.fn();
+    service.mapErrorFn = vi.fn();
+
+    let thrown: unknown;
+    try {
+      await service.send({} as unknown as LlmPayload);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown).not.toBeInstanceOf(ZodError);
+    expect(thrown).not.toBeInstanceOf(LlmServiceError);
+    expect(thrown).toMatchObject({
+      message: 'Unsupported payload type',
+    });
+    expect(service.sendInternalFn).not.toHaveBeenCalled();
+    expect(service.mapErrorFn).not.toHaveBeenCalled();
   });
 });
 
@@ -805,6 +893,14 @@ describe('MultiPartPromptPayload contract — schema validation', () => {
 });
 
 describe('MultiPartPromptPayload contract — type-level compile checks', () => {
+  it('narrows the conversation handler input to MultiPartPromptPayload', () => {
+    type Handlers = Parameters<ExposedLLMService['mapPayload']>[1];
+    type ConversationHandler = NonNullable<Handlers['conversation']>;
+    expectTypeOf<
+      Parameters<ConversationHandler>[0]
+    >().toEqualTypeOf<MultiPartPromptPayload>();
+  });
+
   it('keeps the inferred and legacy reasoning-effort unions exactly off, low, high and max', () => {
     expectTypeOf<
       z.infer<typeof ReasoningEffortSchema>

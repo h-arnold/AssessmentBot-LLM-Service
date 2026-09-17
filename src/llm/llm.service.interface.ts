@@ -382,6 +382,30 @@ export abstract class LLMService implements ILlmService {
   }
 
   /**
+   * Derives a non-throwing payload-type label for logging and diagnostics.
+   * Uses image → text → conversation precedence without dispatching handlers.
+   * @param payload - The payload to classify.
+   * @returns `'image'`, `'text'`, `'conversation'`, or `'unknown'`.
+   */
+  protected payloadTypeName(
+    payload: unknown,
+  ): 'image' | 'text' | 'conversation' | 'unknown' {
+    if (typeof payload !== 'object' || payload === null) {
+      return 'unknown';
+    }
+    if ('images' in payload) {
+      return 'image';
+    }
+    if ('user' in payload) {
+      return 'text';
+    }
+    if ('messages' in payload) {
+      return 'conversation';
+    }
+    return 'unknown';
+  }
+
+  /**
    * Template-method dispatcher that routes an {@link LlmPayload} to the
    * appropriate handler based on whether it is an image, text, or
    * conversation payload.
@@ -422,15 +446,18 @@ export abstract class LLMService implements ILlmService {
   }
 
   private describePayload(payload: LlmPayload): string {
-    if ('images' in payload) {
+    if (this.isImagePromptPayload(payload)) {
       const imageCount = payload.images.length;
       return `image prompt with ${imageCount} image${imageCount === 1 ? '' : 's'}`;
     }
-    if ('user' in payload) {
+    if (this.isStringPromptPayload(payload)) {
       const userLength = payload.user.length;
       return `text prompt with ${userLength} character${userLength === 1 ? '' : 's'}`;
     }
-    const messageCount = payload.messages.length;
-    return `conversation prompt with ${messageCount} message${messageCount === 1 ? '' : 's'}`;
+    if (this.isMultiPartPromptPayload(payload)) {
+      const messageCount = payload.messages.length;
+      return `conversation prompt with ${messageCount} message${messageCount === 1 ? '' : 's'}`;
+    }
+    throw new Error('Unsupported payload type');
   }
 }

@@ -14,7 +14,8 @@ import { AuthenticationError } from '../common/errors/authentication.error.js';
 import { ContentFilteredError } from '../common/errors/content-filtered.error.js';
 import { ContextLengthExceededError } from '../common/errors/context-length-exceeded.error.js';
 import { InvalidRequestError } from '../common/errors/invalid-request.error.js';
-import type { LlmError } from '../common/errors/llm-error.base.js';
+import { LlmError } from '../common/errors/llm-error.base.js';
+import { LlmServiceError } from '../common/errors/llm-service.error.js';
 import { NetworkError } from '../common/errors/network.error.js';
 import { ProviderServerError } from '../common/errors/provider-server.error.js';
 import { RateLimitError } from '../common/errors/rate-limit.error.js';
@@ -1393,6 +1394,81 @@ describe('MistralService', () => {
           errorMessage: 'Server error',
           errorBody: 'raw upstream body detail',
           stack: expect.any(String),
+        }),
+        'Error communicating with or validating response from Mistral API',
+      );
+    });
+
+    it.each([null, undefined])(
+      'should surface an LlmServiceError when the SDK rejects with %s',
+      async (rejection) => {
+        const logger = (
+          service as unknown as {
+            logger: { error: (...a: unknown[]) => void };
+          }
+        ).logger;
+        const errorSpy = vi.spyOn(logger, 'error');
+
+        mockComplete.mockRejectedValue(rejection as never);
+
+        const payload = createStringPayload();
+        let thrown: unknown;
+        try {
+          await service.send(payload);
+        } catch (error) {
+          thrown = error;
+        }
+
+        expect(thrown).toBeInstanceOf(LlmServiceError);
+        expect(thrown).toMatchObject({
+          message: 'LLM service error: Unknown error',
+          providerName: 'mistral',
+          retryable: false,
+        });
+
+        expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            model: 'mistral-small-latest',
+            payloadType: 'text',
+            errorMessage: String(rejection),
+          }),
+          'Error communicating with or validating response from Mistral API',
+        );
+      },
+    );
+  });
+
+  describe('logProviderError payload labelling', () => {
+    it('labels a payload matching no known type as unknown without throwing', () => {
+      const logger = (
+        service as unknown as {
+          logger: { error: (...a: unknown[]) => void };
+        }
+      ).logger;
+      const errorSpy = vi.spyOn(logger, 'error');
+
+      const callLogProviderError = (): void => {
+        (
+          service as unknown as {
+            logProviderError(
+              error: unknown,
+              model: string,
+              payload: LlmPayload,
+            ): void;
+          }
+        ).logProviderError(
+          new Error('upstream failure'),
+          'mistral-small-latest',
+          {} as unknown as LlmPayload,
+        );
+      };
+
+      expect(callLogProviderError).not.toThrow();
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          model: 'mistral-small-latest',
+          payloadType: 'unknown',
+          errorMessage: 'upstream failure',
         }),
         'Error communicating with or validating response from Mistral API',
       );

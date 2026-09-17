@@ -265,8 +265,8 @@ describe('GeminiService', () => {
     it('should fail-fast on an unsupported payload type (no user or images)', async () => {
       const malformed = { system: 's' } as unknown as LlmPayload;
 
-      // _sendInternal calls buildContents which calls mapPayload, which
-      // throws 'Unsupported payload type' from the base class dispatcher.
+      // _sendInternal dispatches via mapPayload, which throws
+      // 'Unsupported payload type' from the base class dispatcher.
       await expect(
         (
           service as unknown as {
@@ -667,6 +667,35 @@ describe('GeminiService', () => {
       ]);
     });
 
+    it('maps an assistant message with text and image parts into a model turn', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          {
+            role: 'assistant',
+            parts: [
+              { kind: 'text', text: 'Here is the chart' },
+              { kind: 'image', mimeType: 'image/png', data: 'chart-base64' },
+            ],
+          },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'user', parts: [{ text: 'Question' }] },
+        {
+          role: 'model',
+          parts: [
+            { text: 'Here is the chart' },
+            { inlineData: { mimeType: 'image/png', data: 'chart-base64' } },
+          ],
+        },
+      ]);
+    });
+
     it('produces text-only turns for a text-only conversation without dropping empty text', async () => {
       mockGenerateContent.mockResolvedValue(createValidResponse(1));
 
@@ -938,6 +967,80 @@ describe('GeminiService', () => {
     });
   });
 
+  describe.each([
+    {
+      variant: 'legacy image',
+      legacy: createImagePayload(),
+      model: 'gemini-2.5-flash',
+      contents: [{ inlineData: { mimeType: 'image/png', data: 'test-data' } }],
+    },
+    {
+      variant: 'legacy text',
+      legacy: createStringPayload('test prompt'),
+      model: 'gemini-2.5-flash-lite',
+      contents: ['test prompt'],
+    },
+    {
+      variant: 'legacy image with a colliding user field',
+      legacy: { ...createImagePayload(), user: 'Ignored legacy text' },
+      model: 'gemini-2.5-flash',
+      contents: [{ inlineData: { mimeType: 'image/png', data: 'test-data' } }],
+    },
+  ])('discriminator precedence: $variant', ({ legacy, model, contents }) => {
+    const expectedRequest = {
+      model,
+      contents,
+      config: {
+        systemInstruction: 'system prompt',
+        temperature: 0,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    };
+
+    it('preserves legacy contents and system instruction despite valid extra messages', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      const payload = {
+        ...legacy,
+        ...createMultiPartPayload([
+          {
+            role: 'system',
+            parts: [{ kind: 'text', text: 'Ignored conversation instruction' }],
+          },
+          {
+            role: 'user',
+            parts: [{ kind: 'text', text: 'Ignored conversation content' }],
+          },
+        ]),
+      };
+
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledExactlyOnceWith(
+        expectedRequest,
+      );
+      expectValidResponse(result, 1);
+    });
+
+    it('sends the legacy request without reading or schema-parsing malformed extra messages', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      const readMessages = vi.fn(() => null);
+      const payload = {
+        ...legacy,
+        get messages(): null {
+          return readMessages();
+        },
+      };
+
+      const result = service.send(payload);
+
+      expect.soft(readMessages).not.toHaveBeenCalled();
+      expectValidResponse(await result, 1);
+      expect(mockGenerateContent).toHaveBeenCalledExactlyOnceWith(
+        expectedRequest,
+      );
+    });
+  });
+
   describe('error handling', () => {
     it('should throw an error if the SDK fails', async () => {
       mockGenerateContent.mockRejectedValue(new Error('SDK Error'));
@@ -955,6 +1058,41 @@ describe('GeminiService', () => {
 
       const payload = createStringPayload();
       await expect(service.send(payload)).rejects.toThrow(ZodError);
+    });
+
+    it('logs the invalid response structure once through the structured error log without a debug payload dump', async () => {
+      const logger = (
+        service as unknown as {
+          logger: {
+            error: (...a: unknown[]) => void;
+            debug: (...a: unknown[]) => void;
+          };
+        }
+      ).logger;
+      const errorSpy = vi.spyOn(logger, 'error');
+      const debugSpy = vi.spyOn(logger, 'debug');
+
+      mockGenerateContent.mockResolvedValue({
+        text: '{"invalid": "structure"}',
+      });
+
+      const payload = createStringPayload();
+      await expect(service.send(payload)).rejects.toThrow(ZodError);
+
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          model: 'gemini-2.5-flash-lite',
+          payloadType: 'text',
+          statusCode: undefined,
+          stack: expect.any(String),
+        }),
+        'Error communicating with or validating response from Gemini API',
+      );
+      const debugMessages = debugSpy.mock.calls
+        .flat()
+        .filter((value): value is string => typeof value === 'string')
+        .join('\n');
+      expect(debugMessages).not.toContain('Zod validation failed');
     });
 
     it('should throw an error if JsonParserUtil fails to parse the response', async () => {
@@ -1006,6 +1144,74 @@ describe('GeminiService', () => {
       );
     });
 
+    it.each([
+      {
+        label: 'rate limit',
+        status: 429,
+        message: 'Rate limit exceeded',
+        errorClass: RateLimitError,
+        retryable: true,
+        attempts: 3,
+      },
+      {
+        label: 'server error',
+        status: 500,
+        message: 'Server error',
+        errorClass: ProviderServerError,
+        retryable: true,
+        attempts: 3,
+      },
+      {
+        label: 'resource exhausted',
+        status: 429,
+        message: 'RESOURCE_EXHAUSTED: Quota exceeded',
+        errorClass: ResourceExhaustedError,
+        retryable: false,
+        attempts: 1,
+      },
+    ])(
+      'maps an SDK $label rejection for a conversation payload with $attempts attempt(s)',
+      async ({ status, message, errorClass, retryable, attempts }) => {
+        const logger = (
+          service as unknown as {
+            logger: { error: (...a: unknown[]) => void };
+          }
+        ).logger;
+        const errorSpy = vi.spyOn(logger, 'error');
+
+        const originalError = Object.assign(new ApiError({ message, status }), {
+          body: 'upstream detail',
+        });
+        mockGenerateContent.mockRejectedValue(originalError);
+
+        const payload = createMultiPartPayload([
+          {
+            role: 'assistant',
+            parts: [
+              { kind: 'text', text: 'Here is the chart' },
+              { kind: 'image', mimeType: 'image/png', data: 'chart-base64' },
+            ],
+          },
+        ]);
+
+        let thrown: unknown;
+        try {
+          await service.send(payload);
+        } catch (error: unknown) {
+          thrown = error;
+        }
+
+        expect(thrown).toBeInstanceOf(errorClass);
+        expect(thrown).toMatchObject({
+          originalError,
+          providerName: 'gemini',
+          retryable,
+        });
+        expect(mockGenerateContent).toHaveBeenCalledTimes(attempts);
+        expect(errorSpy).toHaveBeenCalledTimes(attempts);
+      },
+    );
+
     it('should retry on 5xx server errors and throw ProviderServerError after exhausting retries', async () => {
       const serverError = new ApiError({
         message: 'Server error',
@@ -1039,7 +1245,7 @@ describe('GeminiService', () => {
     });
   });
 
-  const testRetryBehaviorSuccess = async (
+  const testRetryBehaviourSuccess = async (
     errors: Error[],
     expectedCallCount: number,
   ): Promise<void> => {
@@ -1056,7 +1262,7 @@ describe('GeminiService', () => {
     expect(mockGenerateContent).toHaveBeenCalledTimes(expectedCallCount);
   };
 
-  const testRetryBehaviorFailure = async (
+  const testRetryBehaviourFailure = async (
     errors: Error[],
     expectedCallCount: number,
   ): Promise<void> => {
@@ -1072,14 +1278,14 @@ describe('GeminiService', () => {
 
   describe('retry logic', () => {
     it('should retry on 429 errors and eventually succeed', async () => {
-      await testRetryBehaviorSuccess(
+      await testRetryBehaviourSuccess(
         [new ApiError({ message: 'Rate limited', status: 429 })],
         2,
       );
     });
 
     it('should retry multiple times with exponential backoff', async () => {
-      await testRetryBehaviorSuccess(
+      await testRetryBehaviourSuccess(
         [
           new ApiError({ message: 'Rate limited', status: 429 }),
           new ApiError({ message: 'Rate limited', status: 429 }),
@@ -1089,11 +1295,11 @@ describe('GeminiService', () => {
     });
 
     it('should retry on rate limit error messages', async () => {
-      await testRetryBehaviorSuccess([new Error('Rate limit exceeded')], 2);
+      await testRetryBehaviourSuccess([new Error('Rate limit exceeded')], 2);
     });
 
     it('should retry on "too many requests" error messages', async () => {
-      await testRetryBehaviorSuccess([new Error('Too many requests')], 2);
+      await testRetryBehaviourSuccess([new Error('Too many requests')], 2);
     });
 
     it('should throw error after max retries exceeded', async () => {
@@ -1101,7 +1307,7 @@ describe('GeminiService', () => {
         message: 'Rate limited',
         status: 429,
       });
-      await testRetryBehaviorFailure(
+      await testRetryBehaviourFailure(
         [rateLimitError, rateLimitError, rateLimitError],
         3,
       );

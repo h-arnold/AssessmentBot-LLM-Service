@@ -420,9 +420,9 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** filled during delivery (including LOC measurement result).
-- **Deviations from plan:** note any departures.
-- **Follow-up implications for later sections:** none beyond Section 5.
+- **Implementation notes (Section 4, 2026-09-17):** RED and GREEN reviews clean; mandatory-read evidence complete. Replaced the Mistral placeholder with native-role, ordered, uniform chunk-array mapping; image parts become data-URI chunks, without instruction injection or silent dropping. Cache forwarding, EU pinning, existing request options and error handling preserved; conversation error labelling added without a new debug label. SDK-native message/chunk types verified, removing the old request cast. Helper retained locally: measured 406 → 455 lines, projected 450–465; no shared pre-step or extraction needed. Focused tests 84 passed; full regular tests 649 passed across 54 files; mocked E2E 52 passed + 1 existing todo across 8 files. Build, lint, spec-inclusive type-check, formatting and British-English checks passed. Review: `.opencode/scratchpad/section4-green-review.md`; orchestrator independently reran regular/mocked E2E/lint/type-check on 2026-09-17, all passed (output `tool_0acc64cc0001S5QFJAGiILZkaT`).
+- **Deviations from plan:** none.
+- **Follow-up implications for later sections:** both providers now support multi-part conversations. Final cleanup and documentation remain pending; commit gate follows.
 
 ---
 

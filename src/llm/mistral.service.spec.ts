@@ -50,7 +50,18 @@ vi.mock('@mistralai/mistralai', () => {
   };
 });
 
+type MistralCompleteRequest = Parameters<Mistral['chat']['complete']>[0];
+
 const mockComplete = vi.fn();
+
+const conversationPayload: MultiPartPromptPayload = {
+  messages: [{ role: 'user', parts: [{ kind: 'text', text: 'Question' }] }],
+};
+
+const expectConversationRequest = (): MistralCompleteRequest => {
+  expect(mockComplete).toHaveBeenCalledTimes(1);
+  return mockComplete.mock.calls[0][0] as MistralCompleteRequest;
+};
 
 const mockMistral = Mistral as Mock;
 mockMistral.mockImplementation(function () {
@@ -577,24 +588,386 @@ describe('MistralService', () => {
       expect(mockComplete).not.toHaveBeenCalled();
     });
 
-    it('provider placeholder gate: multi-part payload throws without touching the mocked SDK', async () => {
-      const multiPartPayload: LlmPayload = {
-        messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
-      } as unknown as MultiPartPromptPayload;
+    it('dispatches a multi-part payload through public send and validates the response', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
 
-      // _sendInternal hits the interim placeholder guard and
-      // throws 'Unsupported payload type' before reaching the SDK.
-      await expect(
-        (
+      const result = await service.send(conversationPayload);
+
+      const expected: MistralCompleteRequest = {
+        model: 'mistral-small-latest',
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'Question' }] },
+        ],
+        temperature: 0,
+        safePrompt: false,
+        responseFormat: { type: 'text' },
+      };
+      expect(expectConversationRequest()).toStrictEqual(expected);
+      expectValidResponse(result, 1);
+    });
+  });
+
+  describe('multi-part conversation mapping', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      mockComplete.mockReset();
+    });
+
+    it('preserves native roles and separate text chunks in caller order, including later system messages', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(2));
+      const payload: MultiPartPromptPayload = {
+        messages: [
+          {
+            role: 'system',
+            parts: [
+              { kind: 'text', text: 'First instruction' },
+              { kind: 'text', text: 'Second instruction' },
+            ],
+          },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+          {
+            role: 'system',
+            parts: [{ kind: 'text', text: 'Later instruction' }],
+          },
+          { role: 'system', parts: [{ kind: 'text', text: '' }] },
+          { role: 'user', parts: [{ kind: 'text', text: 'Follow-up' }] },
+        ],
+      };
+      const original = structuredClone(payload);
+
+      const result = await service.send(payload);
+
+      // SDK-typed expectations pin system text arrays without a cast.
+      const messages: MistralCompleteRequest['messages'] = [
+        {
+          role: 'system',
+          content: [
+            { type: 'text', text: 'First instruction' },
+            { type: 'text', text: 'Second instruction' },
+          ],
+        },
+        { role: 'user', content: [{ type: 'text', text: 'Question' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'Answer' }] },
+        {
+          role: 'system',
+          content: [{ type: 'text', text: 'Later instruction' }],
+        },
+        { role: 'system', content: [{ type: 'text', text: '' }] },
+        { role: 'user', content: [{ type: 'text', text: 'Follow-up' }] },
+      ];
+      expect(expectConversationRequest().messages).toStrictEqual(messages);
+      expect(payload).toStrictEqual(original);
+      expectValidResponse(result, 2);
+    });
+
+    it.each(['system', 'user', 'assistant'] as const)(
+      'keeps a single %s message as a single text-chunk array without injecting content',
+      async (role) => {
+        mockComplete.mockResolvedValue(createValidResponse(1));
+        await service.send({
+          messages: [{ role, parts: [{ kind: 'text', text: '' }] }],
+        });
+
+        const messages: MistralCompleteRequest['messages'] = [
+          { role, content: [{ type: 'text', text: '' }] },
+        ];
+        expect(expectConversationRequest().messages).toStrictEqual(messages);
+      },
+    );
+
+    it('preserves an assistant-first conversation without adding or reordering turns', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+      await service.send({
+        messages: [
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Hello' }] },
+          { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ],
+      });
+
+      const messages: MistralCompleteRequest['messages'] = [
+        { role: 'assistant', content: [{ type: 'text', text: 'Hello' }] },
+        { role: 'system', content: [{ type: 'text', text: 'Instructions' }] },
+        { role: 'user', content: [{ type: 'text', text: 'Question' }] },
+      ];
+      expect(expectConversationRequest().messages).toStrictEqual(messages);
+    });
+
+    it.each(['user', 'assistant'] as const)(
+      'maps mixed %s parts to ordered text and image data-URI chunks without the legacy instruction',
+      async (role) => {
+        mockComplete.mockResolvedValue(createValidResponse(3));
+        await service.send({
+          messages: [
+            {
+              role,
+              parts: [
+                { kind: 'text', text: 'Compare' },
+                { kind: 'image', mimeType: 'image/png', data: 'first-data' },
+                { kind: 'text', text: 'with' },
+                { kind: 'image', mimeType: 'image/jpeg', data: 'second-data' },
+                { kind: 'text', text: 'Explain' },
+              ],
+            },
+          ],
+        });
+
+        const messages: MistralCompleteRequest['messages'] = [
+          {
+            role,
+            content: [
+              { type: 'text', text: 'Compare' },
+              {
+                type: 'image_url',
+                imageUrl: 'data:image/png;base64,first-data',
+              },
+              { type: 'text', text: 'with' },
+              {
+                type: 'image_url',
+                imageUrl: 'data:image/jpeg;base64,second-data',
+              },
+              { type: 'text', text: 'Explain' },
+            ],
+          },
+        ];
+        expect(expectConversationRequest().messages).toStrictEqual(messages);
+      },
+    );
+
+    it('passes an image-only message with empty unrefined strings through without silent dropping or instruction injection', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+      await service.send({
+        messages: [
+          {
+            role: 'user',
+            parts: [{ kind: 'image', mimeType: '', data: '' }],
+          },
+        ],
+      });
+      expect(expectConversationRequest().messages).toStrictEqual([
+        {
+          role: 'user',
+          content: [{ type: 'image_url', imageUrl: 'data:;base64,' }],
+        },
+      ]);
+    });
+
+    it.each([
+      { effort: undefined, native: undefined },
+      { effort: 'off', native: undefined },
+      { effort: 'low', native: 'none' },
+      { effort: 'high', native: 'high' },
+      { effort: 'max', native: 'high' },
+    ] as const)(
+      'preserves request options and cache forwarding for reasoning effort $effort',
+      async ({ effort, native }) => {
+        mockComplete.mockResolvedValue(createValidResponse(1));
+        await service.send({
+          ...conversationPayload,
+          model: 'pixtral-large-latest',
+          temperature: 0.75,
+          reasoningEffort: effort,
+          promptCacheKey: 'a'.repeat(64),
+        });
+
+        const expected: MistralCompleteRequest = {
+          model: 'pixtral-large-latest',
+          messages: [
+            { role: 'user', content: [{ type: 'text', text: 'Question' }] },
+          ],
+          temperature: 0.75,
+          safePrompt: false,
+          responseFormat: { type: 'text' },
+          promptCacheKey: 'a'.repeat(64),
+          ...(native !== undefined && { reasoningEffort: native }),
+        };
+        expect(expectConversationRequest()).toStrictEqual(expected);
+      },
+    );
+
+    it('omits absent cache and effort fields entirely and preserves the EU client pin', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+      await service.send(conversationPayload);
+      const request = expectConversationRequest();
+      expect(request).not.toHaveProperty('promptCacheKey');
+      expect(request).not.toHaveProperty('prompt_cache_key');
+      expect(request).not.toHaveProperty('reasoningEffort');
+      expect(mockMistral).toHaveBeenCalledExactlyOnceWith({
+        apiKey: 'test-mistral-key',
+        server: 'eu',
+      });
+    });
+
+    it.each([
+      {
+        status: 400,
+        message: 'Unsupported assistant image',
+        errorClass: InvalidRequestError,
+        retryable: false,
+        attempts: 1,
+      },
+      {
+        status: 429,
+        message: 'Quota exceeded',
+        errorClass: ResourceExhaustedError,
+        retryable: false,
+        attempts: 1,
+      },
+      {
+        status: 429,
+        message: 'Rate limit exceeded',
+        errorClass: RateLimitError,
+        retryable: true,
+        attempts: 3,
+      },
+      {
+        status: 500,
+        message: 'Server error',
+        errorClass: ProviderServerError,
+        retryable: true,
+        attempts: 3,
+      },
+    ])(
+      'preserves $errorClass.name classification and conversation error context for $message',
+      async ({ status, message, errorClass, retryable, attempts }) => {
+        const logger = (
           service as unknown as {
-            _sendInternal: (p: LlmPayload) => Promise<unknown>;
+            logger: { error: (...arguments_: unknown[]) => void };
           }
-        )._sendInternal(multiPartPayload),
-      ).rejects.toThrow('Unsupported payload type');
+        ).logger;
+        const errorSpy = vi.spyOn(logger, 'error');
+        const providerError = Object.assign(new Error(message), {
+          statusCode: status,
+          body: 'upstream detail',
+        });
+        mockComplete.mockRejectedValue(providerError);
+        const promise = service.send({
+          messages: [
+            {
+              role: 'assistant',
+              parts: [
+                { kind: 'text', text: 'Image' },
+                { kind: 'image', mimeType: 'image/png', data: 'data' },
+              ],
+            },
+          ],
+        });
 
-      // The SDK must never be called for a multi-part payload
-      // at this interim stage.
-      expect(mockComplete).not.toHaveBeenCalled();
+        await expect(promise).rejects.toBeInstanceOf(errorClass);
+        await expect(promise).rejects.toMatchObject({
+          originalError: providerError,
+          providerName: 'mistral',
+          retryable,
+        });
+        expect(mockComplete).toHaveBeenCalledTimes(attempts);
+        expect(errorSpy).toHaveBeenCalledTimes(attempts);
+        expect(errorSpy).toHaveBeenCalledWith(
+          {
+            model: 'mistral-small-latest',
+            payloadType: 'conversation',
+            statusCode: status,
+            errorMessage: message,
+            errorBody: 'upstream detail',
+            stack: providerError.stack,
+          },
+          'Error communicating with or validating response from Mistral API',
+        );
+      },
+    );
+
+    it('keeps existing debug messages without introducing a payload-type label when content logging is enabled', async () => {
+      vi.mocked(configService.get).mockReturnValueOnce(true);
+      const loggingService = new MistralService(configService, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+      const logger = (
+        loggingService as unknown as {
+          logger: { debug: (...arguments_: unknown[]) => void };
+        }
+      ).logger;
+      const debugSpy = vi.spyOn(logger, 'debug');
+      const responseText = JSON.stringify({
+        completeness: { score: 1, reasoning: 'Test' },
+        accuracy: { score: 1, reasoning: 'Test' },
+        spag: { score: 1, reasoning: 'Test' },
+      });
+      mockComplete.mockResolvedValue({
+        choices: [{ message: { content: responseText } }],
+      });
+
+      const result = await loggingService.send(conversationPayload);
+
+      expectConversationRequest();
+      expect(debugSpy.mock.calls).toStrictEqual([
+        ['Sending to Mistral with model: mistral-small-latest, temperature: 0'],
+        [{ responseText }, 'Raw response from Mistral'],
+        [{ parsedJson: result }, 'Parsed JSON response'],
+      ]);
+    });
+
+    it('concatenates response text chunks through the existing parser and response validation', async () => {
+      const responseText = JSON.stringify({
+        completeness: { score: 2, reasoning: 'Test' },
+        accuracy: { score: 2, reasoning: 'Test' },
+        spag: { score: 2, reasoning: 'Test' },
+      });
+      mockComplete.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: [
+                { type: 'text', text: responseText.slice(0, 20) },
+                { type: 'text', text: responseText.slice(20) },
+              ],
+            },
+          },
+        ],
+      });
+      const result = await service.send(conversationPayload);
+      expectConversationRequest();
+      expect(mockParse).toHaveBeenCalledExactlyOnceWith(responseText);
+      expectValidResponse(result, 2);
+    });
+
+    it('propagates invalid response validation as ZodError without retrying', async () => {
+      mockComplete.mockResolvedValue({
+        choices: [{ message: { content: '{}' } }],
+      });
+      await expect(service.send(conversationPayload)).rejects.toBeInstanceOf(
+        ZodError,
+      );
+      expectConversationRequest();
+      expect(mockParse).toHaveBeenCalledExactlyOnceWith('{}');
+    });
+  });
+
+  describe('legacy image silent-drop regression', () => {
+    it('retains the string system message and injected instruction when all images lack data', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(3));
+      const result = await service.send({
+        system: 'system prompt',
+        images: [{ mimeType: 'image/png' }, { mimeType: 'image/jpeg' }],
+      });
+      expect(mockComplete).toHaveBeenCalledExactlyOnceWith({
+        model: 'mistral-small-latest',
+        messages: [
+          { role: 'system', content: 'system prompt' },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+              },
+            ],
+          },
+        ],
+        temperature: 0,
+        safePrompt: false,
+        responseFormat: { type: 'text' },
+      });
+      expectValidResponse(result, 3);
     });
   });
 

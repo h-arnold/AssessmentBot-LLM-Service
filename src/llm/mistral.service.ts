@@ -1,4 +1,9 @@
 import { Mistral } from '@mistralai/mistralai';
+import type {
+  ChatCompletionRequestMessage,
+  ContentChunk,
+  SystemMessageContentChunks,
+} from '@mistralai/mistralai/models/components';
 import { Injectable } from '@nestjs/common';
 import { ZodError } from 'zod';
 
@@ -12,8 +17,7 @@ import {
 import {
   LLMService,
   LlmPayload,
-  ImagePromptPayload,
-  StringPromptPayload,
+  MultiPartPromptPayload,
   ReasoningEffort,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
@@ -160,14 +164,10 @@ export class MistralService extends LLMService {
    * safePrompt, responseFormat), calls the Mistral SDK, extracts the response
    * text, repairs/parses JSON via {@link JsonParserUtility}, and validates
    * with {@link LlmResponseSchema}.
-   * @param payload - The payload to send (text or image).
+   * @param payload - The payload to send (text, image, or conversation).
    * @returns A validated {@link LlmResponse}.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    if (this.isMultiPartPromptPayload(payload)) {
-      throw new Error('Unsupported payload type');
-    }
-
     const model = payload.model ?? 'mistral-small-latest';
     const messages = this.buildMessages(payload);
     const request = this.buildRequest(model, messages, payload);
@@ -232,7 +232,11 @@ export class MistralService extends LLMService {
       body?: unknown;
     };
     const statusCode = error_.statusCode ?? error_.status;
-    const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
+    const payloadType = this.mapPayload(payload, {
+      image: () => 'image',
+      text: () => 'text',
+      conversation: () => 'conversation',
+    });
     const errorMessage = isErrorObject(error) ? error.message : String(error);
     const errorBody = typeof error_.body === 'string' ? error_.body : undefined;
     const stack = isErrorObject(error) ? error.stack : undefined;
@@ -268,42 +272,87 @@ export class MistralService extends LLMService {
    * are silently dropped, mirroring the Gemini service's `mapImageParts`
    * guard.
    * @param payload - The LLM payload.
-   * @returns An array of system and user messages.
+   * @returns Native messages; conversations retain all caller roles and parts.
    */
   private buildMessages(
-    payload: ImagePromptPayload | StringPromptPayload,
-  ): Array<{ role: string; content: unknown }> {
-    const userContent = this.mapPayload<unknown>(payload, {
+    payload: LlmPayload,
+  ): MistralCompleteRequest['messages'] {
+    return this.mapPayload<MistralCompleteRequest['messages']>(payload, {
       image: (p) => [
+        { role: 'system', content: p.system },
         {
-          type: 'text' as const,
-          text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+          role: 'user',
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+            },
+            ...p.images.flatMap((img) => {
+              // Mirror GeminiService.mapImageParts: only include entries where
+              // both `data` and `mimeType` are strings, so a missing `data`
+              // never produces a `base64,undefined` URI.
+              if (
+                typeof img.data === 'string' &&
+                typeof img.mimeType === 'string'
+              ) {
+                return [
+                  {
+                    type: 'image_url' as const,
+                    imageUrl: `data:${img.mimeType};base64,${img.data}`,
+                  },
+                ];
+              }
+              return [];
+            }),
+          ],
         },
-        ...p.images.flatMap((img) => {
-          // Mirror GeminiService.mapImageParts: only include entries where
-          // both `data` and `mimeType` are strings, so a missing `data`
-          // never produces a `base64,undefined` URI.
-          if (
-            typeof img.data === 'string' &&
-            typeof img.mimeType === 'string'
-          ) {
-            return [
-              {
-                type: 'image_url' as const,
-                imageUrl: `data:${img.mimeType};base64,${img.data}`,
-              },
-            ];
-          }
-          return [];
-        }),
       ],
-      text: (p) => p.user,
+      text: (p) => {
+        return [
+          { role: 'system', content: p.system },
+          { role: 'user', content: p.user },
+        ];
+      },
+      conversation: (p) => this.mapConversation(p),
     });
+  }
 
-    return [
-      { role: 'system', content: payload.system },
-      { role: 'user', content: userContent },
-    ];
+  /**
+   * Maps validated conversation messages to native Mistral messages.
+   * @param payload - The validated conversation in caller order.
+   * @returns Messages with ordered text and image data-URI chunks.
+   * @remarks Every message uses a uniform chunk array, including text-only
+   * messages. The legacy image-path instruction is intentionally not injected.
+   */
+  private mapConversation(
+    payload: MultiPartPromptPayload,
+  ): MistralCompleteRequest['messages'] {
+    return payload.messages.map((message): ChatCompletionRequestMessage => {
+      if (message.role === 'system') {
+        return {
+          role: message.role,
+          content: message.parts.map(
+            (part): Extract<SystemMessageContentChunks, { type: 'text' }> => {
+              return {
+                type: 'text',
+                text: part.text,
+              };
+            },
+          ),
+        };
+      }
+      return {
+        role: message.role,
+        content: message.parts.map((part): ContentChunk => {
+          return part.kind === 'text'
+            ? { type: 'text', text: part.text }
+            : {
+                type: 'image_url',
+                imageUrl: `data:${part.mimeType};base64,${part.data}`,
+              };
+        }),
+      };
+    });
   }
 
   /**
@@ -322,12 +371,12 @@ export class MistralService extends LLMService {
    */
   private buildRequest(
     model: string,
-    messages: Array<{ role: string; content: unknown }>,
+    messages: MistralCompleteRequest['messages'],
     payload: LlmPayload,
   ): MistralCompleteRequest {
     const request: MistralCompleteRequest = {
       model,
-      messages: messages as MistralCompleteRequest['messages'],
+      messages,
       temperature: payload.temperature ?? 0,
       safePrompt: false,
       responseFormat: { type: 'text' },

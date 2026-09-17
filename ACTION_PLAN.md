@@ -497,7 +497,7 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 
 ### Implementation notes / deviations / follow-up
 
-- filled during delivery.
+- **Completed 2026-09-17:** Canonical `docs/modules/llm.md` synchronised with the schema-first contract, both validation boundaries, image-presence routing, provider mapping table, cache forwarding/derivation deferral and direct-call fallbacks. Shared helper locations reconciled; routing's stale SPEC citations replaced with canonical references; public schema remarks updated. `docs/llm/error-handling.md` needs no change. Final documentation review passed with zero findings; mandatory-read evidence complete. Regular tests: 649 passed; mocked E2E: 52 passed and 1 pre-existing todo; build, lint, spec-inclusive type-check and formatting clean. Cleanup committed as `48f9558` (`refactor(llm): align provider payload labelling`), documentation as `9701beb` (`docs(llm): document multi-part payload contracts and provider mapping`), both pushed successfully on `feature/multi-part-prompt-support`. All four implementation sections, cleanup and documentation are delivered. User agent-configuration edits remain uncommitted; unrelated historical SPEC citations remain out of scope.
 
 ---
 

@@ -422,7 +422,7 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 
 - **Implementation notes (Section 4, 2026-09-17):** RED and GREEN reviews clean; mandatory-read evidence complete. Replaced the Mistral placeholder with native-role, ordered, uniform chunk-array mapping; image parts become data-URI chunks, without instruction injection or silent dropping. Cache forwarding, EU pinning, existing request options and error handling preserved; conversation error labelling added without a new debug label. SDK-native message/chunk types verified, removing the old request cast. Helper retained locally: measured 406 → 455 lines, projected 450–465; no shared pre-step or extraction needed. Focused tests 84 passed; full regular tests 649 passed across 54 files; mocked E2E 52 passed + 1 existing todo across 8 files. Build, lint, spec-inclusive type-check, formatting and British-English checks passed. Review: `.opencode/scratchpad/section4-green-review.md`; orchestrator independently reran regular/mocked E2E/lint/type-check on 2026-09-17, all passed (output `tool_0acc64cc0001S5QFJAGiILZkaT`).
 - **Deviations from plan:** none.
-- **Follow-up implications for later sections:** both providers now support multi-part conversations. Final cleanup and documentation remain pending; commit gate follows.
+- **Follow-up implications for later sections:** both providers now support multi-part conversations. Final cleanup and documentation remain pending. Commit `ffbdfcf` — `feat(llm): map multi-part conversations to Mistral chunks` — on `feature/multi-part-prompt-support`, pushed successfully to origin (`ae3066d..ffbdfcf`); hooks passed.
 
 ---
 
@@ -460,8 +460,8 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 
 ### Implementation notes / deviations / follow-up
 
-- **Implementation notes:** summarise what was done during the regression phase.
-- **Deviations from plan:** note any additional work discovered or done.
+- **Implementation notes (2026-09-17):** Regular and mocked E2E regression gates passed independently by implementation, reviewer and orchestrator: 649 unit/integration tests across 54 files; 52 mocked E2E tests and 1 pre-existing todo across 8 files. Build, lint and spec-inclusive type-check passed. No regressions from the original 530-test baseline. Production LOC: interface 436, schema 106, routing 177, Gemini 447, Mistral 455, assessor 87; planned schema extraction applied, all touched production files below 500 lines. Existing large co-located spec files remain in their established suite layout. De-sloppification found two local tidy-ups (consistent provider error labelling and a static template literal); both applied, independently reviewed clean and regression-tested. No remaining in-scope cleanup findings; ready for documentation sync.
+- **Deviations from plan:** User-authorised regular and mocked E2E tests replace the unavailable regression-checker CLI throughout. Reviewer additionally invoked all Vitest projects, which exposed environment-dependent live-provider/production-suite failures; these suites are outside the agreed validation scope and no fixes or live-provider claims are made.
 
 ---
 

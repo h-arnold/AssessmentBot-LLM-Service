@@ -157,10 +157,11 @@ export class GeminiService extends LLMService {
       };
       const statusCode =
         error_?.status ?? error_?.statusCode ?? error_?.response?.status;
-      let payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
-      if (this.isMultiPartPromptPayload(payload)) {
-        payloadType = 'conversation';
-      }
+      const payloadType = this.mapPayload(payload, {
+        image: () => 'image',
+        text: () => 'text',
+        conversation: () => 'conversation',
+      });
       const errorMessage = isErrorObject(error) ? error.message : String(error);
       const errorBody =
         typeof error_?.body === 'string' ? error_.body : undefined;

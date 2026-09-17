@@ -80,7 +80,7 @@ export class AssessorService {
     // Branch exists solely for union exhaustiveness after the LlmPayload
     // widening; the prompt layer never produces multi-part payloads.
     if ('messages' in message) {
-      return `conversation prompt`;
+      return 'conversation prompt';
     }
     return `text payload with ${message.user.length} characters`;
   }

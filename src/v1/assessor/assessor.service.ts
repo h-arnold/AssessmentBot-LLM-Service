@@ -43,27 +43,19 @@ export class AssessorService {
    */
   async createAssessment(dto: CreateAssessorDto): Promise<LlmResponse> {
     this.logger.log(`Creating assessment for task type: ${dto.taskType}.`);
-    try {
-      const prompt = await this.promptFactory.create(dto);
-      this.logger.debug(
-        `Prompt created for task type: ${dto.taskType}. Building payload.`,
-      );
+    const prompt = await this.promptFactory.create(dto);
+    this.logger.debug(
+      `Prompt created for task type: ${dto.taskType}. Building payload.`,
+    );
 
-      const message = await prompt.buildMessage();
-      this.logger.debug(
-        `LLM payload built for task type: ${dto.taskType} (${this.describePayloadSummary(message)}).`,
-      );
+    const message = await prompt.buildMessage();
+    this.logger.debug(
+      `LLM payload built for task type: ${dto.taskType} (${this.describePayloadSummary(message)}).`,
+    );
 
-      const response: LlmResponse = await this.llmService.send(message);
-      this.logger.log(`Assessment completed for task type: ${dto.taskType}.`);
-      return response;
-    } catch (error) {
-      this.logger.error(
-        `Assessment failed for task type: ${dto.taskType}.`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw error;
-    }
+    const response: LlmResponse = await this.llmService.send(message);
+    this.logger.log(`Assessment completed for task type: ${dto.taskType}.`);
+    return response;
   }
 
   /**
@@ -77,10 +69,10 @@ export class AssessorService {
     if ('images' in message) {
       return `image payload with ${message.images.length} images`;
     }
-    // Branch exists solely for union exhaustiveness after the LlmPayload
-    // widening; the prompt layer never produces multi-part payloads.
+    // This branch preserves compile-time coupling with the widened payload union;
+    // the V1 prompt layer does not currently produce conversation payloads.
     if ('messages' in message) {
-      return 'conversation prompt';
+      return `conversation prompt with ${message.messages.length} messages`;
     }
     return `text payload with ${message.user.length} characters`;
   }

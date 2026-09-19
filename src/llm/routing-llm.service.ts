@@ -5,7 +5,6 @@ import {
   ILlmService,
   LlmPayload,
   MultiPartPromptPayload,
-  MultiPartPromptPayloadSchema,
   ReasoningEffort,
 } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
@@ -111,6 +110,7 @@ export class RoutingLLMService implements ILlmService {
     try {
       return resolveProvider(modelName);
     } catch {
+      // Intentionally collect every invalid model so startup reports one complete error.
       badNames.push(modelName);
       return undefined;
     }
@@ -135,21 +135,19 @@ export class RoutingLLMService implements ILlmService {
    * No retry logic is implemented here — each provider handles its own retries
    * via the base `LLMService` class.
    * @remarks Multi-part conversation payloads are detected after the legacy
-   * image and text discriminators (preserving legacy precedence), validated
-   * against the schema before any image-part inspection, and routed by
-   * image-part presence: any image part in any message routes to the image
-   * provider, otherwise to the text provider. A failed parse raises `ZodError`
-   * at this routing entry without contacting any provider. Legacy image/text
-   * payloads are never schema-validated. See `docs/modules/llm.md`.
+   * image and text discriminators (preserving legacy precedence) and routed
+   * by image-part presence: any image part in any message routes to the image
+   * provider, otherwise to the text provider. The payload must have been
+   * validated at construction time via `buildMultiPartPromptPayload`;
+   * `RoutingLLMService.send()` performs no own schema validation.
+   * Legacy image/text payloads are never schema-validated. See `docs/modules/llm.md`.
    * @param payload - The payload to send (text/table, image, or conversation).
    * @returns A validated {@link LlmResponse}.
-   * @throws {ZodError} If a multi-part payload fails structural validation.
    */
   async send(payload: LlmPayload): Promise<LlmResponse> {
     let isImage = 'images' in payload;
     if (!isImage && !('user' in payload) && 'messages' in payload) {
-      const validatedPayload = MultiPartPromptPayloadSchema.parse(payload);
-      isImage = this.containsImagePart(validatedPayload);
+      isImage = this.containsImagePart(payload as MultiPartPromptPayload);
     }
 
     const provider = isImage ? this.imageProvider : this.textProvider;

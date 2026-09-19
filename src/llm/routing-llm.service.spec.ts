@@ -1,17 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ZodError } from 'zod';
 
 import { GeminiService } from './gemini.service.js';
-import {
-  LlmPayload,
-  MultiPartPromptPayload,
-  MultiPartPromptPayloadSchema,
-} from './llm.service.interface.js';
+import { LlmPayload, MultiPartPromptPayload } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
 import { SUPPORTED_MODELS } from './model-registry.js';
 import { RoutingLLMService } from './routing-llm.service.js';
 import { LlmResponse } from './types.js';
 import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 const VALID_TEXT_MODEL = 'gemini-2.5-flash-lite';
 const VALID_IMAGE_MODEL = 'gemini-2.5-flash';
@@ -111,7 +107,7 @@ describe('RoutingLLMService', () => {
     });
 
     it('routes text-only conversations with all roles using authoritative text settings without mutation', async () => {
-      const payload: MultiPartPromptPayload = {
+      const payload = buildMultiPartPromptPayload({
         messages: [
           { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
           { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
@@ -121,7 +117,7 @@ describe('RoutingLLMService', () => {
         reasoningEffort: 'max',
         temperature: 0,
         promptCacheKey: PROMPT_CACHE_KEY,
-      };
+      });
       const original = structuredClone(payload);
 
       await expect(service.send(payload)).resolves.toBe(response);
@@ -156,17 +152,17 @@ describe('RoutingLLMService', () => {
           role,
           parts: [
             { kind: 'text', text: 'Before image' },
-            { kind: 'image', mimeType: '', data: '' },
+            { kind: 'image', mimeType: 'image/png', data: 'YQ==' },
             { kind: 'text', text: 'After image' },
           ],
         });
-        const payload: MultiPartPromptPayload = {
+        const payload = buildMultiPartPromptPayload({
           messages,
           model: VALID_TEXT_MODEL,
           reasoningEffort: 'off',
           temperature: 0.75,
           promptCacheKey: PROMPT_CACHE_KEY,
-        };
+        });
         const original = structuredClone(payload);
 
         await expect(service.send(payload)).resolves.toBe(response);
@@ -179,74 +175,6 @@ describe('RoutingLLMService', () => {
         expect.soft(mockGemini.send).not.toHaveBeenCalled();
         expect(payload).toStrictEqual(original);
         expect(mockMistral.send.mock.calls[0][0]).not.toBe(payload);
-      },
-    );
-
-    it.each([
-      { label: 'empty messages', messages: [] },
-      { label: 'undefined messages', messages: undefined },
-      { label: 'null messages', messages: null },
-      { label: 'non-array messages', messages: {} },
-      { label: 'null message', messages: [null] },
-      { label: 'empty parts', messages: [{ role: 'user', parts: [] }] },
-      { label: 'missing parts', messages: [{ role: 'user' }] },
-      { label: 'null parts', messages: [{ role: 'user', parts: null }] },
-      { label: 'non-array parts', messages: [{ role: 'user', parts: 'text' }] },
-      { label: 'null part', messages: [{ role: 'user', parts: [null] }] },
-      {
-        label: 'unknown role',
-        messages: [{ role: 'tool', parts: [{ kind: 'text', text: 'hello' }] }],
-      },
-      {
-        label: 'unknown kind',
-        messages: [{ role: 'user', parts: [{ kind: 'audio', data: 'data' }] }],
-      },
-      {
-        label: 'missing image data',
-        messages: [
-          { role: 'user', parts: [{ kind: 'image', mimeType: 'image/png' }] },
-        ],
-      },
-      {
-        label: 'system image',
-        messages: [
-          {
-            role: 'system',
-            parts: [{ kind: 'image', mimeType: 'image/png', data: 'data' }],
-          },
-        ],
-      },
-      {
-        label: 'invalid later message after an image',
-        messages: [
-          {
-            role: 'user',
-            parts: [{ kind: 'image', mimeType: 'image/png', data: 'data' }],
-          },
-          { role: 'assistant', parts: null },
-        ],
-      },
-    ])(
-      'rejects $label with ZodError rather than an inspection error and never contacts providers',
-      async ({ messages }) => {
-        const payload = { messages } as unknown as LlmPayload;
-        const original = structuredClone(payload);
-        const schemaResult = MultiPartPromptPayloadSchema.safeParse(payload);
-        expect(schemaResult.success).toBe(false);
-        let thrown: unknown;
-        try {
-          await service.send(payload);
-        } catch (error) {
-          thrown = error;
-        }
-
-        expect.soft(thrown).toBeInstanceOf(ZodError);
-        if (thrown instanceof ZodError && !schemaResult.success) {
-          expect(thrown.issues).toEqual(schemaResult.error.issues);
-        }
-        expect.soft(mockGemini.send).not.toHaveBeenCalled();
-        expect.soft(mockMistral.send).not.toHaveBeenCalled();
-        expect(payload).toStrictEqual(original);
       },
     );
 

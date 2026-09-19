@@ -4,7 +4,7 @@
 
 Before writing or executing this plan:
 
-1. Read the current `SPEC.md` (multi-part prompt support, Draft v1.2). It is the source of truth for contracts, decisions, and scope boundaries.
+1. Read the current `SPEC.md` (multi-part prompt support, Draft v1.3). It is the source of truth for contracts, decisions, and scope boundaries.
 2. Relevant companion doc: `docs/modules/llm.md` (updated in the documentation section of this plan).
 3. The previous `ACTION_PLAN.md` at this path (prompt cache key) is delivered; per SPEC documentation notes it is intentionally replaced by this plan. Do not treat the old plan's content as live.
 4. Do not restate material settled in the spec; sequence delivery and testing here.
@@ -13,13 +13,13 @@ Before writing or executing this plan:
 
 ### Scope
 
-- New schema-first `MultiPartPromptPayload` contract (Zod schemas with `z.infer`-derived public types) added to the `LlmPayload` union in `src/llm/llm.service.interface.ts`, with schema validation of the multi-part variant at each `ILlmService.send()` entry point (routing entry before its inspection; provider base entry before `describePayload`/retry; `ZodError` propagating directly, no `mapError()`, no retry).
+- New schema-first `MultiPartPromptPayload` contract (branded Zod schemas with `z.infer`-derived public types) added to the `LlmPayload` union in `src/llm/llm.service.interface.ts`, with one construction-time validation boundary in `buildMultiPartPromptPayload()` (`ZodError` propagates directly; no `mapError()`, no retry).
 - Third `mapPayload` dispatch branch with pinned guard ordering (image → text → `'messages' in payload` presence), and `describePayload` multi-part summary.
 - `RoutingLLMService.send()` image-presence-based routing for the new variant.
 - Multi-part conversation mapping in `GeminiService` (`buildContents` widened to role-tagged turns) and `MistralService` (`buildMessages` chunk-array mapping).
 - Provider parameter handling (`model`, `temperature`, `reasoningEffort`), `promptCacheKey` forwarding (Mistral only, ignored by Gemini), and accurate provider log labelling for the new variant.
 - Unit test coverage per SPEC testing expectations; regression suites for existing variants stay green.
-- Documentation update to `docs/modules/llm.md`.
+- Documentation updates to `docs/modules/llm.md`, `docs/modules/prompt.md`, and `docs/llm/error-handling.md`, plus final reconciliation of `SPEC.md` and this plan.
 
 ### Out of scope
 
@@ -102,13 +102,13 @@ Extraction decisions must be recorded in the section's implementation notes when
 
 ### Objective
 
-- Introduce the schema-first `MultiPartPromptPayload` contract (Zod schemas, `z.infer`-derived types, role-discriminated messages, text/image parts), extend the `LlmPayload` union, add the provider-entry boundary validation in base `send()` (the routing-entry validation is deferred to Section 2), and wire the third `mapPayload` branch and `describePayload` summary in the abstract `LLMService` base class.
+- Introduce the schema-first `MultiPartPromptPayload` contract (branded Zod schemas, `z.infer`-derived types, role-discriminated messages, text/image parts), extend the `LlmPayload` union, add the construction helper `buildMultiPartPromptPayload()`, and wire the third `mapPayload` branch and `describePayload` summary in the abstract `LLMService` base class.
 
 ### Constraints
 
 - SPEC decisions 1–5, 6, 8–13. Image `data` is required; system messages are typed to text-only parts; guard order is image → text → messages-presence; the final `'Unsupported payload type'` throw is retained.
-- The schemas are the source of truth; public types are derived via `z.infer`. Structural rules: `messages` `.min(1)`, `parts` `.min(1)` per message; no format refinement beyond string-typed fields (SPEC decision 2).
-- Boundary validation: base `send()` parses the payload against `MultiPartPromptPayloadSchema` once, **only when the multi-part variant is detected, before the retry loop and before `describePayload`** (so no summary code touches an unvalidated payload); a failed parse propagates as `ZodError` with the same no-`mapError()`, no-retry contract as the existing in-loop `ZodError` bypass (the parse sits outside the loop — it must not be placed inside the per-attempt try). In this section, `RoutingLLMService.send()` is not yet wired to parse (that lands with Section 2's routing tests); the routing-side validation must not be implemented twice here.
+- The schemas are the source of truth; public types are derived via `z.infer`. Structural rules include non-empty `messages`/`parts`, role-specific parts, image MIME/base64 constraints, and the one MiB decoded image-part cap.
+- Boundary validation: `buildMultiPartPromptPayload()` parses the payload once against the branded `MultiPartPromptPayloadSchema`; a failed construction propagates as `ZodError` with the same no-`mapError()`, no-retry contract as the existing provider-response `ZodError` bypass. Routing and provider `send()` consume the branded payload and do not parse it again.
 - Existing types, guards, and `describePayload` behaviour for the two existing variants are untouched.
 - Import the contract names consistently; use explicit `.js` extensions.
 - **Declared deviation — provider compile coupling (planned, not improvised).** Extending the `LlmPayload` union breaks both providers' compilation: the missing third `mapPayload` handler and union-member field reads such as `payload.system` in `buildModelParams` / `buildMessages`. Section 1 therefore also:
@@ -148,7 +148,7 @@ Code Reviewer mandatory docs:
 - `mapPayload` dispatches the new variant via a third branch after the existing guards; malformed payloads still hit `'Unsupported payload type'`. The handler contract is pinned: optional key `conversation`, narrowed payload type `MultiPartPromptPayload`, generic return type `T` (identical to the existing image/text handlers), absent handler falls through to the existing final throw.
 - Both providers compile and run against the extended union, with a single interim throw site each: a multi-part payload reaching a provider `_sendInternal` hits the early guard's throw and never reaches the provider SDK.
 - Existing guard behaviour and exceptions are byte-for-byte unchanged for the existing variants (including that legacy variants are not schema-validated).
-- Boundary validation: a valid multi-part payload passes the schema check at the top of base `send()` — **before** `describePayload` and the retry loop; structurally invalid payloads (empty `messages`/`parts`, unknown role/`kind`, missing image `data`) raise `ZodError` re-thrown directly, with no `mapError()`, no retry, and no provider SDK contact.
+- Construction validation: a valid multi-part payload is returned by `buildMultiPartPromptPayload()` as a branded value; structurally invalid payloads (empty `messages`/`parts`, unknown role/`kind`, invalid image MIME type or data) raise `ZodError` directly before routing or provider contact.
 - `describePayload` yields a conversation summary (e.g. "conversation prompt with N message(s)") for multi-part payloads.
 - `npm run build` is green at the end of this section.
 
@@ -206,7 +206,7 @@ Backend service tests (unit — provider placeholder gate, `gemini.service.spec.
 
 - SPEC decision 11: any image part (in any message) → image provider/model/effort; otherwise text. Caller `model`/`reasoningEffort` overwritten authoritatively via spread; caller's payload never mutated.
 - Routing detection must not disturb the existing `'images' in payload` first branch; the multi-part branch is additive.
-- **Boundary validation (SPEC decision 12):** `RoutingLLMService.send()` — the main `ILlmService` entry — validates the multi-part variant against `MultiPartPromptPayloadSchema` **before** its image-presence inspection, so a structurally invalid payload raises `ZodError` at the routing entry rather than a `TypeError` from part inspection. The provider-side base `send()` parse (Section 1) remains for the provider/direct-instantiation path; both entry points share the same schema, so on the main path the provider-side parse observes an already-validated payload (idempotent, and defence-in-depth for callers bypassing routing).
+- **Construction validation (SPEC decision 12):** `buildMultiPartPromptPayload()` is the sole production parse boundary. `RoutingLLMService.send()` receives the branded value and performs image-presence inspection without parsing; the provider-side base `send()` likewise consumes the branded value without parsing. Legacy variants remain unvalidated.
 
 ### Delegation mandatory reads (when sub-agents are used)
 
@@ -238,7 +238,7 @@ Code Reviewer mandatory docs:
 - Text-only conversation → text provider with `textModel`/`textEffort`.
 - Conversation with an image part anywhere → image provider with `imageModel`/`imageEffort`.
 - Caller-supplied `model`/`reasoningEffort` overwritten; original payload object unmutated.
-- A structurally invalid multi-part payload raises `ZodError` at the routing entry before part inspection; no provider contact.
+- A structurally invalid multi-part payload raises `ZodError` during construction before routing or provider contact.
 - Legacy text/image routing behaviour unchanged, including that legacy variants are never schema-validated (regression).
 
 ### Required test cases (Red first)
@@ -249,7 +249,7 @@ Backend service tests (unit — `routing-llm.service.spec.ts`):
 2. Multi-part conversation with one image part routes to the image provider with image model/effort.
 3. Image part in an assistant message still routes to the image provider.
 4. Caller `model`/`reasoningEffort` are overwritten in the dispatched payload; caller's object is not mutated.
-5. Boundary validation: a structurally invalid multi-part payload (e.g. `messages` not an array, empty `messages`) raises `ZodError` at `RoutingLLMService.send()` **before** any part inspection runs and without the provider being contacted (regression: legacy variants are not parsed at the routing entry).
+5. Construction validation: a structurally invalid multi-part payload (e.g. `messages` not an array, empty `messages`) raises `ZodError` from `buildMultiPartPromptPayload()` before any routing or provider inspection (regression: legacy variants are not parsed).
 6. Regression: existing `StringPromptPayload` and `ImagePromptPayload` dispatch unchanged (spy-verified).
 
 ### Section checks
@@ -435,7 +435,7 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 ### Constraints
 
 - Prefer focused test runs before broader validation.
-- Regression-baseline requirement (per `AGENTS.md` §5): compare follow-up runs against the regression baseline recorded in Section 1 using the `regression-checker` skill before declaring the feature complete; no regressions may remain unexplained.
+- Regression-baseline requirement (per `AGENTS.md` §5): compare follow-up runs against the regression baseline recorded in Section 1. The repository does not contain the regression-checker CLI/configuration, so the user-authorised substitute is `npm run test` plus `npm run test:e2e:mocked`; no regressions may remain unexplained.
 
 ### Acceptance criteria
 
@@ -450,7 +450,7 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 2. Run the full `npm run test` suite.
 3. Run `npm run test:e2e:mocked` (V1 flow unaffected).
 4. Run `npm run build && npm run lint`.
-5. Run the `regression-checker` skill comparison against the Section 1 baseline and confirm no regressions.
+5. Run the configured regression-checker comparison against the Section 1 baseline; if the repository still lacks the CLI/configuration, run the authorised `npm run test` plus `npm run test:e2e:mocked` substitute and confirm no regressions.
 6. Full-LOC re-measurement confirms no file exceeds 500 lines, or extractions were applied and recorded.
 7. Verify mandatory-read evidence (`Files read`) is complete for every delegated regression handoff.
 
@@ -485,7 +485,7 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 ### Required checks
 
 1. Verify docs mention the transport/payload strategy and provider mapping table.
-2. Confirm `docs/llm/error-handling.md` needs **no change** (per SPEC: no new failure modes expected); record any discovered limitation in that doc or in implementation notes instead.
+2. Confirm `docs/llm/error-handling.md` accurately describes the structural `ZodError` construction surface while preserving the unchanged provider-error contract.
 3. Verify JSDoc on new public types is complete and British English.
 4. Confirm notes/deviations fields are filled during implementation.
 5. Verify mandatory-read evidence (`Files read`) is complete for delegated docs/review handoffs.
@@ -515,4 +515,28 @@ Backend service tests (unit — `mistral.service.spec.ts`):
 ## PR review remediation checkpoint — 2026-09-17
 
 - **ReasoningEffort SSoT complete; review clean:** the exported type is derived from the existing `ReasoningEffortSchema` in `multi-part-prompt.schema.ts` and imported/re-exported through the interface, preserving public imports and semantic JSDoc. SPEC decision 12 and recommended shapes now supersede the historical mirrored-union decision and bridge-equality requirement; existing tests remain unchanged and pin the identical public type contract.
-- No schema move, validation-boundary relocation or behavioural change is included. Historical delivery records above are preserved. Other outstanding `PR_REVIEW.md` decisions remain pending and are not implemented by this checkpoint.
+- No schema move, validation-boundary relocation or behavioural change was included in that 2026-09-17 checkpoint. The later continuation and final reconciliation are recorded below; historical delivery records above are preserved.
+
+### Session progress update (orchestrator, 2026-09-17)
+
+**Delivered and pushed (all clean review, all gates green):**
+
+- Commit `19fa1de` — `fix(llm): enforce ordered payload dispatch and harden provider error paths` (PR_REVIEW decisions: Critical Gemini guard precedence + six public-`send()` collision regression tests; shared non-throwing `payloadTypeName` helper; explicit `'Unsupported payload type'` summary fallback; Mistral nil-rejection-safe diagnostics; single Gemini structured error log; dead `logPayload` fall-through and unused parameter removed; Mistral JSDoc corrections; `extractResponseText` array join; test tidy-ups incl. `Behaviour` renames, duplicate `afterEach` removal, `expectTypeOf` relocation; Gemini assistant-image and conversation retry/classification coverage; payloadTypeName unknown-input coverage).
+- Commit `36b6b78` — `refactor(llm): derive reasoning effort from its schema` (ReasoningEffort single source of truth; SPEC decision revision recorded; review clean).
+- Regression baseline substitute (aggregate gate, regression-checker CLI absent): after `19fa1de` — 676 unit tests passed, 52 mocked E2E + 1 pre-existing todo, build/lint/tsc clean; after `36b6b78` — full gate re-verified green.
+
+**Historical checkpoint (superseded 2026-09-19):**
+
+- Agreed design (recorded for continuation): export `buildMultiPartPromptPayload(input: unknown): MultiPartPromptPayload` from `src/prompt/prompt.base.ts`, body `return MultiPartPromptPayloadSchema.parse(input) as MultiPartPromptPayload`; brand the schema output via native Zod `.brand<'MultiPartPromptPayload'>` (raw literals then not assignable); remove `MultiPartPromptPayloadSchema.parse` from both `RoutingLLMService.send()` (`src/llm/routing-llm.service.ts:151`) and base `LLMService.send()` (`src/llm/llm.service.interface.ts:201`); routing keeps `containsImagePart` over the branded payload; base `send()` drops the parse block. Image hardening in `ImageContentPartSchema`: `mimeType` regex `/^image\/[a-zA-Z0-9.+-]+$/`; `data` non-empty standard padded base64 (`/^[A-Za-z0-9+/]+={0,2}$/`) with decoded-byte cap 1 MiB (1 048 576) enforced via `superRefine` on the string (cap and cap+1 pinned); no magic-byte inspection or provider allowlist (V1 `ImageValidationPipe` and its configuration unchanged).
+- Test migration scope: move the interface/routing invalid-send matrices to construction-time rejection (no coverage loss); pin shared-option rejections (`temperature`, `model`, `reasoningEffort`, `promptCacheKey`), non-string text part, unknown-key stripping (input not mutated), one-parse pipeline; migrate all valid conversation fixtures in the four llm specs to parsed schema output (no casts forging the brand); keep legacy collision fixtures unvalidated.
+- Worktree state at that stop: `src/prompt/prompt.base.spec.ts` contained unused partial imports and the construction helper was not yet implemented. That state was resolved in the continuation described below. Three `.opencode/agents/*.md` user edits remain uncommitted (unchanged, out of scope); `PR_REVIEW.md` remains untracked.
+- Blocker recorded: repeated sub-agent delegation failures (provider timeouts, quota/stealth errors, step limits and agent worktree-ownership refusals). Recommendation for the fresh session: either resolve sub-agent availability or implement the batch directly with the orchestrator while retaining independent Code Reviewer approval and the full regression gate per batch.
+
+### Continuation and final reconciliation — 2026-09-19
+
+- **Validation-boundary batch complete:** `buildMultiPartPromptPayload()` now performs the sole production schema parse and returns the branded payload. Routing and provider `send()` no longer re-parse. Image MIME type, standard padded base64, non-empty data, and one MiB decoded-size constraints are enforced at construction; legacy image behaviour is unchanged. Construction and migration tests cover invalid structures, shared options, unknown-key stripping, input immutability, and the one-parse pipeline.
+- **JSON-parser cause chain complete:** parser/repair failures preserve the original `Error` as `cause`; response-processing failures are not classified as provider request rejection. Public-flow tests cover the distinction.
+- **Assessor and routing hardening complete:** conversation summaries use the established message-count format, duplicate terminal logging was removed, and the intentional routing catch-and-collect path is documented. Focused tests cover the changed behaviour.
+- **Documentation/specification complete:** `docs/modules/llm.md`, `docs/modules/prompt.md`, and `docs/llm/error-handling.md` now describe construction-time validation, image constraints, legacy discriminators, cache-key handling and the provider mapping contract. `SPEC.md` is Draft v1.3 and reconciled with the delivered implementation. Documentation review reported zero findings; mandatory-read evidence was complete.
+- **Final validation:** regular tests, mocked E2E, build, lint, spec-inclusive TypeScript checking, Prettier and British-English checks passed. The regression-checker CLI remains unavailable; the authorised substitute is `npm run test` plus `npm run test:e2e:mocked`. The mocked E2E suite has 52 passing tests and 1 pre-existing todo. No in-scope failures remain.
+- **Outstanding:** no product or implementation blockers. `.opencode/agents/*.md` contains the user's uncommitted model-configuration edits and `PR_REVIEW.md` remains an untracked review artefact; neither is included in the feature delivery commit.

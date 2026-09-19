@@ -169,6 +169,7 @@ export class JsonParserUtility {
       );
       throw new BadRequestException(
         'Malformed or irreparable JSON string provided.',
+        { cause: error },
       );
     }
   }

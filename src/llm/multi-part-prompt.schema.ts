@@ -26,12 +26,27 @@ export const TextContentPartSchema = z.object({
 });
 
 /**
- * Requires string MIME type and base64 data without format refinements.
+ * Validates an image part: MIME type must follow `image/<subtype>` with
+ * a valid subtype token matching `/^image\/[a-zA-Z0-9.+-]+$/`; data must be
+ * standard base64 and must not exceed 1 MiB when decoded.
  */
 export const ImageContentPartSchema = z.object({
   kind: z.literal('image'),
-  mimeType: z.string(),
-  data: z.string(),
+  mimeType: z
+    .string()
+    .regex(/^image\/[a-zA-Z0-9.+-]+$/, 'Invalid image MIME type'),
+  data: z.string().refine((data) => {
+    if (data.length === 0 || data.length % 4 !== 0) return false;
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return false;
+    const lastChar = data.at(-1);
+    const secondLastChar = data.at(-2);
+    let padding = 0;
+    if (lastChar === '=') {
+      padding = secondLastChar === '=' ? 2 : 1;
+    }
+    const decodedLength = (data.length / 4) * 3 - padding;
+    return decodedLength <= 1048576;
+  }, 'Invalid base64 image data or exceeds 1 MiB decoded'),
 });
 
 /**
@@ -58,31 +73,36 @@ export const LlmConversationMessageSchema = z.discriminatedUnion('role', [
 
 /**
  * Validates a non-empty conversation and optional shared provider settings.
- * Roles and parts retain caller order; string fields have no format refinements.
+ * Roles and parts retain caller order; `mimeType` and `data` are
+ * validated for format at construction time.
+ * The schema is branded so that only `buildMultiPartPromptPayload` produces
+ * instances that satisfy the `MultiPartPromptPayload` type contract.
  */
-export const MultiPartPromptPayloadSchema = z.object({
-  /**
-   * Ordered messages, each containing at least one part.
-   */
-  messages: z.array(LlmConversationMessageSchema).min(1),
-  /**
-   * Optional sampling temperature, interpreted by the provider.
-   */
-  temperature: z.number().optional(),
-  /**
-   * Optional model override, subject to authoritative routing configuration.
-   */
-  model: z.string().optional(),
-  /**
-   * Optional provider-neutral reasoning-effort level.
-   */
-  reasoningEffort: ReasoningEffortSchema.optional(),
-  /**
-   * Optional cache hint: forwarded to Mistral, ignored by Gemini once mapped.
-   * Derivation is deferred to the V2 prompt layer.
-   */
-  promptCacheKey: z.string().optional(),
-});
+export const MultiPartPromptPayloadSchema = z
+  .object({
+    /**
+     * Ordered messages, each containing at least one part.
+     */
+    messages: z.array(LlmConversationMessageSchema).min(1),
+    /**
+     * Optional sampling temperature, interpreted by the provider.
+     */
+    temperature: z.number().optional(),
+    /**
+     * Optional model override, subject to authoritative routing configuration.
+     */
+    model: z.string().optional(),
+    /**
+     * Optional provider-neutral reasoning-effort level.
+     */
+    reasoningEffort: ReasoningEffortSchema.optional(),
+    /**
+     * Optional cache hint: forwarded to Mistral, ignored by Gemini once mapped.
+     * Derivation is deferred to the V2 prompt layer.
+     */
+    promptCacheKey: z.string().optional(),
+  })
+  .brand<'MultiPartPromptPayload'>();
 
 /**
  * Schema-derived text part; its text may be empty.
@@ -108,9 +128,8 @@ export type LlmConversationMessage = z.infer<
 
 /**
  * Schema-first conversation payload with shared provider options.
- * @remarks Derived via `z.infer`; validated at each `ILlmService.send()` entry
- * point — the routing entry before its image-presence inspection, and the base
- * provider entry before summary and retry. Legacy payloads are not validated.
+ * @remarks Derived via `z.infer`; validated at construction time via
+ * `buildMultiPartPromptPayload`. Legacy payloads are not validated.
  * Cache-key derivation belongs to the future V2 prompt layer; provider
  * integration is documented in `docs/modules/llm.md`.
  */

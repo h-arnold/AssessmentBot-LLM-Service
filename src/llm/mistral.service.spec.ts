@@ -1,11 +1,11 @@
 import { Mistral } from '@mistralai/mistralai';
+import { BadRequestException } from '@nestjs/common';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
 import {
   ImagePromptPayload,
   LlmPayload,
-  MultiPartPromptPayload,
   StringPromptPayload,
 } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
@@ -22,6 +22,7 @@ import { RateLimitError } from '../common/errors/rate-limit.error.js';
 import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 /**
  * Invokes the private `extractResponseText` helper on a MistralService instance.
@@ -55,9 +56,9 @@ type MistralCompleteRequest = Parameters<Mistral['chat']['complete']>[0];
 
 const mockComplete = vi.fn();
 
-const conversationPayload: MultiPartPromptPayload = {
+const conversationPayload = buildMultiPartPromptPayload({
   messages: [{ role: 'user', parts: [{ kind: 'text', text: 'Question' }] }],
-};
+});
 
 const expectConversationRequest = (): MistralCompleteRequest => {
   expect(mockComplete).toHaveBeenCalledTimes(1);
@@ -616,7 +617,7 @@ describe('MistralService', () => {
 
     it('preserves native roles and separate text chunks in caller order, including later system messages', async () => {
       mockComplete.mockResolvedValue(createValidResponse(2));
-      const payload: MultiPartPromptPayload = {
+      const payload = buildMultiPartPromptPayload({
         messages: [
           {
             role: 'system',
@@ -634,7 +635,7 @@ describe('MistralService', () => {
           { role: 'system', parts: [{ kind: 'text', text: '' }] },
           { role: 'user', parts: [{ kind: 'text', text: 'Follow-up' }] },
         ],
-      };
+      });
       const original = structuredClone(payload);
 
       const result = await service.send(payload);
@@ -666,9 +667,11 @@ describe('MistralService', () => {
       'keeps a single %s message as a single text-chunk array without injecting content',
       async (role) => {
         mockComplete.mockResolvedValue(createValidResponse(1));
-        await service.send({
-          messages: [{ role, parts: [{ kind: 'text', text: '' }] }],
-        });
+        await service.send(
+          buildMultiPartPromptPayload({
+            messages: [{ role, parts: [{ kind: 'text', text: '' }] }],
+          }),
+        );
 
         const messages: MistralCompleteRequest['messages'] = [
           { role, content: [{ type: 'text', text: '' }] },
@@ -679,13 +682,15 @@ describe('MistralService', () => {
 
     it('preserves an assistant-first conversation without adding or reordering turns', async () => {
       mockComplete.mockResolvedValue(createValidResponse(1));
-      await service.send({
-        messages: [
-          { role: 'assistant', parts: [{ kind: 'text', text: 'Hello' }] },
-          { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
-          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
-        ],
-      });
+      await service.send(
+        buildMultiPartPromptPayload({
+          messages: [
+            { role: 'assistant', parts: [{ kind: 'text', text: 'Hello' }] },
+            { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
+            { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          ],
+        }),
+      );
 
       const messages: MistralCompleteRequest['messages'] = [
         { role: 'assistant', content: [{ type: 'text', text: 'Hello' }] },
@@ -699,20 +704,22 @@ describe('MistralService', () => {
       'maps mixed %s parts to ordered text and image data-URI chunks without the legacy instruction',
       async (role) => {
         mockComplete.mockResolvedValue(createValidResponse(3));
-        await service.send({
-          messages: [
-            {
-              role,
-              parts: [
-                { kind: 'text', text: 'Compare' },
-                { kind: 'image', mimeType: 'image/png', data: 'first-data' },
-                { kind: 'text', text: 'with' },
-                { kind: 'image', mimeType: 'image/jpeg', data: 'second-data' },
-                { kind: 'text', text: 'Explain' },
-              ],
-            },
-          ],
-        });
+        await service.send(
+          buildMultiPartPromptPayload({
+            messages: [
+              {
+                role,
+                parts: [
+                  { kind: 'text', text: 'Compare' },
+                  { kind: 'image', mimeType: 'image/png', data: 'Zmlyc3Q=' },
+                  { kind: 'text', text: 'with' },
+                  { kind: 'image', mimeType: 'image/jpeg', data: 'c2Vjb25k' },
+                  { kind: 'text', text: 'Explain' },
+                ],
+              },
+            ],
+          }),
+        );
 
         const messages: MistralCompleteRequest['messages'] = [
           {
@@ -721,12 +728,12 @@ describe('MistralService', () => {
               { type: 'text', text: 'Compare' },
               {
                 type: 'image_url',
-                imageUrl: 'data:image/png;base64,first-data',
+                imageUrl: 'data:image/png;base64,Zmlyc3Q=',
               },
               { type: 'text', text: 'with' },
               {
                 type: 'image_url',
-                imageUrl: 'data:image/jpeg;base64,second-data',
+                imageUrl: 'data:image/jpeg;base64,c2Vjb25k',
               },
               { type: 'text', text: 'Explain' },
             ],
@@ -736,20 +743,24 @@ describe('MistralService', () => {
       },
     );
 
-    it('passes an image-only message with empty unrefined strings through without silent dropping or instruction injection', async () => {
+    it('passes an image-only message through without silent dropping or instruction injection', async () => {
       mockComplete.mockResolvedValue(createValidResponse(1));
-      await service.send({
-        messages: [
-          {
-            role: 'user',
-            parts: [{ kind: 'image', mimeType: '', data: '' }],
-          },
-        ],
-      });
+      await service.send(
+        buildMultiPartPromptPayload({
+          messages: [
+            {
+              role: 'user',
+              parts: [{ kind: 'image', mimeType: 'image/png', data: 'YQ==' }],
+            },
+          ],
+        }),
+      );
       expect(expectConversationRequest().messages).toStrictEqual([
         {
           role: 'user',
-          content: [{ type: 'image_url', imageUrl: 'data:;base64,' }],
+          content: [
+            { type: 'image_url', imageUrl: 'data:image/png;base64,YQ==' },
+          ],
         },
       ]);
     });
@@ -764,13 +775,15 @@ describe('MistralService', () => {
       'preserves request options and cache forwarding for reasoning effort $effort',
       async ({ effort, native }) => {
         mockComplete.mockResolvedValue(createValidResponse(1));
-        await service.send({
-          ...conversationPayload,
-          model: 'pixtral-large-latest',
-          temperature: 0.75,
-          reasoningEffort: effort,
-          promptCacheKey: 'a'.repeat(64),
-        });
+        await service.send(
+          buildMultiPartPromptPayload({
+            ...conversationPayload,
+            model: 'pixtral-large-latest',
+            temperature: 0.75,
+            reasoningEffort: effort,
+            promptCacheKey: 'a'.repeat(64),
+          }),
+        );
 
         const expected: MistralCompleteRequest = {
           model: 'pixtral-large-latest',
@@ -843,17 +856,19 @@ describe('MistralService', () => {
           body: 'upstream detail',
         });
         mockComplete.mockRejectedValue(providerError);
-        const promise = service.send({
-          messages: [
-            {
-              role: 'assistant',
-              parts: [
-                { kind: 'text', text: 'Image' },
-                { kind: 'image', mimeType: 'image/png', data: 'data' },
-              ],
-            },
-          ],
-        });
+        const promise = service.send(
+          buildMultiPartPromptPayload({
+            messages: [
+              {
+                role: 'assistant',
+                parts: [
+                  { kind: 'text', text: 'Image' },
+                  { kind: 'image', mimeType: 'image/png', data: 'ZGF0YQ==' },
+                ],
+              },
+            ],
+          }),
+        );
 
         await expect(promise).rejects.toBeInstanceOf(errorClass);
         await expect(promise).rejects.toMatchObject({
@@ -940,6 +955,29 @@ describe('MistralService', () => {
       );
       expectConversationRequest();
       expect(mockParse).toHaveBeenCalledExactlyOnceWith('{}');
+    });
+
+    it('wraps a JsonParserUtility BadRequestException as LlmServiceError and preserves the original error', async () => {
+      mockComplete.mockResolvedValue(createValidResponse(1));
+      const badRequestException = new BadRequestException(
+        'Malformed or irreparable JSON string provided.',
+      );
+      mockParse.mockImplementation(() => {
+        throw badRequestException;
+      });
+
+      let thrown: unknown;
+      try {
+        await service.send(conversationPayload);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(LlmServiceError);
+      expect((thrown as LlmServiceError).originalError).toBe(
+        badRequestException,
+      );
+      expect(thrown).not.toBeInstanceOf(InvalidRequestError);
     });
   });
 

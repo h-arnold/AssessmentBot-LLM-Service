@@ -6,6 +6,7 @@ import {
   type GenerateContentParameters,
   type GenerateContentConfig,
 } from '@google/genai';
+import { BadRequestException } from '@nestjs/common';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
@@ -29,6 +30,7 @@ import { RateLimitError } from '../common/errors/rate-limit.error.js';
 import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 // Only mock the GoogleGenAI class, not the error classes (ApiError is preserved
 // from the real SDK via the ...actual spread below).
@@ -75,10 +77,10 @@ const createMultiPartPayload = (
   messages: MultiPartPromptPayload['messages'],
   extra: Partial<MultiPartPromptPayload> = {},
 ): MultiPartPromptPayload => {
-  return {
+  return buildMultiPartPromptPayload({
     messages,
     ...extra,
-  };
+  });
 };
 
 const expectConversationRequest = (): GenerateContentParameters & {
@@ -281,9 +283,9 @@ describe('GeminiService', () => {
 
     it('dispatches a multi-part payload through send to the SDK and validates the response', async () => {
       mockGenerateContent.mockResolvedValue(createValidResponse(1));
-      const multiPartPayload: MultiPartPromptPayload = {
-        messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
-      };
+      const multiPartPayload = createMultiPartPayload([
+        { role: 'user', parts: [{ kind: 'text', text: 'hi' }] },
+      ]);
 
       const result = await service.send(multiPartPayload);
 
@@ -647,7 +649,7 @@ describe('GeminiService', () => {
             role: 'user',
             parts: [
               { kind: 'text', text: 'Describe this image' },
-              { kind: 'image', mimeType: 'image/png', data: 'abc-base64' },
+              { kind: 'image', mimeType: 'image/png', data: 'YWJj' },
               { kind: 'text', text: 'Be concise' },
             ],
           },
@@ -660,7 +662,7 @@ describe('GeminiService', () => {
           role: 'user',
           parts: [
             { text: 'Describe this image' },
-            { inlineData: { mimeType: 'image/png', data: 'abc-base64' } },
+            { inlineData: { mimeType: 'image/png', data: 'YWJj' } },
             { text: 'Be concise' },
           ],
         },
@@ -677,7 +679,7 @@ describe('GeminiService', () => {
             role: 'assistant',
             parts: [
               { kind: 'text', text: 'Here is the chart' },
-              { kind: 'image', mimeType: 'image/png', data: 'chart-base64' },
+              { kind: 'image', mimeType: 'image/png', data: 'Y2hhcnQ=' },
             ],
           },
         ]),
@@ -690,7 +692,7 @@ describe('GeminiService', () => {
           role: 'model',
           parts: [
             { text: 'Here is the chart' },
-            { inlineData: { mimeType: 'image/png', data: 'chart-base64' } },
+            { inlineData: { mimeType: 'image/png', data: 'Y2hhcnQ=' } },
           ],
         },
       ]);
@@ -859,7 +861,7 @@ describe('GeminiService', () => {
               role: 'user',
               parts: [
                 { kind: 'text', text: 'Question' },
-                { kind: 'image', mimeType: 'image/png', data: 'abc-base64' },
+                { kind: 'image', mimeType: 'image/png', data: 'YWJj' },
               ],
             },
           ]),
@@ -1042,6 +1044,10 @@ describe('GeminiService', () => {
   });
 
   describe('error handling', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('should throw an error if the SDK fails', async () => {
       mockGenerateContent.mockRejectedValue(new Error('SDK Error'));
 
@@ -1110,6 +1116,33 @@ describe('GeminiService', () => {
       await expect(sendPromise).rejects.toThrow(
         'LLM service error: Malformed or irreparable JSON string provided.',
       );
+    });
+
+    it('wraps a JsonParserUtility BadRequestException as LlmServiceError and preserves the original error', async () => {
+      mockGenerateContent.mockResolvedValue({
+        text: 'This is not JSON.',
+      });
+
+      const badRequestException = new BadRequestException(
+        'Malformed or irreparable JSON string provided.',
+      );
+      mockParse.mockImplementation(() => {
+        throw badRequestException;
+      });
+
+      const payload = createStringPayload();
+      let thrown: unknown;
+      try {
+        await service.send(payload);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(LlmServiceError);
+      expect((thrown as LlmServiceError).originalError).toBe(
+        badRequestException,
+      );
+      expect(thrown).not.toBeInstanceOf(InvalidRequestError);
     });
 
     it('should log enriched context on failure', async () => {
@@ -1189,7 +1222,7 @@ describe('GeminiService', () => {
             role: 'assistant',
             parts: [
               { kind: 'text', text: 'Here is the chart' },
-              { kind: 'image', mimeType: 'image/png', data: 'chart-base64' },
+              { kind: 'image', mimeType: 'image/png', data: 'Y2hhcnQ=' },
             ],
           },
         ]);

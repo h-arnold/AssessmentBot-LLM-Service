@@ -48,6 +48,25 @@ errors.
 
 ---
 
+## Structural Payload Validation (`ZodError`)
+
+Multi-part conversation payloads are validated **once, at construction**, by
+`buildMultiPartPromptPayload()` in `src/prompt/prompt.base.ts`, which calls
+`MultiPartPromptPayloadSchema.parse()`. A structurally invalid payload (empty
+`messages`/`parts`, an unknown role or `kind`, a non-string `text`, malformed or
+oversized image `data`, an invalid `mimeType`, or wrong shared-option types)
+throws a raw `ZodError` before any provider is contacted. `RoutingLLMService.send()`
+and the base `LLMService.send()` consume the branded validated payload and do not
+re-parse it.
+
+This is separate from the existing `ZodError` bypass inside `LLMService.send()`.
+A `ZodError` raised while validating the provider **response** (`LlmResponseSchema`)
+is still re-thrown directly, skipping `mapError()` and retry, exactly as before.
+Neither path produces an `LlmError` subclass; the provider error-classification
+contract above is unchanged.
+
+---
+
 ## Adding a New LLM Provider
 
 To add error mapping for a new LLM provider, follow these steps:

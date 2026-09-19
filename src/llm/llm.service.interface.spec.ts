@@ -20,6 +20,7 @@ import { LlmServiceError } from '../common/errors/llm-service.error.js';
 import { RateLimitError } from '../common/errors/rate-limit.error.js';
 import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 // Fix randomInt jitter to zero so backoff delays are deterministic
 vi.mock('node:crypto', () => {
@@ -111,10 +112,6 @@ describe('LLMService retry-loop (Section 2 contract)', () => {
 
   beforeEach(() => {
     service = createService();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   const minimalPayload: LlmPayload = { system: 'sys', user: 'hello' };
@@ -460,9 +457,9 @@ describe('LlmPayload optional promptCacheKey contract', () => {
 // ---------------------------------------------------------------------------
 // Multi-part payload contract
 // ---------------------------------------------------------------------------
-const conversationPayload: MultiPartPromptPayload = {
+const conversationPayload = buildMultiPartPromptPayload({
   messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hello' }] }],
-};
+});
 const conversationResponse: LlmResponse = {
   completeness: { score: 5, reasoning: 'complete' },
   accuracy: { score: 4, reasoning: 'accurate' },
@@ -482,9 +479,9 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
 
   it('dispatches a multi-part payload to the conversation handler', () => {
     const conversationHandler = vi.fn().mockReturnValue('result');
-    const multiPartPayload: LlmPayload = {
+    const multiPartPayload = buildMultiPartPromptPayload({
       messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hello' }] }],
-    };
+    });
 
     expect(
       service.mapPayload(multiPartPayload, {
@@ -618,9 +615,9 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
   );
 
   it('absent optional conversation handler throws for multi-part payload', () => {
-    const multiPartPayload: LlmPayload = {
+    const multiPartPayload = buildMultiPartPromptPayload({
       messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
-    };
+    });
 
     // No conversation handler provided — falls through to throw.
     expect(() => {
@@ -738,12 +735,14 @@ describe('MultiPartPromptPayload contract — describePayload summary', () => {
       const logSpy = vi.spyOn(Logger.prototype, 'log');
       service.sendInternalFn = vi.fn().mockResolvedValue(conversationResponse);
 
-      await service.send({
-        messages: Array.from(
-          { length: count },
-          () => conversationPayload.messages[0],
-        ),
-      });
+      await service.send(
+        buildMultiPartPromptPayload({
+          messages: Array.from(
+            { length: count },
+            () => conversationPayload.messages[0],
+          ),
+        }),
+      );
 
       const dispatchedCall = logSpy.mock.calls.find((call) =>
         String(call[0]).includes('Dispatching LLM request'),
@@ -754,7 +753,7 @@ describe('MultiPartPromptPayload contract — describePayload summary', () => {
   );
 });
 
-describe('MultiPartPromptPayload contract — schema validation', () => {
+describe('MultiPartPromptPayload contract — construction boundary and legacy non-validation', () => {
   let service: ExposedLLMService;
 
   beforeEach(() => {
@@ -763,19 +762,19 @@ describe('MultiPartPromptPayload contract — schema validation', () => {
     service.mapErrorFn = vi.fn();
   });
 
-  it('accepts valid conversations with all roles, shared options and unrefined strings', async () => {
-    const payload: MultiPartPromptPayload = {
+  it('accepts valid conversations with all roles and shared options', async () => {
+    const payload = buildMultiPartPromptPayload({
       messages: [
         {
           role: 'assistant',
-          parts: [{ kind: 'image', mimeType: '', data: '' }],
+          parts: [{ kind: 'image', mimeType: 'image/png', data: 'YQ==' }],
         },
         { role: 'system', parts: [{ kind: 'text', text: '' }] },
         {
           role: 'user',
           parts: [
             { kind: 'text', text: 'hello' },
-            { kind: 'image', mimeType: 'not a MIME type', data: 'not base64' },
+            { kind: 'image', mimeType: 'image/png', data: 'YWJj' },
           ],
         },
       ],
@@ -783,93 +782,12 @@ describe('MultiPartPromptPayload contract — schema validation', () => {
       model: 'test-model',
       reasoningEffort: 'max',
       promptCacheKey: 'test-cache-key',
-    };
+    });
 
-    expect(MultiPartPromptPayloadSchema.parse(payload)).toEqual(payload);
     await expect(service.send(payload)).resolves.toEqual(conversationResponse);
     expect(service.sendInternalFn).toHaveBeenCalledExactlyOnceWith(payload);
     expect(service.mapErrorFn).not.toHaveBeenCalled();
   });
-
-  it.each([
-    { label: 'empty messages', messages: [] },
-    { label: 'undefined messages', messages: undefined },
-    { label: 'null messages', messages: null },
-    { label: 'non-array messages', messages: {} },
-    { label: 'null message', messages: [null] },
-    { label: 'empty parts', messages: [{ role: 'user', parts: [] }] },
-    { label: 'missing parts', messages: [{ role: 'user' }] },
-    { label: 'non-array parts', messages: [{ role: 'user', parts: 'text' }] },
-    {
-      label: 'unknown role',
-      messages: [{ role: 'tool', parts: [{ kind: 'text', text: 'hello' }] }],
-    },
-    {
-      label: 'unknown kind',
-      messages: [{ role: 'user', parts: [{ kind: 'audio', data: 'data' }] }],
-    },
-    {
-      label: 'missing image data',
-      messages: [
-        { role: 'user', parts: [{ kind: 'image', mimeType: 'image/png' }] },
-      ],
-    },
-    {
-      label: 'non-string image data',
-      messages: [
-        {
-          role: 'assistant',
-          parts: [{ kind: 'image', mimeType: 'image/png', data: 1 }],
-        },
-      ],
-    },
-    {
-      label: 'system image',
-      messages: [
-        {
-          role: 'system',
-          parts: [{ kind: 'image', mimeType: 'image/png', data: 'data' }],
-        },
-      ],
-    },
-  ])(
-    'rejects $label directly before summary, mapping, retry or provider contact',
-    async ({ messages }) => {
-      const payload = { messages } as unknown as LlmPayload;
-      const summarySpy = vi.spyOn(
-        service as unknown as {
-          describePayload(payload: LlmPayload): string;
-        },
-        'describePayload',
-      );
-      const retrySpy = vi
-        .spyOn(
-          service as unknown as {
-            waitBeforeRetry(...arguments_: unknown[]): Promise<void>;
-          },
-          'waitBeforeRetry',
-        )
-        .mockResolvedValue(undefined);
-      const schemaResult = MultiPartPromptPayloadSchema.safeParse(payload);
-      expect(schemaResult.success).toBe(false);
-
-      let thrown: unknown;
-      try {
-        await service.send(payload);
-      } catch (error) {
-        thrown = error;
-      }
-
-      expect.soft(thrown).toBeInstanceOf(ZodError);
-      if (thrown instanceof ZodError && !schemaResult.success) {
-        expect(thrown.issues).toEqual(schemaResult.error.issues);
-      }
-      expect.soft(summarySpy).not.toHaveBeenCalled();
-      expect.soft(service.sendInternalFn).not.toHaveBeenCalled();
-      expect.soft(service.mapErrorFn).not.toHaveBeenCalled();
-      expect.soft(retrySpy).not.toHaveBeenCalled();
-    },
-  );
 
   it.each([
     { label: 'text', payload: { system: '', user: '' } },

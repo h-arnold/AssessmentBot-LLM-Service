@@ -5,7 +5,11 @@ import Mustache from 'mustache';
 import { z } from 'zod';
 
 import { readMarkdown } from '../common/file-utilities.js';
-import { LlmPayload } from '../llm/llm.service.interface.js';
+import {
+  LlmPayload,
+  MultiPartPromptPayload,
+  MultiPartPromptPayloadSchema,
+} from '../llm/llm.service.interface.js';
 
 /**
  * Zod schema for validating basic inputs required for any prompt.
@@ -33,6 +37,18 @@ export const PromptInputSchema = z.object({
  * Type representing validated prompt input data.
  */
 export type PromptInput = z.infer<typeof PromptInputSchema>;
+
+/**
+ * Validates input and constructs a multi-part prompt payload.
+ * @param input - The raw conversation payload to validate.
+ * @returns The parsed multi-part prompt payload.
+ * @throws {ZodError} If the input fails schema validation.
+ */
+export function buildMultiPartPromptPayload(
+  input: unknown,
+): MultiPartPromptPayload {
+  return MultiPartPromptPayloadSchema.parse(input);
+}
 
 /**
  * Derives the provider-agnostic prompt cache key for a reference task.

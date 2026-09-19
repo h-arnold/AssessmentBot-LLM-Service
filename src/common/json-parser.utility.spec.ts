@@ -31,6 +31,10 @@ describe('JsonParserUtil', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should be defined', () => {
     expect(utility).toBeDefined();
   });
@@ -114,5 +118,19 @@ describe('JsonParserUtil', () => {
     expect(logSpy).not.toHaveBeenCalledWith(
       expect.stringContaining('Repaired JSON'),
     );
+  });
+
+  it('preserves the original parser or repair exception as the cause of the thrown BadRequestException', () => {
+    const malformedJson = '{"value":"\u{0}"}';
+
+    let thrown: unknown;
+    try {
+      utility.parse(malformedJson, false);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(BadRequestException);
+    expect((thrown as BadRequestException).cause).toBeInstanceOf(Error);
   });
 });

@@ -6,7 +6,7 @@ import {
   type GenerateContentParameters,
   type Part,
 } from '@google/genai';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 import {
   classifyLlmError,
@@ -217,6 +217,11 @@ export class GeminiService extends LLMService {
    * 9. `undefined` — none of the above match.
    */
   protected mapError(error: unknown): LlmError | undefined {
+    // Nest BadRequestExceptions here originate during response processing;
+    // provider request rejections use the Gemini SDK's own error types.
+    if (error instanceof BadRequestException) {
+      return undefined;
+    }
     return classifyLlmError(GEMINI_PROBES, error);
   }
 

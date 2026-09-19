@@ -4,7 +4,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import {
-  MultiPartPromptPayloadSchema,
   type MultiPartPromptPayload,
   type ReasoningEffort,
 } from './multi-part-prompt.schema.js';
@@ -162,8 +161,9 @@ export abstract class LLMService implements ILlmService {
    * errors where the mapped `LlmError` instance has `retryable === true`.
    * Non-retryable errors are thrown immediately without retry.
    * `ZodError` bypasses `mapError()` and is re-thrown directly.
-   * Multi-part payloads are parsed once before summary and retry; legacy
-   * image/text discriminators take precedence and remain unvalidated.
+   * Multi-part payloads are validated at construction time via
+   * `buildMultiPartPromptPayload`; legacy image/text discriminators take
+   * precedence and remain unvalidated.
    *
    * ### Error flow:
    * - `ZodError` is re-thrown without calling `mapError()` and without retry.
@@ -183,16 +183,9 @@ export abstract class LLMService implements ILlmService {
    *   LlmResponse object.
    * @throws {LlmError} Various `LlmError` subclasses depending on the error
    *   condition.
-   * @throws {ZodError} If payload validation fails.
+   * @throws {ZodError} If the provider response fails schema validation.
    */
   async send(payload: LlmPayload): Promise<LlmResponse> {
-    if (
-      !this.isImagePromptPayload(payload) &&
-      !this.isStringPromptPayload(payload) &&
-      this.isMultiPartPromptPayload(payload)
-    ) {
-      MultiPartPromptPayloadSchema.parse(payload);
-    }
     const maxRetries = Number(this.configService.get('LLM_MAX_RETRIES'));
     const baseBackoffMs = Number(this.configService.get('LLM_BACKOFF_BASE_MS'));
     const payloadSummary = this.describePayload(payload);

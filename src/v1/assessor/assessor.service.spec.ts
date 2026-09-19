@@ -15,7 +15,10 @@ import {
 } from '../../llm/llm.service.interface.js';
 import { MistralService } from '../../llm/mistral.service.js';
 import { LlmResponse } from '../../llm/types.js';
-import { Prompt } from '../../prompt/prompt.base.js';
+import {
+  Prompt,
+  buildMultiPartPromptPayload,
+} from '../../prompt/prompt.base.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
 import { PromptModule } from '../../prompt/prompt.module.js';
 
@@ -159,6 +162,10 @@ describe('AssessorService', () => {
     promptFactory = module.get<PromptFactory>(PromptFactory);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
@@ -258,7 +265,75 @@ describe('AssessorService', () => {
       ).toBe(false);
     });
 
-    it('should log and re-throw when the LLM service throws (catch/log branch)', async () => {
+    it.each([
+      {
+        label: 'text',
+        payload: { system: 'System prompt', user: 'prompt message' },
+        summary: 'text payload with 14 characters',
+      },
+      {
+        label: 'image',
+        payload: {
+          system: 'System prompt',
+          images: [{ mimeType: 'image/png', data: 'encoded image' }],
+        },
+        summary: 'image payload with 1 images',
+      },
+      {
+        label: 'one-message conversation',
+        payload: buildMultiPartPromptPayload({
+          messages: [
+            { role: 'user', parts: [{ kind: 'text', text: 'Hello' }] },
+          ],
+        }),
+        summary: 'conversation prompt with 1 messages',
+      },
+      {
+        label: 'two-message conversation',
+        payload: buildMultiPartPromptPayload({
+          messages: [
+            { role: 'user', parts: [{ kind: 'text', text: 'Hello' }] },
+            { role: 'assistant', parts: [{ kind: 'text', text: 'Hi' }] },
+          ],
+        }),
+        summary: 'conversation prompt with 2 messages',
+      },
+    ])(
+      'describes the $label payload through the public assessment flow',
+      async ({ payload, summary }) => {
+        const mockPrompt = {
+          buildMessage: vi.fn().mockResolvedValue(payload),
+        };
+        mockPromptFactory.create.mockResolvedValue(
+          mockPrompt as unknown as Prompt,
+        );
+        mockLlmService.send.mockResolvedValue(createMockLlmResponse(5));
+        const loggerSpy = vi.spyOn(
+          (
+            service as unknown as {
+              logger: { debug: (...a: unknown[]) => void };
+            }
+          ).logger,
+          'debug',
+        );
+
+        await service.createAssessment({
+          taskType: TaskType.TEXT,
+          reference: 'ref',
+          studentResponse: 'stud',
+          template: 'temp',
+        });
+
+        expect(
+          loggerSpy.mock.calls.some(
+            ([message]) =>
+              message === `LLM payload built for task type: TEXT (${summary}).`,
+          ),
+        ).toBe(true);
+      },
+    );
+
+    it('does not re-log the same failure at the source when the terminal-boundary logging decision applies', async () => {
       const dto: CreateAssessorDto = {
         taskType: TaskType.TEXT,
         reference: 'ref',
@@ -287,7 +362,9 @@ describe('AssessorService', () => {
         'LLM failure',
       );
 
-      expect(loggerSpy).toHaveBeenCalledWith(
+      // The terminal boundary owns failure logging; this service must not
+      // re-log the same failure before rethrowing it.
+      expect(loggerSpy).not.toHaveBeenCalledWith(
         'Assessment failed for task type: TEXT.',
         expect.any(String),
       );

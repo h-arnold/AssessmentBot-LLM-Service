@@ -52,7 +52,7 @@ Resolves the provider for each configured model (`DEFAULT_TEXT_TABLE_MODEL` / `D
 - Multi-part conversation payloads use the image or text setting depending on whether any message contains an image part (see [Multi-Part Conversation Payloads](#multi-part-conversation-payloads)).
 - The model prefix determines the provider: Mistral prefixes route to `MistralService`, while Gemini prefixes route to `GeminiService`.
 
-For legacy payloads, the distinction is made by checking whether the payload has an `images` array. The router creates a new payload and authoritatively sets its model and reasoning effort from server configuration, overriding caller-supplied values. Provider-specific reasoning parameters are then built by the selected provider. Gemini 2.5 models receive `thinkingConfig: { thinkingBudget }` (0 disables thinking), Gemini 2.0 models receive no `thinkingConfig` (the field is rejected with a 400 `INVALID_ARGUMENT`), and Gemini 3-series models (including the `gemini-flash-latest` alias) always receive an explicit `thinkingConfig: { thinkingLevel }` because omitting it defaults the model to _medium_ thinking (`off`/absent→`minimal`, `low`→`low`, `high`→`medium`, `max`→`high`).
+For legacy payloads, the distinction is made by checking for an `images` array first (image) and a `user` string next (text). The router creates a new payload and authoritatively sets its model and reasoning effort from server configuration, overriding caller-supplied values. Provider-specific reasoning parameters are then built by the selected provider. Gemini 2.5 models receive `thinkingConfig: { thinkingBudget }` (0 disables thinking), Gemini 2.0 models receive no `thinkingConfig` (the field is rejected with a 400 `INVALID_ARGUMENT`), and Gemini 3-series models (including the `gemini-flash-latest` alias) always receive an explicit `thinkingConfig: { thinkingLevel }` because omitting it defaults the model to _medium_ thinking (`off`/absent→`minimal`, `low`→`low`, `high`→`medium`, `max`→`high`).
 
 ### Centralised LLM Error Handling
 
@@ -85,7 +85,7 @@ priority rules, and how to add a new provider, see the dedicated guide:
 
 ## Multi-Part Conversation Payloads
 
-`MultiPartPromptPayload` is the third member of the `LlmPayload` union. It carries an ordered `messages` array whose messages have `system`, `user`, or `assistant` roles and whose parts are text (`{ kind: 'text', text }`) or image (`{ kind: 'image', mimeType, data }`). Image `data` is required base64. This is the transport-layer contract for conversation-style requests; no HTTP surface or prompt-layer producer exists yet (V2 workstream).
+`MultiPartPromptPayload` is the third member of the `LlmPayload` union. It carries an ordered `messages` array whose messages have `system`, `user`, or `assistant` roles and whose parts are text (`{ kind: 'text', text }`) or image (`{ kind: 'image', mimeType, data }`). Image `data` is required standard padded base64. Construct instances with `buildMultiPartPromptPayload()` (see [Construction-time validation](#construction-time-validation)). This is the transport-layer contract for conversation-style requests; no HTTP surface exists yet, and no prompt subclass produces one (V2 workstream).
 
 ### Schema-first contract
 
@@ -95,20 +95,26 @@ The schema enforces the following structural rules:
 
 - `messages` and each message's `parts` must be non-empty (`.min(1)`).
 - System messages accept text parts only; image parts are restricted to `user` and `assistant` messages.
-- `mimeType`, `data`, and `text` are strings with no format refinement. Provider-unsupported values fail loudly at the provider rather than being rewritten.
+- `mimeType` must match `image/<subtype>` (`/^image\/[a-zA-Z0-9.+-]+$/`). Parameters such as `; charset=utf-8`, whitespace, and non-lowercase `image/` prefixes are rejected.
+- `data` must be non-empty standard padded base64: a length that is a multiple of four, alphabet `[A-Za-z0-9+/]` with at most two trailing `=`, and a decoded size of at most 1 MiB (1 048 576 bytes) per image part. There is no aggregate cap across parts.
+- Validation is structural only. No magic-byte inspection is performed and no provider allowlist is applied, so a well-formed but provider-unsupported image fails loudly at the provider rather than being rewritten.
+- `text` is a plain string with no non-empty constraint. Unknown keys are stripped by Zod's default object behaviour, and the input object is not mutated.
 
-Legacy `StringPromptPayload` / `ImagePromptPayload` remain plain TypeScript types and gain no runtime validation.
+Legacy `StringPromptPayload` / `ImagePromptPayload` remain plain TypeScript types and gain no runtime validation. Legacy `ImagePromptPayload` images keep their existing behaviour: `data` is optional, and data-less entries are silently dropped by both providers.
 
-### Boundary validation
+### Construction-time validation
 
-The multi-part variant is parsed at both `ILlmService.send()` entry points:
+`buildMultiPartPromptPayload(input: unknown)` in `src/prompt/prompt.base.ts` is the **sole production schema-validation boundary** for multi-part payloads. It parses the input against `MultiPartPromptPayloadSchema` and returns the branded parsed object. The schema brand is a compile-time guarantee: only a builder-returned instance satisfies the `MultiPartPromptPayload` type.
 
-| Entry point                                                              | When it validates                           | Failure behaviour                                                              |
-| ------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------ |
-| `RoutingLLMService.send()`                                               | Before any image-presence inspection        | Throws `ZodError`; no provider contact                                         |
-| Base `LLMService.send()` (provider path, including direct instantiation) | Before `describePayload` and the retry loop | Throws `ZodError`; no summary, no `mapError()`, no retry, no provider SDK call |
+| Stage                                          | Behaviour                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `buildMultiPartPromptPayload()` (construction) | Parses once; throws a raw `ZodError` on invalid structure; strips unknown keys and returns a new object |
+| `RoutingLLMService.send()`                     | No parse; consumes the branded payload and inspects image-part presence only                            |
+| Base `LLMService.send()` (provider path)       | No parse; consumes the branded payload and runs the existing summary/retry/classification flow          |
 
-The base-class parse is idempotent on the main path because routing has already validated the same schema. Legacy variants are never parsed. A failed parse propagates as a raw `ZodError`, consistent with the existing error contract in [LLM Error Handling](../llm/error-handling.md).
+Routing and the provider base class trust the branded type and never re-parse. A `ZodError` raised while validating the provider **response** (`LlmResponseSchema`) is still re-thrown by the base `send()` loop without `mapError()` or retry. Legacy variants are never schema-validated.
+
+A construction failure propagates as a raw `ZodError`, consistent with the error contract in [LLM Error Handling](../llm/error-handling.md). The brand is a compile-time guarantee only: a payload that bypasses the builder (for example via a cast) is outside the contract and may fail later as an unvalidated shape. A payload reaching `send()` with no recognisable discriminator is not parsed and falls through to the generic `'Unsupported payload type'` exception rather than a structural `ZodError`.
 
 ### Routing by image presence
 
@@ -138,14 +144,15 @@ A multi-part payload sent directly to `GeminiService` (bypassing `RoutingLLMServ
 
 ### Testing notes
 
-- Base-class dispatch, boundary validation, and `describePayload` summaries: `src/llm/llm.service.interface.spec.ts`.
-- Routing and routing-entry validation: `src/llm/routing-llm.service.spec.ts`.
+- Construction-time schema validation (`buildMultiPartPromptPayload()`) and the single-parse contract: `src/prompt/prompt.base.spec.ts`.
+- Base-class dispatch and `describePayload` summaries: `src/llm/llm.service.interface.spec.ts`.
+- Routing by image-part presence: `src/llm/routing-llm.service.spec.ts`.
 - Provider mapping and log labelling: `src/llm/gemini.service.spec.ts` and `src/llm/mistral.service.spec.ts`.
 - Legacy `StringPromptPayload` / `ImagePromptPayload` regression coverage, including the silent drop of data-less images, lives in the same provider suites.
 
 ## Prompt Cache Key
 
-All three payload variants — `StringPromptPayload`, `ImagePromptPayload`, and `MultiPartPromptPayload` — accept an optional `promptCacheKey?: string`. It is a provider-agnostic prefix-cache routing hint that groups repeated requests for the same reference task. The key is derived server-side and is never accepted from clients.
+All three payload variants — `StringPromptPayload`, `ImagePromptPayload`, and `MultiPartPromptPayload` — accept an optional `promptCacheKey?: string`. It is a provider-agnostic prefix-cache routing hint that groups repeated requests for the same reference task. For the legacy variants the key is derived server-side and is never accepted from clients; the multi-part variant accepts a caller-supplied key (see [Multi-part cache-key contract](#multi-part-cache-key-contract)).
 
 ### Derivation
 
@@ -153,7 +160,11 @@ The prompt layer owns derivation. `buildPromptCacheKey(referenceTask)` in `src/p
 
 The rule is a single input — `sha256(referenceTask)` with no separator, prefix, or task-type component — and forms part of the documented contract. Changing it changes every effective cache key and therefore requires a deliberate contract revision. Keys are shared across task types by design: differing task types have differing reference content anyway.
 
-Multi-part conversation payloads carry **no derivation rule** in v1: the field is accepted and forwarded when a caller supplies one, and derivation for conversations belongs to the future V2 multi-part prompt base class workstream.
+### Multi-part cache-key contract
+
+**Contract decision (2026-09-17):** the multi-part variant accepts a caller-supplied `promptCacheKey`, in contrast to the legacy server-derived invariant. The value is forwarded verbatim to Mistral and ignored by Gemini. No derivation rule exists for conversations in v1; derivation belongs to the future V2 multi-part prompt base class workstream.
+
+No HTTP surface constructs multi-part payloads today, so the key remains server-controlled. When the V2 endpoint wires a client payload to this field, the caller-supplied key becomes wire-controlled and introduces a cache-poisoning / cross-tenant hazard: a malicious caller could force cache collisions or probe another tenant's cached prefix. The V2 workstream must review this contract before exposing the field — derive the key server-side as the legacy variants do, restrict it to trusted callers, or explicitly accept the risk.
 
 ### Provider Forwarding
 
@@ -162,7 +173,7 @@ Multi-part conversation payloads carry **no derivation rule** in v1: the field i
 | `MistralService` | Forwards the key when present as the SDK `promptCacheKey` property (serialised to provider-native `prompt_cache_key`); omits the field entirely when absent — never sends `null`. |
 | `GeminiService`  | Ignores the field: no request change, and no error when it is present.                                                                                                            |
 
-The multi-part conversation variant follows the same matrix: Mistral forwards the key when present, and Gemini ignores it. `RoutingLLMService` preserves the field unchanged through its payload spread. Cache hits are best-effort: a prefix mismatch still yields a miss, never an incorrect assessment. Mistral reports hit counts externally via `usage.prompt_tokens_details.cached_tokens`; this service neither logs nor exposes them.
+`RoutingLLMService` preserves the field unchanged through its payload spread. Cache hits are best-effort: a prefix mismatch still yields a miss, never an incorrect assessment. Mistral reports hit counts externally via `usage.prompt_tokens_details.cached_tokens`; this service neither logs nor exposes them.
 
 ### EU Endpoint Pinning
 

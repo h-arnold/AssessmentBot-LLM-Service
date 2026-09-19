@@ -4,7 +4,7 @@ import type {
   ContentChunk,
   SystemMessageContentChunks,
 } from '@mistralai/mistralai/models/components';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import {
@@ -247,6 +247,12 @@ export class MistralService extends LLMService {
    *   unclassifiable.
    */
   protected mapError(error: unknown): LlmError | undefined {
+    // Nest BadRequestExceptions here originate during response processing;
+    // provider request rejections use the Mistral SDK's own error types.
+    if (error instanceof BadRequestException) {
+      return undefined;
+    }
+
     return classifyLlmError(MISTRAL_PROBES, error);
   }
 

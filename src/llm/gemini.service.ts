@@ -6,7 +6,7 @@ import {
   type GenerateContentParameters,
   type Part,
 } from '@google/genai';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import {
   classifyLlmError,
@@ -26,6 +26,10 @@ import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
+/**
+ * Gemini requests require both fields because model parameters are assembled
+ * before dispatch, even though the upstream SDK type marks them optional.
+ */
 type GeminiRequest = Required<
   Pick<GenerateContentParameters, 'model' | 'config'>
 >;
@@ -178,7 +182,9 @@ export class GeminiService extends LLMService {
       const payloadType = this.payloadTypeName(payload);
       const errorMessage = isErrorObject(error) ? error.message : String(error);
       const errorBody =
-        typeof error_?.body === 'string' ? error_.body : undefined;
+        this.logLlmContent && typeof error_?.body === 'string'
+          ? error_.body
+          : undefined;
       const stack = isErrorObject(error) ? error.stack : undefined;
       this.logger.error(
         {
@@ -217,11 +223,6 @@ export class GeminiService extends LLMService {
    * 9. `undefined` — none of the above match.
    */
   protected mapError(error: unknown): LlmError | undefined {
-    // Nest BadRequestExceptions here originate during response processing;
-    // provider request rejections use the Gemini SDK's own error types.
-    if (error instanceof BadRequestException) {
-      return undefined;
-    }
     return classifyLlmError(GEMINI_PROBES, error);
   }
 
@@ -384,14 +385,21 @@ export class GeminiService extends LLMService {
   }
 
   private logPayload(payload: LlmPayload, contents: GeminiContents): void {
-    if (this.isStringPromptPayload(payload)) {
-      this.logger.debug({ contents }, 'String payload being sent');
-    } else if (this.isImagePromptPayload(payload)) {
-      this.logger.debug(
-        `Image payload being sent with ${contents.length} content items`,
-      );
-    } else if (this.isMultiPartPromptPayload(payload)) {
-      this.logger.debug({ contents }, 'Conversation payload being sent');
+    switch (this.payloadTypeName(payload)) {
+      case 'text':
+        this.logger.debug({ contents }, 'String payload being sent');
+        break;
+      case 'image':
+        this.logger.debug(
+          { contentCount: contents.length },
+          'Image payload being sent',
+        );
+        break;
+      case 'conversation':
+        this.logger.debug({ contents }, 'Conversation payload being sent');
+        break;
+      default:
+        break;
     }
   }
 
@@ -426,7 +434,10 @@ export class GeminiService extends LLMService {
       this.logger.debug({ responseText }, 'Raw response from Gemini');
     }
 
-    const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
+    const parsedJson: unknown = this.jsonParserUtility.parse(
+      responseText,
+      true,
+    );
     if (this.logLlmContent) {
       this.logger.debug({ parsedJson }, 'Parsed JSON response');
     }

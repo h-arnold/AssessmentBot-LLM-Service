@@ -1,20 +1,35 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { jsonrepair } from 'jsonrepair';
 
+import { ConfigService } from '../config/config.service.js';
+
 /**
  * Utility class for parsing and repairing JSON strings.
  * This class attempts to repair malformed JSON strings using the `jsonrepair` library
  * and then parses them into JavaScript objects.
  * @example
  * ```typescript
- * const jsonParser = new JsonParserUtility(new Logger('JsonParserUtility'));
+ * const jsonParser = new JsonParserUtility(configService, new Logger('JsonParserUtility'));
  * const parsedObject = jsonParser.parse('```json\n{"key": "value"}\n```');
  * ```
  * @throws {BadRequestException} Thrown when the provided JSON string is irreparable or malformed.
  */
 @Injectable()
 export class JsonParserUtility {
-  constructor(private readonly logger: Logger) {}
+  /**
+   * When true, raw LLM response content (which may contain student-derived
+   * data) is included in debug logs. Mirrors the `LOG_LLM_CONTENT` gating
+   * used by the provider services to prevent persisting personal data in
+   * default deployments.
+   */
+  private readonly logLlmContent: boolean;
+
+  constructor(
+    configService: ConfigService,
+    private readonly logger: Logger,
+  ) {
+    this.logLlmContent = configService.get('LOG_LLM_CONTENT');
+  }
 
   private parseJsonValue(jsonString: string): unknown {
     return JSON.parse(jsonString) as unknown;
@@ -28,7 +43,11 @@ export class JsonParserUtility {
       throw new Error('Parsed JSON is not a structured object or array.');
     }
 
-    this.logger.debug(`Repaired JSON for debug: ${repairedJsonString}`);
+    // Gate raw content logging behind LOG_LLM_CONTENT to prevent persisting
+    // student-derived PII in default deployments.
+    if (this.logLlmContent) {
+      this.logger.debug(`Repaired JSON for debug: ${repairedJsonString}`);
+    }
     return parsed;
   }
 
@@ -130,10 +149,10 @@ export class JsonParserUtility {
    * it is considered a failure, as the primary use case is for structured data.
    * @param {string} jsonString The raw string that may contain JSON.
    * @param {boolean} trim If true, trims content before the first '{' and after
-   *   the last '}'. Defaults to true.
+   *   the last '}'.
    * @returns {unknown} The parsed JavaScript object or array.
    */
-  parse(jsonString: string, trim = true): unknown {
+  parse(jsonString: string, trim: boolean): unknown {
     let jsonContent = '';
 
     const jsonBlockRegex = /```json\n([\s\S]*?)\n```/;
@@ -149,8 +168,11 @@ export class JsonParserUtility {
         this.logger.debug('Extracted JSON by trimming brackets.');
       } else {
         this.logger.error(
-          `JSON parsing failed: No valid JSON object found in input: ${jsonString}`,
+          'JSON parsing failed: No valid JSON object found in input.',
         );
+        if (this.logLlmContent) {
+          this.logger.debug(`Unparseable LLM response input: ${jsonString}`);
+        }
         throw new BadRequestException(
           'No valid JSON object found in response.',
         );
@@ -162,11 +184,13 @@ export class JsonParserUtility {
     try {
       return this.parseAndValidate(jsonContent);
     } catch (error) {
-      this.logger.debug(`JSON parsing failed for input: ${jsonString}`, error);
       this.logger.error(
         'JSON parsing failed due to malformed or irreparable input.',
         error,
       );
+      if (this.logLlmContent) {
+        this.logger.debug(`JSON parsing failed for input: ${jsonString}`);
+      }
       throw new BadRequestException(
         'Malformed or irreparable JSON string provided.',
         { cause: error },

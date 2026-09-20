@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CreateAssessorDto } from './dto/create-assessor.dto.js';
 import type { ILlmService } from '../../llm/llm.service.interface.js';
 import {
+  getPayloadTypeName,
   LLM_SERVICE_TOKEN,
   LlmPayload,
 } from '../../llm/llm.service.interface.js';
@@ -66,14 +67,23 @@ export class AssessorService {
    * @returns A human-readable summary string.
    */
   private describePayloadSummary(message: LlmPayload): string {
-    if ('images' in message) {
-      return `image payload with ${message.images.length} images`;
+    switch (getPayloadTypeName(message)) {
+      case 'image': {
+        if (!('images' in message) || !Array.isArray(message.images)) break;
+        const count = message.images.length;
+        return `image prompt with ${count} image${count === 1 ? '' : 's'}`;
+      }
+      case 'text': {
+        if (!('user' in message) || typeof message.user !== 'string') break;
+        const length = message.user.length;
+        return `text prompt with ${length} character${length === 1 ? '' : 's'}`;
+      }
+      case 'conversation': {
+        if (!('messages' in message) || !Array.isArray(message.messages)) break;
+        const count = message.messages.length;
+        return `conversation prompt with ${count} message${count === 1 ? '' : 's'}`;
+      }
     }
-    // This branch preserves compile-time coupling with the widened payload union;
-    // the V1 prompt layer does not currently produce conversation payloads.
-    if ('messages' in message) {
-      return `conversation prompt with ${message.messages.length} messages`;
-    }
-    return `text payload with ${message.user.length} characters`;
+    throw new Error('Unsupported payload type');
   }
 }

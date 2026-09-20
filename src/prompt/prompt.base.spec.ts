@@ -10,6 +10,7 @@ import {
   PromptInputSchema,
 } from './prompt.base.js';
 import { readMarkdown } from '../common/file-utilities.js';
+import { ConfigService } from '../config/config.service.js';
 import {
   LlmPayload,
   MultiPartPromptPayload,
@@ -47,8 +48,8 @@ const SHARED_IMAGE_DATA_URI_EXPECTED_KEY =
 
 // Mock implementation of the abstract class for testing
 class TestPrompt extends Prompt {
-  constructor(inputs: unknown, logger: Logger) {
-    super(inputs, logger);
+  constructor(inputs: unknown, logger: Logger, configService?: ConfigService) {
+    super(inputs, logger, undefined, undefined, configService);
   }
   public async buildMessage(): Promise<LlmPayload> {
     return { system: '', images: [] } as LlmPayload;
@@ -58,8 +59,14 @@ class TestPrompt extends Prompt {
 // Concrete subclass that deliberately does not override `buildMessage`, so the
 // inherited base (default text/table) population path is exercised directly.
 class InheritedBuildMessagePrompt extends Prompt {
-  constructor(inputs: unknown, logger: Logger) {
-    super(inputs, logger);
+  constructor(inputs: unknown, logger: Logger, configService?: ConfigService) {
+    super(inputs, logger, undefined, undefined, configService);
+  }
+}
+
+class RenderPrompt extends Prompt {
+  constructor(inputs: unknown, logger: Logger, configService?: ConfigService) {
+    super(inputs, logger, 'text.user.prompt.md', undefined, configService);
   }
 }
 
@@ -117,11 +124,43 @@ describe('buildMultiPartPromptPayload', () => {
     { model: 1 },
     { reasoningEffort: 'medium' },
     { promptCacheKey: 1 },
+    { promptCacheKey: '' },
+    { promptCacheKey: 'A'.repeat(64) },
+    { promptCacheKey: 'a'.repeat(63) },
+    { promptCacheKey: `${'a'.repeat(63)}g` },
   ])('rejects invalid shared options %j at construction', (options) => {
     expect(() => buildMultiPartPromptPayload({ messages, ...options })).toThrow(
       ZodError,
     );
   });
+
+  it('accepts a lowercase 64-character hexadecimal SHA-256 cache key', () => {
+    const promptCacheKey = 'a'.repeat(64);
+    expect(
+      buildMultiPartPromptPayload({ messages, promptCacheKey }),
+    ).toStrictEqual({ messages, promptCacheKey });
+  });
+
+  it.each([
+    { label: 'an empty message list', messages: [] },
+    { label: 'an empty parts list', messages: [{ role: 'user', parts: [] }] },
+    {
+      label: 'an image part in a system message',
+      messages: [
+        {
+          role: 'system',
+          parts: [{ kind: 'image', mimeType: 'image/png', data: 'YQ==' }],
+        },
+      ],
+    },
+  ])(
+    'rejects $label at the construction boundary',
+    ({ messages: invalidMessages }) => {
+      expect(() =>
+        buildMultiPartPromptPayload({ messages: invalidMessages }),
+      ).toThrow(ZodError);
+    },
+  );
 
   it('rejects non-string text at construction', () => {
     expect(() => {
@@ -290,6 +329,35 @@ describe('Prompt Base Class', (): void => {
       const invalidInput = { ...validInput, studentTask: false };
       expect(() => new TestPrompt(invalidInput, logger)).toThrow(ZodError);
     });
+
+    it.each([false, true])(
+      'gates raw constructor and rendered-template content logs when LOG_LLM_CONTENT is %s',
+      async (logLlmContent) => {
+        const configService = {
+          get: vi.fn(() => logLlmContent),
+        } as unknown as ConfigService;
+        const verboseSpy = vi.spyOn(logger, 'verbose');
+        const debugSpy = vi.spyOn(logger, 'debug');
+
+        const prompt = new RenderPrompt(validInput, logger, configService);
+        await prompt.buildMessage();
+
+        if (logLlmContent) {
+          expect(verboseSpy).toHaveBeenCalledWith(
+            { inputs: validInput },
+            'Prompt constructor received inputs',
+          );
+          expect(debugSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Template rendered. Output:'),
+          );
+        } else {
+          expect(verboseSpy).not.toHaveBeenCalled();
+          expect(debugSpy).not.toHaveBeenCalledWith(
+            expect.stringContaining('Template rendered. Output:'),
+          );
+        }
+      },
+    );
   });
 
   describe('Prompt.buildMessage promptCacheKey population', (): void => {

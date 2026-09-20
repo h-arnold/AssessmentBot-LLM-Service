@@ -12,6 +12,7 @@ import { LlmModule } from '../../llm/llm.module.js';
 import {
   ILlmService,
   LLM_SERVICE_TOKEN,
+  LlmPayload,
 } from '../../llm/llm.service.interface.js';
 import { MistralService } from '../../llm/mistral.service.js';
 import { LlmResponse } from '../../llm/types.js';
@@ -269,7 +270,7 @@ describe('AssessorService', () => {
       {
         label: 'text',
         payload: { system: 'System prompt', user: 'prompt message' },
-        summary: 'text payload with 14 characters',
+        summary: 'text prompt with 14 characters',
       },
       {
         label: 'image',
@@ -277,7 +278,7 @@ describe('AssessorService', () => {
           system: 'System prompt',
           images: [{ mimeType: 'image/png', data: 'encoded image' }],
         },
-        summary: 'image payload with 1 images',
+        summary: 'image prompt with 1 image',
       },
       {
         label: 'one-message conversation',
@@ -286,7 +287,7 @@ describe('AssessorService', () => {
             { role: 'user', parts: [{ kind: 'text', text: 'Hello' }] },
           ],
         }),
-        summary: 'conversation prompt with 1 messages',
+        summary: 'conversation prompt with 1 message',
       },
       {
         label: 'two-message conversation',
@@ -368,6 +369,63 @@ describe('AssessorService', () => {
         'Assessment failed for task type: TEXT.',
         expect.any(String),
       );
+    });
+
+    it('uses image precedence and singular wording when an image payload also has messages', async () => {
+      const payload = {
+        system: 'System prompt',
+        images: [{ mimeType: 'image/png', data: 'encoded image' }],
+        messages: buildMultiPartPromptPayload({
+          messages: [
+            { role: 'user', parts: [{ kind: 'text', text: 'Ignored' }] },
+          ],
+        }).messages,
+      } as unknown as LlmPayload;
+      const mockPrompt = {
+        buildMessage: vi.fn().mockResolvedValue(payload),
+      };
+      mockPromptFactory.create.mockResolvedValue(
+        mockPrompt as unknown as Prompt,
+      );
+      mockLlmService.send.mockResolvedValue(createMockLlmResponse(5));
+      const loggerSpy = vi.spyOn(
+        (
+          service as unknown as {
+            logger: { debug: (...arguments_: unknown[]) => void };
+          }
+        ).logger,
+        'debug',
+      );
+
+      await service.createAssessment({
+        taskType: TaskType.IMAGE,
+        reference: 'ref',
+        studentResponse: 'stud',
+        template: 'temp',
+      });
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'LLM payload built for task type: IMAGE (image prompt with 1 image).',
+      );
+    });
+
+    it('rejects an unsupported payload shape with a semantic error', async () => {
+      const mockPrompt = {
+        buildMessage: vi.fn().mockResolvedValue({ system: 'System prompt' }),
+      };
+      mockPromptFactory.create.mockResolvedValue(
+        mockPrompt as unknown as Prompt,
+      );
+
+      await expect(
+        service.createAssessment({
+          taskType: TaskType.TEXT,
+          reference: 'ref',
+          studentResponse: 'stud',
+          template: 'temp',
+        }),
+      ).rejects.toThrow('Unsupported payload type');
+      expect(mockLlmService.send).not.toHaveBeenCalled();
     });
   });
 });

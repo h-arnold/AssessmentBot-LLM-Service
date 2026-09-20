@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { resolveProvider, type ProviderId } from '../llm/model-registry.js';
+import { ReasoningEffortSchema } from '../llm/multi-part-prompt.schema.js';
 
 /**
  * @file Defines the Zod schema for environment variables, serving as the single source of truth for configuration validation.
@@ -72,8 +73,8 @@ export const configObjectSchema = z.object({
   MISTRAL_API_KEY: z.string().optional(),
   DEFAULT_TEXT_TABLE_MODEL: z.string().default('mistral-small-latest'),
   DEFAULT_IMAGE_MODEL: z.string().default('mistral-small-latest'),
-  TEXT_REASONING_EFFORT: z.enum(['off', 'low', 'high', 'max']).default('low'),
-  IMAGE_REASONING_EFFORT: z.enum(['off', 'low', 'high', 'max']).default('high'),
+  TEXT_REASONING_EFFORT: z.enum(ReasoningEffortSchema.options).default('low'),
+  IMAGE_REASONING_EFFORT: z.enum(ReasoningEffortSchema.options).default('high'),
   LOG_LLM_CONTENT: z
     .preprocess((value) => {
       return typeof value === 'string'

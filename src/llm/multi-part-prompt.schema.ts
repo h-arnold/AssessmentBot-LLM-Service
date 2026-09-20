@@ -75,8 +75,8 @@ export const LlmConversationMessageSchema = z.discriminatedUnion('role', [
  * Validates a non-empty conversation and optional shared provider settings.
  * Roles and parts retain caller order; `mimeType` and `data` are
  * validated for format at construction time.
- * The schema is branded so that only `buildMultiPartPromptPayload` produces
- * instances that satisfy the `MultiPartPromptPayload` type contract.
+ * The schema is branded for compile-time use. Runtime consumers rely on
+ * presence guards; the brand is not a runtime validation mechanism.
  */
 export const MultiPartPromptPayloadSchema = z
   .object({
@@ -100,7 +100,10 @@ export const MultiPartPromptPayloadSchema = z
      * Optional cache hint: forwarded to Mistral, ignored by Gemini once mapped.
      * Derivation is deferred to the V2 prompt layer.
      */
-    promptCacheKey: z.string().optional(),
+    promptCacheKey: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
   })
   .brand<'MultiPartPromptPayload'>();
 

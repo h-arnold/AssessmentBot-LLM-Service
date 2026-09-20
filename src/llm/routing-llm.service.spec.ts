@@ -245,6 +245,27 @@ describe('RoutingLLMService', () => {
         expect(original).toStrictEqual(snapshot);
       },
     );
+
+    it('routes a validated conversation by image-part presence rather than legacy discriminators', async () => {
+      const payload = buildMultiPartPromptPayload({
+        messages: [
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          {
+            role: 'assistant',
+            parts: [{ kind: 'image', mimeType: 'image/png', data: 'YQ==' }],
+          },
+        ],
+      });
+
+      await expect(service.send(payload)).resolves.toBe(response);
+
+      expect(mockMistral.send).toHaveBeenCalledExactlyOnceWith({
+        ...payload,
+        model: imageModel,
+        reasoningEffort: HIGH_EFFORT,
+      });
+      expect(mockGemini.send).not.toHaveBeenCalled();
+    });
   });
 
   describe('constructor validation', () => {

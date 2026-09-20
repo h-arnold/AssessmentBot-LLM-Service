@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
 import {
@@ -33,6 +33,22 @@ export {
  */
 export type LlmPayload =
   ImagePromptPayload | StringPromptPayload | MultiPartPromptPayload;
+
+/**
+ * Classifies a payload using the shared image, text, conversation precedence.
+ * @param payload - The payload to classify.
+ * @returns The payload classification, or `unknown` for an unsupported shape.
+ */
+export function getPayloadTypeName(
+  payload: LlmPayload,
+): 'image' | 'text' | 'conversation' | 'unknown' {
+  const candidate: unknown = payload;
+  if (typeof candidate !== 'object' || candidate === null) return 'unknown';
+  if ('images' in candidate) return 'image';
+  if ('user' in candidate) return 'text';
+  if ('messages' in candidate) return 'conversation';
+  return 'unknown';
+}
 
 /**
  * Shared contract for any service capable of sending prompts to an LLM.
@@ -262,6 +278,9 @@ export abstract class LLMService implements ILlmService {
    * @returns An `LlmError` instance.
    */
   private classifyError(error: unknown): LlmError {
+    if (error instanceof BadRequestException) {
+      return this.wrapUnclassified(error);
+    }
     let llmError: LlmError | undefined;
     try {
       llmError = this.mapError(error);
@@ -372,23 +391,13 @@ export abstract class LLMService implements ILlmService {
    * Uses image → text → conversation precedence without dispatching handlers.
    * @param payload - The payload to classify.
    * @returns `'image'`, `'text'`, `'conversation'`, or `'unknown'`.
+   * @remarks The runtime guard intentionally accepts malformed values because
+   * provider error logging must never throw while classifying an error.
    */
   protected payloadTypeName(
-    payload: unknown,
+    payload: LlmPayload,
   ): 'image' | 'text' | 'conversation' | 'unknown' {
-    if (typeof payload !== 'object' || payload === null) {
-      return 'unknown';
-    }
-    if ('images' in payload) {
-      return 'image';
-    }
-    if ('user' in payload) {
-      return 'text';
-    }
-    if ('messages' in payload) {
-      return 'conversation';
-    }
-    return 'unknown';
+    return getPayloadTypeName(payload);
   }
 
   /**
@@ -399,16 +408,15 @@ export abstract class LLMService implements ILlmService {
    * Throws `'Unsupported payload type'` when the payload matches none
    * of the known types (that is, when it is malformed).
    * @param payload - The payload to dispatch.
-   * @param handlers - An object with `image`, `text`, and optional
+   * @param handlers - An object with `image`, `text`, and
    *   `conversation` handler functions.
    * @param handlers.image - Handler invoked for {@link ImagePromptPayload}
    *   payloads. Receives the narrowed image payload.
    * @param handlers.text - Handler invoked for {@link StringPromptPayload}
    *   payloads. Receives the narrowed text payload.
-   * @param handlers.conversation - Optional handler invoked for
+   * @param handlers.conversation - Handler invoked for
    *   {@link MultiPartPromptPayload} payloads. Receives the narrowed
-   *   conversation payload. When absent, the multi-part variant falls
-   *   through to the existing final throw.
+   *   conversation payload.
    * @returns The result of the matched handler.
    */
   protected mapPayload<T>(
@@ -416,7 +424,7 @@ export abstract class LLMService implements ILlmService {
     handlers: {
       image: (payload: ImagePromptPayload) => T;
       text: (payload: StringPromptPayload) => T;
-      conversation?: (payload: MultiPartPromptPayload) => T;
+      conversation: (payload: MultiPartPromptPayload) => T;
     },
   ): T {
     if (this.isImagePromptPayload(payload)) {
@@ -425,7 +433,7 @@ export abstract class LLMService implements ILlmService {
     if (this.isStringPromptPayload(payload)) {
       return handlers.text(payload);
     }
-    if (this.isMultiPartPromptPayload(payload) && handlers.conversation) {
+    if (this.isMultiPartPromptPayload(payload)) {
       return handlers.conversation(payload);
     }
     throw new Error('Unsupported payload type');

@@ -5,6 +5,7 @@ import Mustache from 'mustache';
 import { z } from 'zod';
 
 import { readMarkdown } from '../common/file-utilities.js';
+import { ConfigService } from '../config/config.service.js';
 import {
   LlmPayload,
   MultiPartPromptPayload,
@@ -89,6 +90,7 @@ export abstract class Prompt {
   protected studentTask!: string;
   protected emptyTask!: string;
   protected readonly logger: Logger;
+  private readonly logLlmContent: boolean;
   protected userTemplateName?: string;
   protected systemPromptFile?: string;
   protected systemPrompt?: string;
@@ -106,6 +108,8 @@ export abstract class Prompt {
    *   template for user message parts.
    * @param {string} [systemPrompt] - Optional system prompt string for LLM
    *   context.
+   * @param {ConfigService} [configService] - Runtime configuration used to
+   *   gate raw prompt-content logging.
    * @throws {Error} If input validation fails.
    */
   constructor(
@@ -113,10 +117,13 @@ export abstract class Prompt {
     logger: Logger,
     userTemplateName?: string,
     systemPrompt?: string,
+    configService?: ConfigService,
   ) {
     this.logger = logger;
-    // Prompt constructor received inputs is set to verbose logging because it can output the base64 strings from image prompts, which often isn't particularly helpful for debugging.
-    this.logger.verbose({ inputs }, 'Prompt constructor received inputs');
+    this.logLlmContent = configService?.get('LOG_LLM_CONTENT') ?? false;
+    if (this.logLlmContent) {
+      this.logger.verbose({ inputs }, 'Prompt constructor received inputs');
+    }
     const parsed: PromptInput = PromptInputSchema.parse(inputs);
     this.referenceTask = parsed.referenceTask;
     this.studentTask = parsed.studentTask;
@@ -158,7 +165,9 @@ export abstract class Prompt {
       `Render called. this keys: ${Object.keys(this).join(', ')}`,
     );
     const renderedContent = Mustache.render(template, data);
-    this.logger.debug(`Template rendered. Output:\n${renderedContent}`);
+    if (this.logLlmContent) {
+      this.logger.debug(`Template rendered. Output:\n${renderedContent}`);
+    }
     return renderedContent;
   }
 

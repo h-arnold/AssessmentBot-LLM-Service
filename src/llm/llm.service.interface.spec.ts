@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { expectTypeOf } from 'vitest';
 import { ZodError, z } from 'zod';
 
@@ -13,6 +13,7 @@ import {
   ReasoningEffort,
   LlmConversationMessageSchema,
   ImageContentPartSchema,
+  getPayloadTypeName,
 } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
@@ -53,7 +54,7 @@ class ExposedLLMService extends LLMService {
    * @param handlers - The dispatch handlers for each payload type.
    * @param handlers.image - Handler for image prompt payloads.
    * @param handlers.text - Handler for string prompt payloads.
-   * @param handlers.conversation - Optional handler for multi-part conversation payloads.
+   * @param handlers.conversation - Handler for multi-part conversation payloads.
    * @returns The result of the matched handler.
    */
   public mapPayload<T>(
@@ -61,7 +62,7 @@ class ExposedLLMService extends LLMService {
     handlers: {
       image: (p: ImagePromptPayload) => T;
       text: (p: StringPromptPayload) => T;
-      conversation?: (p: MultiPartPromptPayload) => T;
+      conversation: (p: MultiPartPromptPayload) => T;
     },
   ): T {
     return super.mapPayload(payload, handlers);
@@ -511,6 +512,7 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
       service.mapPayload(imagePayload, {
         image: imageHandler,
         text: () => 'text',
+        conversation: () => 'conversation',
       }),
     ).toBe('image-result');
     expect(imageHandler).toHaveBeenCalledOnce();
@@ -520,6 +522,7 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
       service.mapPayload(textPayload, {
         image: () => 'image',
         text: textHandler,
+        conversation: () => 'conversation',
       }),
     ).toBe('text-result');
     expect(textHandler).toHaveBeenCalledOnce();
@@ -529,6 +532,7 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
       return service.mapPayload(unsupportedPayload, {
         image: imageHandler,
         text: textHandler,
+        conversation: () => 'conversation',
       });
     }).toThrow('Unsupported payload type');
   });
@@ -613,19 +617,36 @@ describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
       expect(handlers.text).not.toHaveBeenCalled();
     },
   );
+});
 
-  it('absent optional conversation handler throws for multi-part payload', () => {
-    const multiPartPayload = buildMultiPartPromptPayload({
-      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
+describe('shared payload classification and error policy', () => {
+  it('uses image, then text, then conversation precedence for diagnostics', () => {
+    expect(
+      getPayloadTypeName({ images: [], user: 'text', messages: [] } as never),
+    ).toBe('image');
+    expect(getPayloadTypeName({ user: 'text', messages: [] } as never)).toBe(
+      'text',
+    );
+    expect(getPayloadTypeName({ messages: [] } as never)).toBe('conversation');
+    expect(getPayloadTypeName({ system: 'unsupported' } as never)).toBe(
+      'unknown',
+    );
+  });
+
+  it('wraps parser BadRequestException values as unclassified service errors', async () => {
+    const service = createService();
+    const parserError = new BadRequestException('Malformed JSON');
+    service.sendInternalFn = vi.fn().mockRejectedValue(parserError);
+    service.mapErrorFn = vi.fn();
+
+    await expect(
+      service.send({ system: 'sys', user: 'hello' }),
+    ).rejects.toMatchObject({
+      constructor: LlmServiceError,
+      originalError: parserError,
+      message: expect.stringContaining('Malformed JSON'),
     });
-
-    // No conversation handler provided — falls through to throw.
-    expect(() => {
-      return service.mapPayload(multiPartPayload, {
-        image: () => 'image-result',
-        text: () => 'text-result',
-      });
-    }).toThrow('Unsupported payload type');
+    expect(service.mapErrorFn).not.toHaveBeenCalled();
   });
 });
 
@@ -781,7 +802,7 @@ describe('MultiPartPromptPayload contract — construction boundary and legacy n
       temperature: 0.5,
       model: 'test-model',
       reasoningEffort: 'max',
-      promptCacheKey: 'test-cache-key',
+      promptCacheKey: 'a'.repeat(64),
     });
 
     await expect(service.send(payload)).resolves.toEqual(conversationResponse);

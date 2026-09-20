@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 
 import { Prompt } from './prompt.base.js';
+import { ConfigService } from '../config/config.service.js';
 
 /**
  * Prompt implementation for assessing table-based tasks.
@@ -20,18 +21,21 @@ export class TablePrompt extends Prompt {
    *   file (defaults to table template).
    * @param {string} [systemPrompt] - Optional system prompt string providing
    *   context for table assessment.
+   * @param {ConfigService} [configService] - Runtime configuration.
    */
   constructor(
     inputs: unknown,
     logger: Logger,
     userTemplateName?: string,
     systemPrompt?: string,
+    configService?: ConfigService,
   ) {
     super(
       inputs,
       logger,
       userTemplateName ?? 'table.user.prompt.md',
       systemPrompt,
+      configService,
     );
   }
 }

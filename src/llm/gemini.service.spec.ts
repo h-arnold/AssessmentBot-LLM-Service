@@ -259,7 +259,7 @@ describe('GeminiService', () => {
       const payload = createStringPayload();
       await service.send(payload);
 
-      expect(mockParse).toHaveBeenCalledWith(malformedJson);
+      expect(mockParse).toHaveBeenCalledWith(malformedJson, true);
     });
   });
 
@@ -568,6 +568,20 @@ describe('GeminiService', () => {
       );
     });
 
+    it('sends empty contents for a system-only conversation and keeps its instruction', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toStrictEqual([]);
+      expect(request.config.systemInstruction).toBe('Instructions');
+    });
+
     it('omits systemInstruction when the conversation has no leading system message', async () => {
       mockGenerateContent.mockResolvedValue(createValidResponse(1));
 
@@ -837,6 +851,65 @@ describe('GeminiService', () => {
         expect.stringMatching(/Dispatching LLM request \(conversation prompt/),
       );
     });
+
+    it.each([
+      {
+        label: 'image payload',
+        payload: {
+          ...createImagePayload(),
+          user: 'ignored text',
+          messages: [
+            {
+              role: 'user',
+              parts: [{ kind: 'text', text: 'ignored conversation' }],
+            },
+          ],
+        },
+        expectedMessage: 'Image payload being sent',
+      },
+      {
+        label: 'text payload',
+        payload: {
+          ...createStringPayload(),
+          messages: [
+            {
+              role: 'user',
+              parts: [{ kind: 'text', text: 'ignored conversation' }],
+            },
+          ],
+        },
+        expectedMessage: 'String payload being sent',
+      },
+    ])(
+      'uses unified image → text → conversation precedence for a colliding $label',
+      async ({ payload, expectedMessage }) => {
+        const loggingConfig = {
+          get: vi.fn((key: string): string | null => {
+            if (key === 'GEMINI_API_KEY') return 'test-api-key';
+            if (key === 'LLM_BACKOFF_BASE_MS') return '100';
+            if (key === 'LLM_MAX_RETRIES') return '2';
+            if (key === 'LOG_LLM_CONTENT') return 'true';
+            return null;
+          }),
+        } as unknown as ConfigService;
+        const loggingService = new GeminiService(loggingConfig, {
+          parse: mockParse,
+        } as unknown as JsonParserUtility);
+        const logger = (
+          loggingService as unknown as {
+            logger: { debug: (...arguments_: unknown[]) => void };
+          }
+        ).logger;
+        const debugSpy = vi.spyOn(logger, 'debug');
+
+        mockGenerateContent.mockResolvedValue(createValidResponse(1));
+        await loggingService.send(payload as unknown as LlmPayload);
+
+        expect(
+          debugSpy.mock.calls.some((call) => call.includes(expectedMessage)),
+        ).toBe(true);
+      },
+    );
 
     it('labels the payload as a conversation in the error log rather than as text', async () => {
       const errorSpy = vi.spyOn(
@@ -1170,9 +1243,46 @@ describe('GeminiService', () => {
           payloadType: 'text',
           statusCode: 500,
           errorMessage: expect.stringContaining('Server error'),
-          errorBody: 'raw upstream body detail',
+          errorBody: undefined,
           stack: expect.any(String),
         }),
+        'Error communicating with or validating response from Gemini API',
+      );
+    });
+
+    it('includes the upstream error body when content logging is enabled', async () => {
+      const loggingConfig = {
+        get: vi.fn((key: string): string | null => {
+          if (key === 'GEMINI_API_KEY') return 'test-api-key';
+          if (key === 'LLM_BACKOFF_BASE_MS') return '100';
+          if (key === 'LLM_MAX_RETRIES') return '2';
+          if (key === 'LOG_LLM_CONTENT') return 'true';
+          return null;
+        }),
+      } as unknown as ConfigService;
+      const loggingService = new GeminiService(loggingConfig, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+      const errorSpy = vi.spyOn(
+        (
+          loggingService as unknown as {
+            logger: { error: (...arguments_: unknown[]) => void };
+          }
+        ).logger,
+        'error',
+      );
+      mockGenerateContent.mockRejectedValue(
+        Object.assign(new ApiError({ message: 'Server error', status: 500 }), {
+          body: 'raw upstream body detail',
+        }),
+      );
+
+      await expect(
+        loggingService.send(createStringPayload()),
+      ).rejects.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ errorBody: 'raw upstream body detail' }),
         'Error communicating with or validating response from Gemini API',
       );
     });

@@ -147,7 +147,7 @@ export class RoutingLLMService implements ILlmService {
   async send(payload: LlmPayload): Promise<LlmResponse> {
     let isImage = 'images' in payload;
     if (!isImage && !('user' in payload) && 'messages' in payload) {
-      isImage = this.containsImagePart(payload as MultiPartPromptPayload);
+      isImage = this.containsImagePart(payload);
     }
 
     const provider = isImage ? this.imageProvider : this.textProvider;

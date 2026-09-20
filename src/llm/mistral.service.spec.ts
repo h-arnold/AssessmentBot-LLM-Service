@@ -372,7 +372,7 @@ describe('MistralService', () => {
       const payload = createStringPayload();
       await service.send(payload);
 
-      expect(mockParse).toHaveBeenCalledWith(rawJson);
+      expect(mockParse).toHaveBeenCalledWith(rawJson, true);
     });
 
     it('should validate parsed result with LlmResponseSchema on the happy path', async () => {
@@ -884,7 +884,7 @@ describe('MistralService', () => {
             payloadType: 'conversation',
             statusCode: status,
             errorMessage: message,
-            errorBody: 'upstream detail',
+            errorBody: undefined,
             stack: providerError.stack,
           },
           'Error communicating with or validating response from Mistral API',
@@ -942,7 +942,7 @@ describe('MistralService', () => {
       });
       const result = await service.send(conversationPayload);
       expectConversationRequest();
-      expect(mockParse).toHaveBeenCalledExactlyOnceWith(responseText);
+      expect(mockParse).toHaveBeenCalledExactlyOnceWith(responseText, true);
       expectValidResponse(result, 2);
     });
 
@@ -954,7 +954,30 @@ describe('MistralService', () => {
         ZodError,
       );
       expectConversationRequest();
-      expect(mockParse).toHaveBeenCalledExactlyOnceWith('{}');
+      expect(mockParse).toHaveBeenCalledExactlyOnceWith('{}', true);
+    });
+
+    it('does not log Zod validation issues as raw provider content', async () => {
+      const logger = (
+        service as unknown as {
+          logger: { debug: (...arguments_: unknown[]) => void };
+        }
+      ).logger;
+      const debugSpy = vi.spyOn(logger, 'debug');
+      mockComplete.mockResolvedValue({
+        choices: [{ message: { content: '{"invalid":"student response"}' } }],
+      });
+
+      await expect(service.send(conversationPayload)).rejects.toBeInstanceOf(
+        ZodError,
+      );
+
+      const debugMessages = debugSpy.mock.calls
+        .flat()
+        .filter((value): value is string => typeof value === 'string')
+        .join('\n');
+      expect(debugMessages).not.toContain('Zod validation failed');
+      expect(debugMessages).not.toContain('student response');
     });
 
     it('wraps a JsonParserUtility BadRequestException as LlmServiceError and preserves the original error', async () => {
@@ -1409,7 +1432,7 @@ describe('MistralService', () => {
       const loggerSpy = vi.spyOn(
         (
           service as unknown as {
-            logger: { error: (...a: unknown[]) => void };
+            logger: { error: (...arguments_: unknown[]) => void };
           }
         ).logger,
         'error',
@@ -1430,9 +1453,72 @@ describe('MistralService', () => {
           payloadType: 'text',
           statusCode: 500,
           errorMessage: 'Server error',
-          errorBody: 'raw upstream body detail',
+          errorBody: undefined,
           stack: expect.any(String),
         }),
+        'Error communicating with or validating response from Mistral API',
+      );
+    });
+
+    it('labels image payload errors as image without exposing the upstream body', async () => {
+      const logger = (
+        service as unknown as {
+          logger: { error: (...arguments_: unknown[]) => void };
+        }
+      ).logger;
+      const errorSpy = vi.spyOn(logger, 'error');
+      mockComplete.mockRejectedValue(
+        Object.assign(new Error('Image failure'), {
+          statusCode: 400,
+          body: 'raw image upstream body',
+        }),
+      );
+
+      await expect(service.send(createImagePayload())).rejects.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payloadType: 'image',
+          errorBody: undefined,
+        }),
+        'Error communicating with or validating response from Mistral API',
+      );
+    });
+
+    it('includes the upstream error body when content logging is enabled', async () => {
+      const loggingConfig = {
+        get: vi.fn((key: string): string | null => {
+          if (key === 'MISTRAL_API_KEY') return 'test-mistral-key';
+          if (key === 'LLM_BACKOFF_BASE_MS') return '10';
+          if (key === 'LLM_MAX_RETRIES') return '2';
+          if (key === 'LOG_LLM_CONTENT') return 'true';
+          return null;
+        }),
+      } as unknown as ConfigService;
+      const loggingService = new MistralService(loggingConfig, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+      const errorSpy = vi.spyOn(
+        (
+          loggingService as unknown as {
+            logger: { error: (...arguments_: unknown[]) => void };
+          }
+        ).logger,
+        'error',
+      );
+      mockComplete.mockRejectedValue(
+        Object.assign(new Error('Server error'), {
+          statusCode: 500,
+          body: 'raw upstream body detail',
+        }),
+      );
+
+      await expect(
+        loggingService.send(createStringPayload()),
+      ).rejects.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ errorBody: 'raw upstream body detail' }),
         'Error communicating with or validating response from Mistral API',
       );
     });
@@ -1442,7 +1528,7 @@ describe('MistralService', () => {
       async (rejection) => {
         const logger = (
           service as unknown as {
-            logger: { error: (...a: unknown[]) => void };
+            logger: { error: (...arguments_: unknown[]) => void };
           }
         ).logger;
         const errorSpy = vi.spyOn(logger, 'error');
@@ -1480,7 +1566,7 @@ describe('MistralService', () => {
     it('labels a payload matching no known type as unknown without throwing', () => {
       const logger = (
         service as unknown as {
-          logger: { error: (...a: unknown[]) => void };
+          logger: { error: (...arguments_: unknown[]) => void };
         }
       ).logger;
       const errorSpy = vi.spyOn(logger, 'error');

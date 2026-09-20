@@ -1,6 +1,7 @@
 import { Logger, BadRequestException } from '@nestjs/common';
 
 import { buildPromptCacheKey, Prompt, PromptInput } from './prompt.base.js';
+import { ConfigService } from '../config/config.service.js';
 import { LlmPayload } from '../llm/llm.service.interface.js';
 
 /**
@@ -20,9 +21,15 @@ export class ImagePrompt extends Prompt {
    *   operations.
    * @param {string} [systemPrompt] - Optional system prompt string providing
    *   context for image assessment.
+   * @param {ConfigService} [configService] - Runtime configuration.
    */
-  constructor(inputs: PromptInput, logger: Logger, systemPrompt?: string) {
-    super(inputs, logger, undefined, systemPrompt);
+  constructor(
+    inputs: PromptInput,
+    logger: Logger,
+    systemPrompt?: string,
+    configService?: ConfigService,
+  ) {
+    super(inputs, logger, undefined, systemPrompt, configService);
   }
 
   /**

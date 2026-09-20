@@ -4,8 +4,7 @@ import type {
   ContentChunk,
   SystemMessageContentChunks,
 } from '@mistralai/mistralai/models/components';
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { ZodError } from 'zod';
+import { Injectable } from '@nestjs/common';
 
 import {
   classifyLlmError,
@@ -190,7 +189,10 @@ export class MistralService extends LLMService {
       this.logger.debug({ responseText }, 'Raw response from Mistral');
     }
 
-    const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
+    const parsedJson: unknown = this.jsonParserUtility.parse(
+      responseText,
+      true,
+    );
     if (this.logLlmContent) {
       this.logger.debug({ parsedJson }, 'Parsed JSON response');
     }
@@ -199,15 +201,7 @@ export class MistralService extends LLMService {
       ? (parsedJson as unknown[])[0]
       : parsedJson;
 
-    // Second try: validate the parsed payload.
-    try {
-      return LlmResponseSchema.parse(dataToValidate);
-    } catch (error) {
-      this.logger.debug(
-        `Zod validation failed: ${JSON.stringify((error as ZodError).issues)}`,
-      );
-      throw error;
-    }
+    return LlmResponseSchema.parse(dataToValidate);
   }
 
   /**
@@ -230,7 +224,9 @@ export class MistralService extends LLMService {
     const payloadType = this.payloadTypeName(payload);
     const errorMessage = isErrorObject(error) ? error.message : String(error);
     const errorBody =
-      typeof error_?.body === 'string' ? error_.body : undefined;
+      this.logLlmContent && typeof error_?.body === 'string'
+        ? error_.body
+        : undefined;
     const stack = isErrorObject(error) ? error.stack : undefined;
     this.logger.error(
       { model, payloadType, statusCode, errorMessage, errorBody, stack },
@@ -247,12 +243,6 @@ export class MistralService extends LLMService {
    *   unclassifiable.
    */
   protected mapError(error: unknown): LlmError | undefined {
-    // Nest BadRequestExceptions here originate during response processing;
-    // provider request rejections use the Mistral SDK's own error types.
-    if (error instanceof BadRequestException) {
-      return undefined;
-    }
-
     return classifyLlmError(MISTRAL_PROBES, error);
   }
 

@@ -10,7 +10,7 @@ import { ConfigService } from '../config/config.service.js';
  * @example
  * ```typescript
  * const jsonParser = new JsonParserUtility(configService, new Logger('JsonParserUtility'));
- * const parsedObject = jsonParser.parse('```json\n{"key": "value"}\n```');
+ * const parsedObject = jsonParser.parse('```json\n{"key": "value"}\n```', true);
  * ```
  * @throws {BadRequestException} Thrown when the provided JSON string is irreparable or malformed.
  */
@@ -148,8 +148,10 @@ export class JsonParserUtility {
    * If the parsed result is not an object or array (e.g., a string or number),
    * it is considered a failure, as the primary use case is for structured data.
    * @param {string} jsonString The raw string that may contain JSON.
-   * @param {boolean} trim If true, trims content before the first '{' and after
-   *   the last '}'.
+   * @param {boolean} trim Required. If true, trims content before the first
+   *   '{' and after the last '}'; if false, the input is parsed as provided.
+   *   Callers must pass this argument explicitly — provider call sites pass
+   *   `true`.
    * @returns {unknown} The parsed JavaScript object or array.
    */
   parse(jsonString: string, trim: boolean): unknown {

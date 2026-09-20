@@ -1,7 +1,7 @@
 ---
 description: Reviews code for quality, standards adherence, and defects using project-specific checklists
 mode: all
-model: openrouter/stealth/union-alpha
+model: opencode-go/glm-5.3-flash
 steps: 100
 permission:
   edit:

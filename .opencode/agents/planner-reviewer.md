@@ -64,6 +64,7 @@ Look for:
 8. missing contract planning — any planned change to a Zod schema, DTO, persistence model, or API contract that has no corresponding documentation or sequencing plan
 9. re-inventing the wheel or ignoring existing services, modules, or utilities that could be reused or extended
 10. evidence of over-engineering, over-specification, or unnecessary complexity that could be simplified without losing correctness **REMEMBER**: the repo prime directive is to ensure that the code is KISS AND DRY.
+11. open questions left unresolved at the end of planning, or decisions deferred to the implementation stage — planning must finish with no open questions; every deliberate deferral must be explicitly authorised by the user via the ask-user-a-question tool and recorded, otherwise treat it as **Critical**
 
 ## 2. Review Method
 
@@ -74,7 +75,8 @@ Check that the spec:
 - captures the real affected components and boundaries
 - distinguishes decisions, assumptions, recommendations, and non-goals clearly
 - resolves or explicitly records important contract and ownership questions
-- does not leave core behavioural decisions to `ACTION_PLAN.md`
+- does not leave core behavioural decisions to `ACTION_PLAN.md` or the implementation stage
+- leaves no open questions unresolved; any deliberate deferral is explicitly authorised by the user via the ask-user-a-question tool and recorded, otherwise it is a **Critical** finding
 - stays consistent with existing code, naming, and data-shape constraints
 - calls out any schema, DTO, persistence, or API-contract changes explicitly
 
@@ -90,6 +92,7 @@ Check that the plan:
 - includes regression and documentation follow-through
 - includes shared-helper planning where relevant (reuse/extend/new/keep-local decisions and ownership)
 - includes contract documentation planning for sections that change schemas, DTOs, persistence, or API contracts, with doc updates sequenced before dependent code changes
+- contains no open questions and defers no decision to the implementation stage; any deliberate deferral is explicitly authorised by the user via the ask-user-a-question tool and recorded, otherwise it is a **Critical** finding
 
 ## 3. Impartiality Rules
 

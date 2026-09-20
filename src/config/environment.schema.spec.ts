@@ -146,6 +146,20 @@ describe('Environment schema', () => {
       }).toThrow(z.ZodError);
     });
 
+    it.each(['off', 'low', 'high', 'max'] as const)(
+      'should accept shared reasoning effort %s for both task types',
+      (effort) => {
+        const result = configSchema.parse({
+          ...validEnvironment,
+          TEXT_REASONING_EFFORT: effort,
+          IMAGE_REASONING_EFFORT: effort,
+        });
+
+        expect(result.TEXT_REASONING_EFFORT).toBe(effort);
+        expect(result.IMAGE_REASONING_EFFORT).toBe(effort);
+      },
+    );
+
     it('should apply defaults for omitted model and effort variables', () => {
       const result = configSchema.parse(validEnvironment);
       expect(result.DEFAULT_TEXT_TABLE_MODEL).toBe('mistral-small-latest');

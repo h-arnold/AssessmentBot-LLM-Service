@@ -168,6 +168,7 @@ export class PromptFactory {
           this.logger,
           userTemplateFile,
           systemPrompt,
+          this.configService,
         );
       case TaskType.TABLE:
         return new TablePrompt(
@@ -175,6 +176,7 @@ export class PromptFactory {
           this.logger,
           userTemplateFile,
           systemPrompt,
+          this.configService,
         );
       case TaskType.IMAGE: {
         let imageInputs: {
@@ -222,7 +224,12 @@ export class PromptFactory {
           };
         }
 
-        return new ImagePrompt(imageInputs, this.logger, systemPrompt);
+        return new ImagePrompt(
+          imageInputs,
+          this.logger,
+          systemPrompt,
+          this.configService,
+        );
       }
       default:
         throw new Error('Unsupported task type');

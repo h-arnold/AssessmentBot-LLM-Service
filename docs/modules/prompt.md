@@ -54,6 +54,12 @@ Instantiates the correct `Prompt` subclass based on `taskType` from the DTO.
 3. Loads the system prompt markdown file from `src/prompt/templates/`
 4. Instantiates the appropriate prompt subclass
 
+### Multi-Part Payload Construction
+
+**Location:** `src/prompt/prompt.base.ts`
+
+`buildMultiPartPromptPayload(input: unknown)` is the sole construction boundary for `MultiPartPromptPayload` conversations. It parses the input against `MultiPartPromptPayloadSchema` and returns the branded parsed object, or throws a raw `ZodError`. Routing and the provider LLM services consume the branded payload without re-parsing; the schema brand means a raw literal is rejected at compile time. The legacy prompt subclasses above do not produce multi-part payloads — that remains V2 workstream work. See [LLM Module](llm.md#construction-time-validation).
+
 ### ImagePrompt Security Measures
 
 - **Path traversal protection:** Blocks `..` sequences in filenames

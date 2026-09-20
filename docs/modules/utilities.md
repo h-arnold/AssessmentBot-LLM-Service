@@ -32,7 +32,7 @@ Injectable service for parsing and repairing JSON strings, designed for LLM resp
 **Processing pipeline:**
 
 1. Detects and extracts content from ```json code blocks
-2. Optionally trims content outside the first `{` and last `}`
+2. When the required `trim` argument is `true`, trims content outside the first `{` and last `}` (callers must pass it explicitly; provider call sites pass `true`)
 3. Repairs malformed JSON via `jsonrepair`
 4. Validates the result is an object or array
 5. Throws `BadRequestException` if no valid JSON is found

@@ -4,6 +4,7 @@ import { GeminiService } from './gemini.service.js';
 import {
   ILlmService,
   LlmPayload,
+  MultiPartPromptPayload,
   ReasoningEffort,
 } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
@@ -31,10 +32,10 @@ import { ConfigService } from '../config/config.service.js';
  * startup feedback for misconfigured environments.
  *
  * The constructor does **not** read or check `GEMINI_API_KEY` or
- * `MISTRAL_API_KEY` — both are already enforced as required and non-empty by
- * the Zod environment schema (see SPEC product decision #4). Provider services
- * retain their existing defensive own-key checks for direct-instantiation
- * paths.
+ * `MISTRAL_API_KEY` — the Zod environment schema requires each key only when a
+ * configured model routes to that provider (see
+ * `docs/configuration/environment.md`). Provider services retain their existing
+ * defensive own-key checks for direct-instantiation paths.
  *
  * ### Configuration lifecycle
  * Configuration is validated at construction time and frozen for the lifetime
@@ -109,6 +110,7 @@ export class RoutingLLMService implements ILlmService {
     try {
       return resolveProvider(modelName);
     } catch {
+      // Intentionally collect every invalid model so startup reports one complete error.
       badNames.push(modelName);
       return undefined;
     }
@@ -119,22 +121,34 @@ export class RoutingLLMService implements ILlmService {
    * server-side configuration resolved at construction time.
    *
    * ### Routing decision flow:
-   * 1. Determine task type (`'images' in payload` → IMAGE, otherwise TEXT_TABLE).
+   * 1. Determine task type: legacy images use IMAGE and legacy text uses
+   *    TEXT_TABLE; validated conversations use IMAGE if any image part exists,
+   *    otherwise TEXT_TABLE.
    * 2. Pick the pre-resolved provider, model name, and reasoning-effort value
    *    cached from construction.
    * 3. Build a **new** payload object via spread (never mutates the caller's
    *    payload) and **authoritatively** set `model` and `reasoningEffort`
-   *    from the server config (overwriting any caller-supplied values — see
-   *    SPEC product decision #12).
+   *    from the server config, overwriting any caller-supplied values (see
+   *    `docs/modules/llm.md`).
    * 4. Delegate to the pre-resolved provider's `send()` method.
    *
    * No retry logic is implemented here — each provider handles its own retries
    * via the base `LLMService` class.
-   * @param payload - The payload to send (text/table or image).
+   * @remarks Multi-part conversation payloads are detected after the legacy
+   * image and text discriminators (preserving legacy precedence) and routed
+   * by image-part presence: any image part in any message routes to the image
+   * provider, otherwise to the text provider. The payload must have been
+   * validated at construction time via `buildMultiPartPromptPayload`;
+   * `RoutingLLMService.send()` performs no own schema validation.
+   * Legacy image/text payloads are never schema-validated. See `docs/modules/llm.md`.
+   * @param payload - The payload to send (text/table, image, or conversation).
    * @returns A validated {@link LlmResponse}.
    */
   async send(payload: LlmPayload): Promise<LlmResponse> {
-    const isImage = 'images' in payload;
+    let isImage = 'images' in payload;
+    if (!isImage && !('user' in payload) && 'messages' in payload) {
+      isImage = this.containsImagePart(payload);
+    }
 
     const provider = isImage ? this.imageProvider : this.textProvider;
     const model = isImage ? this.imageModel : this.textModel;
@@ -144,5 +158,17 @@ export class RoutingLLMService implements ILlmService {
     const resolvedPayload = { ...payload, model, reasoningEffort: effort };
 
     return provider.send(resolvedPayload);
+  }
+
+  /**
+   * Reports whether any message in a validated multi-part payload carries an
+   * image part, in any position or role.
+   * @param payload - The multi-part payload to inspect.
+   * @returns `true` if at least one image part exists.
+   */
+  private containsImagePart(payload: MultiPartPromptPayload): boolean {
+    return payload.messages.some((message) =>
+      message.parts.some((part) => part.kind === 'image'),
+    );
   }
 }

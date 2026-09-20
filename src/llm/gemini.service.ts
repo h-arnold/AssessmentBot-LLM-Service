@@ -1,11 +1,12 @@
 import {
   GoogleGenAI,
   ThinkingLevel,
+  type Content,
   type GenerateContentConfig,
+  type GenerateContentParameters,
   type Part,
 } from '@google/genai';
 import { Injectable } from '@nestjs/common';
-import { ZodError } from 'zod';
 
 import {
   classifyLlmError,
@@ -14,14 +15,35 @@ import {
   NETWORK_ERROR_PATTERN,
   probeStatusCode,
 } from './llm-error-mapper.js';
-import { LLMService, LlmPayload } from './llm.service.interface.js';
+import {
+  LLMService,
+  LlmPayload,
+  MultiPartPromptPayload,
+} from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
-type GeminiRequest = { model: string; config: GenerateContentConfig };
+/**
+ * Gemini requests require both fields because model parameters are assembled
+ * before dispatch, even though the upstream SDK type marks them optional.
+ */
+type GeminiRequest = Required<
+  Pick<GenerateContentParameters, 'model' | 'config'>
+>;
+type GeminiContents = Content[] | (string | Part)[];
+
+/**
+ * The provider-native view of a dispatched payload: its request contents and
+ * resolved system instruction, produced by the ordered legacy-image →
+ * legacy-text → conversation dispatch in `_sendInternal`.
+ */
+type GeminiPayloadView = {
+  contents: GeminiContents;
+  systemInstruction: string | undefined;
+};
 
 // ---------------------------------------------------------------------------
 // Gemini-specific probe configuration for the shared classifyLlmError helper
@@ -115,8 +137,27 @@ export class GeminiService extends LLMService {
   }
 
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    const modelParameters: GeminiRequest = this.buildModelParams(payload);
-    const contents = this.buildContents(payload);
+    // Ordered dispatch mirroring the base `mapPayload` precedence: legacy
+    // image → legacy text → conversation. Legacy variants never reach the
+    // conversation mapper, so extra `messages` on legacy payloads are never
+    // inspected or validated.
+    const view = this.mapPayload<GeminiPayloadView>(payload, {
+      image: (p) => {
+        return {
+          contents: this.mapImageParts(p.images),
+          systemInstruction: p.system,
+        };
+      },
+      text: (p) => {
+        return {
+          contents: [p.user],
+          systemInstruction: p.system,
+        };
+      },
+      conversation: (p) => this.mapConversation(p),
+    });
+    const { contents, systemInstruction } = view;
+    const modelParameters = this.buildModelParams(payload, systemInstruction);
 
     this.logger.debug(
       `Sending to Gemini with model: ${modelParameters.model}, temperature: ${
@@ -128,11 +169,7 @@ export class GeminiService extends LLMService {
     }
 
     try {
-      return await this.generateAndParseResponse(
-        payload,
-        modelParameters,
-        contents,
-      );
+      return await this.generateAndParseResponse(modelParameters, contents);
     } catch (error) {
       const error_ = error as {
         status?: number;
@@ -142,10 +179,12 @@ export class GeminiService extends LLMService {
       };
       const statusCode =
         error_?.status ?? error_?.statusCode ?? error_?.response?.status;
-      const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
+      const payloadType = this.payloadTypeName(payload);
       const errorMessage = isErrorObject(error) ? error.message : String(error);
       const errorBody =
-        typeof error_?.body === 'string' ? error_.body : undefined;
+        this.logLlmContent && typeof error_?.body === 'string'
+          ? error_.body
+          : undefined;
       const stack = isErrorObject(error) ? error.stack : undefined;
       this.logger.error(
         {
@@ -158,13 +197,6 @@ export class GeminiService extends LLMService {
         },
         'Error communicating with or validating response from Gemini API',
       );
-      if (error instanceof ZodError) {
-        this.logger.debug(
-          `Zod validation failed: ${JSON.stringify(error.issues)}`,
-        );
-        throw error;
-      }
-
       // Let the original error bubble up - the base class will handle
       // retry logic and error wrapping appropriately
       throw error;
@@ -194,7 +226,10 @@ export class GeminiService extends LLMService {
     return classifyLlmError(GEMINI_PROBES, error);
   }
 
-  private buildModelParams(payload: LlmPayload): GeminiRequest {
+  private buildModelParams(
+    payload: LlmPayload,
+    systemInstruction: string | undefined,
+  ): GeminiRequest {
     // Use payload.model if present; otherwise fall back to the current
     // hardcoded selection based on payload type.
     const modelName =
@@ -203,7 +238,6 @@ export class GeminiService extends LLMService {
         ? 'gemini-2.5-flash'
         : 'gemini-2.5-flash-lite');
 
-    const systemInstruction = payload.system;
     const temperature =
       typeof payload.temperature === 'number' ? payload.temperature : 0;
 
@@ -298,11 +332,36 @@ export class GeminiService extends LLMService {
     }
   }
 
-  private buildContents(payload: LlmPayload): (string | Part)[] {
-    return this.mapPayload<(string | Part)[]>(payload, {
-      image: (p) => this.mapImageParts(p.images),
-      text: (p) => [p.user],
+  /**
+   * Maps validated messages to Gemini turns and consumes the leading system.
+   * @param payload - The validated conversation in caller order.
+   * @returns Native turns and the leading system instruction, computed once.
+   * @remarks Mid-conversation system messages use user turns because Gemini
+   * contents only supports user/model roles; see `docs/modules/llm.md`. The
+   * schema rejects system-only conversations at construction, so the leading
+   * system message, if any, is always followed by a user/model turn and
+   * `contents` is never empty.
+   */
+  private mapConversation(payload: MultiPartPromptPayload): GeminiPayloadView {
+    const first = payload.messages[0];
+    const hasLeadingSystem = first.role === 'system';
+    const systemInstruction = hasLeadingSystem
+      ? first.parts.map((part) => part.text).join('\n\n')
+      : undefined;
+    const messages = hasLeadingSystem
+      ? payload.messages.slice(1)
+      : payload.messages;
+    const contents = messages.map((message): Content => {
+      return {
+        role: message.role === 'assistant' ? 'model' : 'user',
+        parts: message.parts.map((part): Part => {
+          return part.kind === 'text'
+            ? { text: part.text }
+            : { inlineData: { mimeType: part.mimeType, data: part.data } };
+        }),
+      };
     });
+    return { contents, systemInstruction };
   }
 
   private mapImageParts(
@@ -328,27 +387,31 @@ export class GeminiService extends LLMService {
     }) as Part[];
   }
 
-  private logPayload(payload: LlmPayload, contents: (string | Part)[]): void {
-    if (this.isStringPromptPayload(payload)) {
-      this.logger.debug({ contents }, 'String payload being sent');
-    } else if (this.isImagePromptPayload(payload)) {
-      this.logger.debug(
-        `Image payload being sent with ${contents.length} content items`,
-      );
-    } else {
-      this.logger.debug(
-        `Unknown payload type being sent with ${contents.length} content items`,
-      );
+  private logPayload(payload: LlmPayload, contents: GeminiContents): void {
+    switch (this.payloadTypeName(payload)) {
+      case 'text':
+        this.logger.debug({ contents }, 'String payload being sent');
+        break;
+      case 'image':
+        this.logger.debug(
+          { contentCount: contents.length },
+          'Image payload being sent',
+        );
+        break;
+      case 'conversation':
+        this.logger.debug({ contents }, 'Conversation payload being sent');
+        break;
+      default:
+        break;
     }
   }
 
   /**
    * Builds the Gemini request and parses the response into a validated
    * LlmResponse.
-   * @param {LlmPayload} payload The payload to send.
    * @param {GeminiRequest} modelParameters The pre-built model parameters
    *   (model name and generation config).
-   * @param {(string | Part)[]} contents The pre-built content parts to send.
+   * @param {GeminiContents} contents The pre-built content parts or turns.
    * @returns {Promise<LlmResponse>} A validated assessment response.
    * @remarks
    * - The response text is read via the new SDK's `result.text` getter (the
@@ -357,9 +420,8 @@ export class GeminiService extends LLMService {
    *   {@link buildThinkingConfig} based on the model family and effort level.
    */
   private async generateAndParseResponse(
-    payload: LlmPayload,
     modelParameters: GeminiRequest,
-    contents: (string | Part)[],
+    contents: GeminiContents,
   ): Promise<LlmResponse> {
     const { model, config } = modelParameters;
     const result = await this.getClient().models.generateContent({
@@ -375,7 +437,10 @@ export class GeminiService extends LLMService {
       this.logger.debug({ responseText }, 'Raw response from Gemini');
     }
 
-    const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
+    const parsedJson: unknown = this.jsonParserUtility.parse(
+      responseText,
+      true,
+    );
     if (this.logLlmContent) {
       this.logger.debug({ parsedJson }, 'Parsed JSON response');
     }

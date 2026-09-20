@@ -1,22 +1,54 @@
 import { randomInt } from 'node:crypto';
 
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
+import {
+  type MultiPartPromptPayload,
+  type ReasoningEffort,
+} from './multi-part-prompt.schema.js';
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
 import { LlmServiceError } from '../common/errors/llm-service.error.js';
 import { isErrorObject } from '../common/utils/type-guards.js';
 import { ConfigService } from '../config/config.service.js';
 
+export {
+  ReasoningEffortSchema,
+  type ReasoningEffort,
+  TextContentPartSchema,
+  ImageContentPartSchema,
+  LlmContentPartSchema,
+  LlmConversationMessageSchema,
+  MultiPartPromptPayloadSchema,
+  type TextContentPart,
+  type ImageContentPart,
+  type LlmContentPart,
+  type LlmConversationMessage,
+  type MultiPartPromptPayload,
+} from './multi-part-prompt.schema.js';
+
 /**
- * Abstract reasoning-effort level. Each provider maps these to its native parameter.
- * - 'off':  No reasoning — fastest, deterministic.
- * - 'low':  Minimal reasoning.
- * - 'high': Significant reasoning.
- * - 'max':  Maximum reasoning (may be expensive/slow).
+ * A union type representing any possible payload structure for the LLM service.
  */
-export type ReasoningEffort = 'off' | 'low' | 'high' | 'max';
+export type LlmPayload =
+  ImagePromptPayload | StringPromptPayload | MultiPartPromptPayload;
+
+/**
+ * Classifies a payload using the shared image, text, conversation precedence.
+ * @param payload - The payload to classify.
+ * @returns The payload classification, or `unknown` for an unsupported shape.
+ */
+export function getPayloadTypeName(
+  payload: LlmPayload,
+): 'image' | 'text' | 'conversation' | 'unknown' {
+  const candidate: unknown = payload;
+  if (typeof candidate !== 'object' || candidate === null) return 'unknown';
+  if ('images' in candidate) return 'image';
+  if ('user' in candidate) return 'text';
+  if ('messages' in candidate) return 'conversation';
+  return 'unknown';
+}
 
 /**
  * Shared contract for any service capable of sending prompts to an LLM.
@@ -104,11 +136,6 @@ export type ImagePromptPayload = {
 };
 
 /**
- * A union type representing any possible payload structure for the LLM service.
- */
-export type LlmPayload = ImagePromptPayload | StringPromptPayload;
-
-/**
  * Defines the base class for a generic LLM service with built-in retry logic
  * for retryable errors. This class provides exponential backoff retry
  * functionality for errors that carry `retryable === true`, while allowing
@@ -150,6 +177,9 @@ export abstract class LLMService implements ILlmService {
    * errors where the mapped `LlmError` instance has `retryable === true`.
    * Non-retryable errors are thrown immediately without retry.
    * `ZodError` bypasses `mapError()` and is re-thrown directly.
+   * Multi-part payloads are validated at construction time via
+   * `buildMultiPartPromptPayload`; legacy image/text discriminators take
+   * precedence and remain unvalidated.
    *
    * ### Error flow:
    * - `ZodError` is re-thrown without calling `mapError()` and without retry.
@@ -169,7 +199,7 @@ export abstract class LLMService implements ILlmService {
    *   LlmResponse object.
    * @throws {LlmError} Various `LlmError` subclasses depending on the error
    *   condition.
-   * @throws {ZodError} If payload validation fails.
+   * @throws {ZodError} If the provider response fails schema validation.
    */
   async send(payload: LlmPayload): Promise<LlmResponse> {
     const maxRetries = Number(this.configService.get('LLM_MAX_RETRIES'));
@@ -248,6 +278,9 @@ export abstract class LLMService implements ILlmService {
    * @returns An `LlmError` instance.
    */
   private classifyError(error: unknown): LlmError {
+    if (error instanceof BadRequestException) {
+      return this.wrapUnclassified(error);
+    }
     let llmError: LlmError | undefined;
     try {
       llmError = this.mapError(error);
@@ -342,17 +375,48 @@ export abstract class LLMService implements ILlmService {
   }
 
   /**
+   * Presence-only guard for the multi-part discriminator, not validation.
+   * Apply after the legacy image and text guards when selecting a variant.
+   * @param payload - The payload to check.
+   * @returns `true` if a `messages` property exists, regardless of its value.
+   */
+  protected isMultiPartPromptPayload(
+    payload: LlmPayload,
+  ): payload is MultiPartPromptPayload {
+    return 'messages' in payload;
+  }
+
+  /**
+   * Derives a non-throwing payload-type label for logging and diagnostics.
+   * Uses image → text → conversation precedence without dispatching handlers.
+   * @param payload - The payload to classify.
+   * @returns `'image'`, `'text'`, `'conversation'`, or `'unknown'`.
+   * @remarks The runtime guard intentionally accepts malformed values because
+   * provider error logging must never throw while classifying an error.
+   */
+  protected payloadTypeName(
+    payload: LlmPayload,
+  ): 'image' | 'text' | 'conversation' | 'unknown' {
+    return getPayloadTypeName(payload);
+  }
+
+  /**
    * Template-method dispatcher that routes an {@link LlmPayload} to the
-   * appropriate handler based on whether it is an image or a text payload.
+   * appropriate handler based on whether it is an image, text, or
+   * conversation payload.
    *
-   * Throws `'Unsupported payload type'` when the payload matches neither type
-   * (that is, when it is malformed).
+   * Throws `'Unsupported payload type'` when the payload matches none
+   * of the known types (that is, when it is malformed).
    * @param payload - The payload to dispatch.
-   * @param handlers - An object with `image` and `text` handler functions.
+   * @param handlers - An object with `image`, `text`, and
+   *   `conversation` handler functions.
    * @param handlers.image - Handler invoked for {@link ImagePromptPayload}
    *   payloads. Receives the narrowed image payload.
    * @param handlers.text - Handler invoked for {@link StringPromptPayload}
    *   payloads. Receives the narrowed text payload.
+   * @param handlers.conversation - Handler invoked for
+   *   {@link MultiPartPromptPayload} payloads. Receives the narrowed
+   *   conversation payload.
    * @returns The result of the matched handler.
    */
   protected mapPayload<T>(
@@ -360,6 +424,7 @@ export abstract class LLMService implements ILlmService {
     handlers: {
       image: (payload: ImagePromptPayload) => T;
       text: (payload: StringPromptPayload) => T;
+      conversation: (payload: MultiPartPromptPayload) => T;
     },
   ): T {
     if (this.isImagePromptPayload(payload)) {
@@ -368,15 +433,25 @@ export abstract class LLMService implements ILlmService {
     if (this.isStringPromptPayload(payload)) {
       return handlers.text(payload);
     }
+    if (this.isMultiPartPromptPayload(payload)) {
+      return handlers.conversation(payload);
+    }
     throw new Error('Unsupported payload type');
   }
 
   private describePayload(payload: LlmPayload): string {
-    if ('images' in payload) {
+    if (this.isImagePromptPayload(payload)) {
       const imageCount = payload.images.length;
       return `image prompt with ${imageCount} image${imageCount === 1 ? '' : 's'}`;
     }
-    const userLength = payload.user.length;
-    return `text prompt with ${userLength} character${userLength === 1 ? '' : 's'}`;
+    if (this.isStringPromptPayload(payload)) {
+      const userLength = payload.user.length;
+      return `text prompt with ${userLength} character${userLength === 1 ? '' : 's'}`;
+    }
+    if (this.isMultiPartPromptPayload(payload)) {
+      const messageCount = payload.messages.length;
+      return `conversation prompt with ${messageCount} message${messageCount === 1 ? '' : 's'}`;
+    }
+    throw new Error('Unsupported payload type');
   }
 }

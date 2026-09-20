@@ -1,14 +1,21 @@
 import { Logger } from '@nestjs/common';
+import { expectTypeOf } from 'vitest';
 import { ZodError } from 'zod';
 
 import {
+  buildMultiPartPromptPayload,
   buildPromptCacheKey,
   Prompt,
   PromptInput,
   PromptInputSchema,
 } from './prompt.base.js';
 import { readMarkdown } from '../common/file-utilities.js';
-import { LlmPayload } from '../llm/llm.service.interface.js';
+import { ConfigService } from '../config/config.service.js';
+import {
+  LlmPayload,
+  MultiPartPromptPayload,
+  MultiPartPromptPayloadSchema,
+} from '../llm/llm.service.interface.js';
 
 /*
  * Frozen golden input and its expected SHA-256 digest. The digest was generated
@@ -41,8 +48,8 @@ const SHARED_IMAGE_DATA_URI_EXPECTED_KEY =
 
 // Mock implementation of the abstract class for testing
 class TestPrompt extends Prompt {
-  constructor(inputs: unknown, logger: Logger) {
-    super(inputs, logger);
+  constructor(inputs: unknown, logger: Logger, configService?: ConfigService) {
+    super(inputs, logger, undefined, undefined, configService);
   }
   public async buildMessage(): Promise<LlmPayload> {
     return { system: '', images: [] } as LlmPayload;
@@ -52,10 +59,221 @@ class TestPrompt extends Prompt {
 // Concrete subclass that deliberately does not override `buildMessage`, so the
 // inherited base (default text/table) population path is exercised directly.
 class InheritedBuildMessagePrompt extends Prompt {
-  constructor(inputs: unknown, logger: Logger) {
-    super(inputs, logger);
+  constructor(inputs: unknown, logger: Logger, configService?: ConfigService) {
+    super(inputs, logger, undefined, undefined, configService);
   }
 }
+
+class RenderPrompt extends Prompt {
+  constructor(inputs: unknown, logger: Logger, configService?: ConfigService) {
+    super(inputs, logger, 'text.user.prompt.md', undefined, configService);
+  }
+}
+
+describe('buildMultiPartPromptPayload', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const messages = [{ role: 'user', parts: [{ kind: 'text', text: '' }] }];
+
+  it('parses once and returns the exact parsed object, stripping unknown fields without mutating input', () => {
+    const input = {
+      messages: [
+        {
+          role: 'user',
+          extra: true,
+          parts: [{ kind: 'text', text: '', extra: true }],
+        },
+      ],
+      extra: true,
+    };
+    const original = structuredClone(input);
+    const parse = vi.spyOn(MultiPartPromptPayloadSchema, 'parse');
+    const result = buildMultiPartPromptPayload(input);
+
+    expect(parse).toHaveBeenCalledExactlyOnceWith(input);
+    expect(result).toBe(parse.mock.results[0].value);
+    expect(result).toStrictEqual({ messages });
+    expect(result).not.toBe(input);
+    expect(input).toStrictEqual(original);
+  });
+
+  it('rejects an image exceeding the decoded 1048576-byte cap at construction', () => {
+    expect(() => {
+      return buildMultiPartPromptPayload({
+        messages: [
+          {
+            role: 'user',
+            parts: [
+              {
+                kind: 'image',
+                mimeType: 'image/png',
+                data: Buffer.prototype.toString.call(
+                  Buffer.alloc(1048577),
+                  'base64',
+                ),
+              },
+            ],
+          },
+        ],
+      });
+    }).toThrow(ZodError);
+  });
+
+  it.each([
+    { temperature: 'hot' },
+    { model: 1 },
+    { reasoningEffort: 'medium' },
+    { promptCacheKey: 1 },
+    { promptCacheKey: '' },
+    { promptCacheKey: 'A'.repeat(64) },
+    { promptCacheKey: 'a'.repeat(63) },
+    { promptCacheKey: `${'a'.repeat(63)}g` },
+  ])('rejects invalid shared options %j at construction', (options) => {
+    expect(() => buildMultiPartPromptPayload({ messages, ...options })).toThrow(
+      ZodError,
+    );
+  });
+
+  it('accepts a lowercase 64-character hexadecimal SHA-256 cache key', () => {
+    const promptCacheKey = 'a'.repeat(64);
+    expect(
+      buildMultiPartPromptPayload({ messages, promptCacheKey }),
+    ).toStrictEqual({ messages, promptCacheKey });
+  });
+
+  it.each([
+    { label: 'an empty message list', messages: [] },
+    { label: 'an empty parts list', messages: [{ role: 'user', parts: [] }] },
+    {
+      label: 'an image part in a system message',
+      messages: [
+        {
+          role: 'system',
+          parts: [{ kind: 'image', mimeType: 'image/png', data: 'YQ==' }],
+        },
+      ],
+    },
+    {
+      label: 'a system-only conversation',
+      messages: [{ role: 'system', parts: [{ kind: 'text', text: '' }] }],
+    },
+  ])(
+    'rejects $label at the construction boundary',
+    ({ messages: invalidMessages }) => {
+      expect(() =>
+        buildMultiPartPromptPayload({ messages: invalidMessages }),
+      ).toThrow(ZodError);
+    },
+  );
+
+  it('rejects non-string text at construction', () => {
+    expect(() => {
+      return buildMultiPartPromptPayload({
+        messages: [{ role: 'user', parts: [{ kind: 'text', text: 1 }] }],
+      });
+    }).toThrow(ZodError);
+  });
+
+  it.each([
+    '',
+    'text/png',
+    'IMAGE/png',
+    'image/',
+    'image/png; charset=utf-8',
+    'image/a_b',
+    'image/png\n',
+    ' image/png',
+  ])('rejects invalid image MIME %j', (mimeType) => {
+    expect(() => {
+      return buildMultiPartPromptPayload({
+        messages: [
+          { role: 'user', parts: [{ kind: 'image', mimeType, data: 'YQ==' }] },
+        ],
+      });
+    }).toThrow(ZodError);
+  });
+
+  it.each([
+    '',
+    'YQ',
+    'YQ=',
+    'YQ===',
+    '====',
+    'Y=Q=',
+    'YQ==AAAA',
+    'Y Q=',
+    'YQ==\n',
+    '-w==',
+    '_w==',
+    'data:image/png;base64,YQ==',
+  ])('rejects invalid standard padded base64 %j', (data) => {
+    expect(() => {
+      return buildMultiPartPromptPayload({
+        messages: [
+          {
+            role: 'user',
+            parts: [{ kind: 'image', mimeType: 'image/png', data }],
+          },
+        ],
+      });
+    }).toThrow(ZodError);
+  });
+
+  it.each(['YQ==', 'YWI=', 'YWJj', '+/8='])(
+    'accepts standard base64 %s as valid image data',
+    (data) => {
+      const input = {
+        messages: [
+          {
+            role: 'assistant',
+            parts: [
+              { kind: 'image', mimeType: 'image/X.vendor+format-1', data },
+            ],
+          },
+        ],
+      };
+      expect(buildMultiPartPromptPayload(input)).toStrictEqual(input);
+    },
+  );
+
+  it('accepts two images each exactly at the decoded cap rather than imposing an aggregate cap', () => {
+    const data = Buffer.prototype.toString.call(
+      Buffer.alloc(1048576),
+      'base64',
+    );
+    const input = {
+      messages: [
+        {
+          role: 'user',
+          parts: [
+            { kind: 'image', mimeType: 'image/png', data },
+            { kind: 'image', mimeType: 'image/jpeg', data },
+          ],
+        },
+      ],
+    };
+    expect(buildMultiPartPromptPayload(input)).toStrictEqual(input);
+  });
+
+  it('propagates the exact construction ZodError without wrapping it', () => {
+    const error = new ZodError([
+      { code: 'custom', message: 'Invalid construction', path: ['messages'] },
+    ]);
+    vi.spyOn(MultiPartPromptPayloadSchema, 'parse').mockImplementationOnce(
+      () => {
+        throw error;
+      },
+    );
+    expect(() => buildMultiPartPromptPayload({ messages })).toThrow(error);
+  });
+
+  it('requires the schema brand rather than a raw conversation literal', () => {
+    type Raw = {
+      messages: { role: 'user'; parts: { kind: 'text'; text: string }[] }[];
+    };
+    expectTypeOf<Raw>().not.toMatchObjectType<MultiPartPromptPayload>();
+  });
+});
 
 describe('Prompt Base Class', (): void => {
   let logger: Logger;
@@ -115,6 +333,35 @@ describe('Prompt Base Class', (): void => {
       const invalidInput = { ...validInput, studentTask: false };
       expect(() => new TestPrompt(invalidInput, logger)).toThrow(ZodError);
     });
+
+    it.each([false, true])(
+      'gates raw constructor and rendered-template content logs when LOG_LLM_CONTENT is %s',
+      async (logLlmContent) => {
+        const configService = {
+          get: vi.fn(() => logLlmContent),
+        } as unknown as ConfigService;
+        const verboseSpy = vi.spyOn(logger, 'verbose');
+        const debugSpy = vi.spyOn(logger, 'debug');
+
+        const prompt = new RenderPrompt(validInput, logger, configService);
+        await prompt.buildMessage();
+
+        if (logLlmContent) {
+          expect(verboseSpy).toHaveBeenCalledWith(
+            { inputs: validInput },
+            'Prompt constructor received inputs',
+          );
+          expect(debugSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Template rendered. Output:'),
+          );
+        } else {
+          expect(verboseSpy).not.toHaveBeenCalled();
+          expect(debugSpy).not.toHaveBeenCalledWith(
+            expect.stringContaining('Template rendered. Output:'),
+          );
+        }
+      },
+    );
   });
 
   describe('Prompt.buildMessage promptCacheKey population', (): void => {

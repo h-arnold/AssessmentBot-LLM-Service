@@ -1,11 +1,19 @@
-import { Logger } from '@nestjs/common';
-import { ZodError } from 'zod';
+import { BadRequestException, Logger } from '@nestjs/common';
+import { expectTypeOf } from 'vitest';
+import { ZodError, z } from 'zod';
 
 import {
   ImagePromptPayload,
   LLMService,
   LlmPayload,
   StringPromptPayload,
+  MultiPartPromptPayload,
+  MultiPartPromptPayloadSchema,
+  ReasoningEffortSchema,
+  ReasoningEffort,
+  LlmConversationMessageSchema,
+  ImageContentPartSchema,
+  getPayloadTypeName,
 } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
 import type { LlmError } from '../common/errors/llm-error.base.js';
@@ -13,6 +21,7 @@ import { LlmServiceError } from '../common/errors/llm-service.error.js';
 import { RateLimitError } from '../common/errors/rate-limit.error.js';
 import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 // Fix randomInt jitter to zero so backoff delays are deterministic
 vi.mock('node:crypto', () => {
@@ -28,7 +37,7 @@ class ExposedLLMService extends LLMService {
   protected readonly providerName = 'test-provider';
 
   /**
-  Configurable mock for mapError().
+   * Configurable mock for mapError().
    */
   public mapErrorFn: (error: unknown) => LlmError | undefined = () => {};
 
@@ -38,6 +47,26 @@ class ExposedLLMService extends LLMService {
    */
   public sendInternalFn: (payload: LlmPayload) => Promise<LlmResponse> = () =>
     Promise.reject(new Error('_sendInternal not configured'));
+
+  /**
+   * Exposes the protected mapPayload for testing.
+   * @param payload - The LLM payload to dispatch.
+   * @param handlers - The dispatch handlers for each payload type.
+   * @param handlers.image - Handler for image prompt payloads.
+   * @param handlers.text - Handler for string prompt payloads.
+   * @param handlers.conversation - Handler for multi-part conversation payloads.
+   * @returns The result of the matched handler.
+   */
+  public mapPayload<T>(
+    payload: LlmPayload,
+    handlers: {
+      image: (p: ImagePromptPayload) => T;
+      text: (p: StringPromptPayload) => T;
+      conversation: (p: MultiPartPromptPayload) => T;
+    },
+  ): T {
+    return super.mapPayload(payload, handlers);
+  }
 
   protected mapError(error: unknown): LlmError | undefined {
     return this.mapErrorFn(error);
@@ -84,10 +113,6 @@ describe('LLMService retry-loop (Section 2 contract)', () => {
 
   beforeEach(() => {
     service = createService();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   const minimalPayload: LlmPayload = { system: 'sys', user: 'hello' };
@@ -427,5 +452,419 @@ describe('LlmPayload optional promptCacheKey contract', () => {
     ] satisfies LlmPayload[];
 
     expect(payloads).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-part payload contract
+// ---------------------------------------------------------------------------
+const conversationPayload = buildMultiPartPromptPayload({
+  messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hello' }] }],
+});
+const conversationResponse: LlmResponse = {
+  completeness: { score: 5, reasoning: 'complete' },
+  accuracy: { score: 4, reasoning: 'accurate' },
+  spag: { score: 3, reasoning: 'ok' },
+};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('MultiPartPromptPayload contract — mapPayload dispatch', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  it('dispatches a multi-part payload to the conversation handler', () => {
+    const conversationHandler = vi.fn().mockReturnValue('result');
+    const multiPartPayload = buildMultiPartPromptPayload({
+      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hello' }] }],
+    });
+
+    expect(
+      service.mapPayload(multiPartPayload, {
+        image: () => 'image-result',
+        text: () => 'text-result',
+        conversation: conversationHandler,
+      }),
+    ).toBe('result');
+    expect(conversationHandler).toHaveBeenCalledWith(multiPartPayload);
+  });
+
+  it('legacy image/text dispatch works and unsupported payload throws', () => {
+    const imageHandler = vi.fn().mockReturnValue('image-result');
+    const textHandler = vi.fn().mockReturnValue('text-result');
+
+    const imagePayload: LlmPayload = {
+      system: 'sys',
+      images: [{ mimeType: 'image/png', data: 'x' }],
+    };
+    const textPayload: LlmPayload = { system: 'sys', user: 'hello' };
+    const unsupportedPayload: LlmPayload = {
+      system: 's',
+    } as unknown as LlmPayload;
+
+    // Image payload hits image handler (text handler required by signature but unused).
+    expect(
+      service.mapPayload(imagePayload, {
+        image: imageHandler,
+        text: () => 'text',
+        conversation: () => 'conversation',
+      }),
+    ).toBe('image-result');
+    expect(imageHandler).toHaveBeenCalledOnce();
+
+    // Text payload hits text handler (image handler required by signature but unused).
+    expect(
+      service.mapPayload(textPayload, {
+        image: () => 'image',
+        text: textHandler,
+        conversation: () => 'conversation',
+      }),
+    ).toBe('text-result');
+    expect(textHandler).toHaveBeenCalledOnce();
+
+    // Unrelated shape throws 'Unsupported payload type'.
+    expect(() => {
+      return service.mapPayload(unsupportedPayload, {
+        image: imageHandler,
+        text: textHandler,
+        conversation: () => 'conversation',
+      });
+    }).toThrow('Unsupported payload type');
+  });
+
+  it('guard-precedence: image guard fires before conversation check', () => {
+    const imageHandler = vi.fn().mockReturnValue('image-result');
+    const conversationHandler = vi.fn().mockReturnValue('conversation-result');
+
+    // A payload with both images and messages hits the image guard first.
+    const dualPayload: LlmPayload = {
+      system: 'sys',
+      images: [{ mimeType: 'image/png', data: 'x' }],
+      messages: [{ role: 'user', parts: [{ kind: 'text', text: 'hi' }] }],
+    };
+
+    expect(
+      service.mapPayload(dualPayload, {
+        image: imageHandler,
+        text: () => 'text',
+        conversation: conversationHandler,
+      }),
+    ).toBe('image-result');
+    expect(imageHandler).toHaveBeenCalledOnce();
+    expect(conversationHandler).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      label: 'images and text',
+      payload: { images: [], user: 'hello' },
+      expected: 'image',
+    },
+    {
+      label: 'all three discriminators',
+      payload: { images: [], user: 'hello', messages: null },
+      expected: 'image',
+    },
+    {
+      label: 'text and messages',
+      payload: { user: 'hello', messages: null },
+      expected: 'text',
+    },
+    {
+      label: 'undefined images',
+      payload: { images: undefined, user: 'hello', messages: [] },
+      expected: 'image',
+    },
+    {
+      label: 'undefined text',
+      payload: { user: undefined, messages: [] },
+      expected: 'text',
+    },
+  ])('preserves guard precedence for $label', ({ payload, expected }) => {
+    const handlers = {
+      image: vi.fn(() => 'image'),
+      text: vi.fn(() => 'text'),
+      conversation: vi.fn(() => 'conversation'),
+    };
+
+    expect(service.mapPayload(payload as unknown as LlmPayload, handlers)).toBe(
+      expected,
+    );
+    expect(handlers.image).toHaveBeenCalledTimes(expected === 'image' ? 1 : 0);
+    expect(handlers.text).toHaveBeenCalledTimes(expected === 'text' ? 1 : 0);
+    expect(handlers.conversation).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, null, 'not an array', {}])(
+    'dispatches by messages presence without validating its value (%j)',
+    (messages) => {
+      const payload = { messages } as unknown as LlmPayload;
+      const result = { dispatched: true };
+      const handlers = {
+        image: vi.fn(() => result),
+        text: vi.fn(() => result),
+        conversation: vi.fn(() => result),
+      };
+
+      expect(service.mapPayload(payload, handlers)).toBe(result);
+      expect(handlers.conversation).toHaveBeenCalledExactlyOnceWith(payload);
+      expect(handlers.image).not.toHaveBeenCalled();
+      expect(handlers.text).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('shared payload classification and error policy', () => {
+  it('uses image, then text, then conversation precedence for diagnostics', () => {
+    expect(
+      getPayloadTypeName({ images: [], user: 'text', messages: [] } as never),
+    ).toBe('image');
+    expect(getPayloadTypeName({ user: 'text', messages: [] } as never)).toBe(
+      'text',
+    );
+    expect(getPayloadTypeName({ messages: [] } as never)).toBe('conversation');
+    expect(getPayloadTypeName({ system: 'unsupported' } as never)).toBe(
+      'unknown',
+    );
+  });
+
+  it('wraps parser BadRequestException values as unclassified service errors', async () => {
+    const service = createService();
+    const parserError = new BadRequestException('Malformed JSON');
+    service.sendInternalFn = vi.fn().mockRejectedValue(parserError);
+    service.mapErrorFn = vi.fn();
+
+    await expect(
+      service.send({ system: 'sys', user: 'hello' }),
+    ).rejects.toMatchObject({
+      constructor: LlmServiceError,
+      originalError: parserError,
+      message: expect.stringContaining('Malformed JSON'),
+    });
+    expect(service.mapErrorFn).not.toHaveBeenCalled();
+  });
+});
+
+describe('MultiPartPromptPayload contract — payloadTypeName helper', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  /**
+   * Exposes the protected diagnostic label for assertions.
+   * @param payload - The payload to classify.
+   * @returns The diagnostic payload label.
+   */
+  function callPayloadTypeName(payload: LlmPayload): string {
+    return (
+      service as unknown as {
+        payloadTypeName(payload: LlmPayload): string;
+      }
+    ).payloadTypeName(payload);
+  }
+
+  it.each([
+    {
+      label: 'legacy image payload',
+      payload: {
+        system: 'sys',
+        images: [{ mimeType: 'image/png', data: 'x' }],
+      },
+      expected: 'image',
+    },
+    {
+      label: 'legacy text payload',
+      payload: { system: 'sys', user: 'hello' },
+      expected: 'text',
+    },
+    {
+      label: 'conversation payload',
+      payload: conversationPayload,
+      expected: 'conversation',
+    },
+    {
+      label: 'image-over-messages precedence',
+      payload: {
+        system: 'sys',
+        images: [{ mimeType: 'image/png', data: 'x' }],
+        messages: [],
+      },
+      expected: 'image',
+    },
+    {
+      label: 'text-over-messages precedence',
+      payload: { system: 'sys', user: 'hello', messages: [] },
+      expected: 'text',
+    },
+    { label: 'empty object', payload: {}, expected: 'unknown' },
+    { label: 'unmatched shape', payload: { system: 's' }, expected: 'unknown' },
+    { label: 'null payload', payload: null, expected: 'unknown' },
+    { label: 'undefined payload', payload: undefined, expected: 'unknown' },
+    { label: 'string payload', payload: 'not an object', expected: 'unknown' },
+    { label: 'number payload', payload: 42, expected: 'unknown' },
+  ])('classifies $label as $expected', ({ payload, expected }) => {
+    expect(callPayloadTypeName(payload as unknown as LlmPayload)).toBe(
+      expected,
+    );
+  });
+});
+
+describe('LLMService send with unsupported payload shape', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  it('throws "Unsupported payload type" for {} without contacting the provider', async () => {
+    service.sendInternalFn = vi.fn();
+    service.mapErrorFn = vi.fn();
+
+    let thrown: unknown;
+    try {
+      await service.send({} as unknown as LlmPayload);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown).not.toBeInstanceOf(ZodError);
+    expect(thrown).not.toBeInstanceOf(LlmServiceError);
+    expect(thrown).toMatchObject({
+      message: 'Unsupported payload type',
+    });
+    expect(service.sendInternalFn).not.toHaveBeenCalled();
+    expect(service.mapErrorFn).not.toHaveBeenCalled();
+  });
+});
+
+describe('MultiPartPromptPayload contract — describePayload summary', () => {
+  it.each([
+    { count: 1, summary: 'conversation prompt with 1 message' },
+    { count: 2, summary: 'conversation prompt with 2 messages' },
+  ])(
+    'summarises $count messages with the correct grammatical form',
+    async ({ count, summary }) => {
+      const service = createService();
+      const logSpy = vi.spyOn(Logger.prototype, 'log');
+      service.sendInternalFn = vi.fn().mockResolvedValue(conversationResponse);
+
+      await service.send(
+        buildMultiPartPromptPayload({
+          messages: Array.from(
+            { length: count },
+            () => conversationPayload.messages[0],
+          ),
+        }),
+      );
+
+      const dispatchedCall = logSpy.mock.calls.find((call) =>
+        String(call[0]).includes('Dispatching LLM request'),
+      );
+      expect(dispatchedCall).toBeDefined();
+      expect(String(dispatchedCall![0])).toContain(`(${summary})`);
+    },
+  );
+});
+
+describe('MultiPartPromptPayload contract — construction boundary and legacy non-validation', () => {
+  let service: ExposedLLMService;
+
+  beforeEach(() => {
+    service = createService();
+    service.sendInternalFn = vi.fn().mockResolvedValue(conversationResponse);
+    service.mapErrorFn = vi.fn();
+  });
+
+  it('accepts valid conversations with all roles and shared options', async () => {
+    const payload = buildMultiPartPromptPayload({
+      messages: [
+        {
+          role: 'assistant',
+          parts: [{ kind: 'image', mimeType: 'image/png', data: 'YQ==' }],
+        },
+        { role: 'system', parts: [{ kind: 'text', text: '' }] },
+        {
+          role: 'user',
+          parts: [
+            { kind: 'text', text: 'hello' },
+            { kind: 'image', mimeType: 'image/png', data: 'YWJj' },
+          ],
+        },
+      ],
+      temperature: 0.5,
+      model: 'test-model',
+      reasoningEffort: 'max',
+      promptCacheKey: 'a'.repeat(64),
+    });
+
+    await expect(service.send(payload)).resolves.toEqual(conversationResponse);
+    expect(service.sendInternalFn).toHaveBeenCalledExactlyOnceWith(payload);
+    expect(service.mapErrorFn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: 'text', payload: { system: '', user: '' } },
+    {
+      label: 'image without data',
+      payload: { system: '', images: [{ mimeType: 'image/png' }] },
+    },
+  ])(
+    'leaves legacy $label payloads unvalidated and unchanged',
+    async ({ payload }) => {
+      expect(MultiPartPromptPayloadSchema.safeParse(payload).success).toBe(
+        false,
+      );
+      await expect(service.send(payload)).resolves.toEqual(
+        conversationResponse,
+      );
+      expect(service.sendInternalFn).toHaveBeenCalledExactlyOnceWith(payload);
+      expect(service.mapErrorFn).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('MultiPartPromptPayload contract — type-level compile checks', () => {
+  it('narrows the conversation handler input to MultiPartPromptPayload', () => {
+    type Handlers = Parameters<ExposedLLMService['mapPayload']>[1];
+    type ConversationHandler = NonNullable<Handlers['conversation']>;
+    expectTypeOf<
+      Parameters<ConversationHandler>[0]
+    >().toEqualTypeOf<MultiPartPromptPayload>();
+  });
+
+  it('keeps the inferred and legacy reasoning-effort unions exactly off, low, high and max', () => {
+    expectTypeOf<
+      z.infer<typeof ReasoningEffortSchema>
+    >().toEqualTypeOf<ReasoningEffort>();
+    expectTypeOf<ReasoningEffort>().toEqualTypeOf<
+      'off' | 'low' | 'high' | 'max'
+    >();
+  });
+
+  it('forbids image parts in system-role messages', () => {
+    type Message = z.infer<typeof LlmConversationMessageSchema>;
+    type Image = z.infer<typeof ImageContentPartSchema>;
+    expectTypeOf<{ role: 'system'; parts: Image[] }>().not.toExtend<Message>();
+    expectTypeOf<
+      Extract<Message, { role: 'system' }>['parts'][number]
+    >().toEqualTypeOf<{ kind: 'text'; text: string }>();
+  });
+
+  it('requires string image data', () => {
+    type Image = z.infer<typeof ImageContentPartSchema>;
+    expectTypeOf<Image>().toEqualTypeOf<{
+      kind: 'image';
+      mimeType: string;
+      data: string;
+    }>();
+    expectTypeOf<Omit<Image, 'data'>>().not.toExtend<Image>();
   });
 });

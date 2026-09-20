@@ -1,4 +1,12 @@
-import { GoogleGenAI, ApiError, ThinkingLevel } from '@google/genai';
+import {
+  GoogleGenAI,
+  ApiError,
+  ThinkingLevel,
+  type Content,
+  type GenerateContentParameters,
+  type GenerateContentConfig,
+} from '@google/genai';
+import { BadRequestException } from '@nestjs/common';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
@@ -6,6 +14,7 @@ import { GeminiService } from './gemini.service.js';
 import {
   ImagePromptPayload,
   StringPromptPayload,
+  MultiPartPromptPayload,
 } from './llm.service.interface.js';
 import type { LlmPayload } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
@@ -21,6 +30,7 @@ import { RateLimitError } from '../common/errors/rate-limit.error.js';
 import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 // Only mock the GoogleGenAI class, not the error classes (ApiError is preserved
 // from the real SDK via the ...actual spread below).
@@ -60,6 +70,25 @@ const createImagePayload = (): ImagePromptPayload => {
   return {
     system: 'system prompt',
     images: [{ mimeType: 'image/png', data: 'test-data' }],
+  };
+};
+
+const createMultiPartPayload = (
+  messages: MultiPartPromptPayload['messages'],
+  extra: Partial<MultiPartPromptPayload> = {},
+): MultiPartPromptPayload => {
+  return buildMultiPartPromptPayload({
+    messages,
+    ...extra,
+  });
+};
+
+const expectConversationRequest = (): GenerateContentParameters & {
+  config: GenerateContentConfig;
+} => {
+  expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  return mockGenerateContent.mock.calls[0][0] as GenerateContentParameters & {
+    config: GenerateContentConfig;
   };
 };
 
@@ -230,7 +259,7 @@ describe('GeminiService', () => {
       const payload = createStringPayload();
       await service.send(payload);
 
-      expect(mockParse).toHaveBeenCalledWith(malformedJson);
+      expect(mockParse).toHaveBeenCalledWith(malformedJson, true);
     });
   });
 
@@ -238,8 +267,8 @@ describe('GeminiService', () => {
     it('should fail-fast on an unsupported payload type (no user or images)', async () => {
       const malformed = { system: 's' } as unknown as LlmPayload;
 
-      // _sendInternal calls buildContents which calls mapPayload, which
-      // throws 'Unsupported payload type' from the base class dispatcher.
+      // _sendInternal dispatches via mapPayload, which throws
+      // 'Unsupported payload type' from the base class dispatcher.
       await expect(
         (
           service as unknown as {
@@ -250,6 +279,22 @@ describe('GeminiService', () => {
 
       // The SDK must never be called for an unclassifiable payload.
       expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('dispatches a multi-part payload through send to the SDK and validates the response', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      const multiPartPayload = createMultiPartPayload([
+        { role: 'user', parts: [{ kind: 'text', text: 'hi' }] },
+      ]);
+
+      const result = await service.send(multiPartPayload);
+
+      expect(mockGenerateContent).toHaveBeenCalledExactlyOnceWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+        config: { temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
+      });
+      expectValidResponse(result, 1);
     });
 
     it('should silently drop an invalid image entry (no data) from the content array', async () => {
@@ -496,7 +541,585 @@ describe('GeminiService', () => {
     });
   });
 
+  describe('multi-part conversation mapping', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('maps a leading system message to systemInstruction with its text parts joined by blank lines in order', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'system',
+            parts: [
+              { kind: 'text', text: 'First instruction' },
+              { kind: 'text', text: 'Second instruction' },
+            ],
+          },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.config.systemInstruction).toBe(
+        'First instruction\n\nSecond instruction',
+      );
+    });
+
+    it('rejects a system-only conversation at construction so the SDK never receives empty contents', () => {
+      // The Gemini API rejects an empty contents array; the schema therefore
+      // requires at least one user or assistant message, and a system-only
+      // conversation fails at the construction boundary without any
+      // provider contact.
+      expect(() => {
+        return createMultiPartPayload([
+          { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
+        ]);
+      }).toThrow(ZodError);
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('omits systemInstruction when the conversation has no leading system message', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.config).toEqual({
+        temperature: 0,
+        thinkingConfig: { thinkingBudget: 0 },
+      });
+    });
+
+    it('maps a mid-conversation system message to a user turn at its position', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          {
+            role: 'system',
+            parts: [{ kind: 'text', text: 'Mid instructions' }],
+          },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'user', parts: [{ text: 'Question' }] },
+        { role: 'user', parts: [{ text: 'Mid instructions' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+      ]);
+    });
+
+    it('maps assistant messages to model turns', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'user', parts: [{ text: 'Question' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+      ]);
+    });
+
+    it('maps an assistant-first conversation positionally with the assistant as the leading model turn', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Hello' }] },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'model', parts: [{ text: 'Hello' }] },
+        { role: 'user', parts: [{ text: 'Question' }] },
+      ]);
+    });
+
+    it('maps a mixed-content user message into one turn with text and inlineData parts in caller order', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'Describe this image' },
+              { kind: 'image', mimeType: 'image/png', data: 'YWJj' },
+              { kind: 'text', text: 'Be concise' },
+            ],
+          },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        {
+          role: 'user',
+          parts: [
+            { text: 'Describe this image' },
+            { inlineData: { mimeType: 'image/png', data: 'YWJj' } },
+            { text: 'Be concise' },
+          ],
+        },
+      ]);
+    });
+
+    it('maps an assistant message with text and image parts into a model turn', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          {
+            role: 'assistant',
+            parts: [
+              { kind: 'text', text: 'Here is the chart' },
+              { kind: 'image', mimeType: 'image/png', data: 'Y2hhcnQ=' },
+            ],
+          },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toEqual([
+        { role: 'user', parts: [{ text: 'Question' }] },
+        {
+          role: 'model',
+          parts: [
+            { text: 'Here is the chart' },
+            { inlineData: { mimeType: 'image/png', data: 'Y2hhcnQ=' } },
+          ],
+        },
+      ]);
+    });
+
+    it('produces text-only turns for a text-only conversation without dropping empty text', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'Question' },
+              { kind: 'text', text: '' },
+            ],
+          },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+          { role: 'user', parts: [{ kind: 'text', text: 'Follow-up' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.contents).toStrictEqual([
+        { role: 'user', parts: [{ text: 'Question' }, { text: '' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+        { role: 'user', parts: [{ text: 'Follow-up' }] },
+      ]);
+    });
+
+    it('resolves the text model default with per-family thinking config and never forwards promptCacheKey', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload(
+          [{ role: 'user', parts: [{ kind: 'text', text: 'Question' }] }],
+          { temperature: 0.5, promptCacheKey: 'a'.repeat(64) },
+        ),
+      );
+
+      const request = expectConversationRequest();
+      expect(request.model).toBe('gemini-2.5-flash-lite');
+      expect(request.config.temperature).toBe(0.5);
+      expect(request.config.thinkingConfig).toEqual({ thinkingBudget: 0 });
+      expect(JSON.stringify(request)).not.toContain('promptCacheKey');
+    });
+
+    describe.each([
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-3-flash-preview',
+      'gemini-flash-latest',
+    ])('resolved model %s', (model) => {
+      it.each([
+        { effort: undefined, budget: 0, level: ThinkingLevel.MINIMAL },
+        { effort: 'off', budget: 0, level: ThinkingLevel.MINIMAL },
+        { effort: 'low', budget: 0, level: ThinkingLevel.LOW },
+        { effort: 'high', budget: 1024, level: ThinkingLevel.MEDIUM },
+        { effort: 'max', budget: 8192, level: ThinkingLevel.HIGH },
+      ] as const)(
+        'preserves config for effort $effort without forwarding the cache key',
+        async ({ effort, budget, level }) => {
+          mockGenerateContent.mockResolvedValue(createValidResponse(1));
+          const result = await service.send(
+            createMultiPartPayload(
+              [
+                {
+                  role: 'system',
+                  parts: [{ kind: 'text', text: 'Instructions' }],
+                },
+                { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+              ],
+              {
+                model,
+                reasoningEffort: effort,
+                temperature: 0.75,
+                promptCacheKey: 'a'.repeat(64),
+              },
+            ),
+          );
+          const thinkingConfig = model.startsWith('gemini-2.0')
+            ? {}
+            : {
+                thinkingConfig: model.startsWith('gemini-2.5')
+                  ? { thinkingBudget: budget }
+                  : { thinkingLevel: level },
+              };
+          expect(expectConversationRequest()).toStrictEqual({
+            model,
+            contents: [{ role: 'user', parts: [{ text: 'Question' }] }],
+            config: {
+              systemInstruction: 'Instructions',
+              temperature: 0.75,
+              ...thinkingConfig,
+            },
+          });
+          expectValidResponse(result, 1);
+        },
+      );
+    });
+
+    it('labels the multi-part payload as a conversation in debug logging without an unknown-type fall-through', async () => {
+      const loggingConfig = {
+        get: vi.fn((key: string): string | null => {
+          if (key === 'GEMINI_API_KEY') return 'test-api-key';
+          if (key === 'LLM_BACKOFF_BASE_MS') return '100';
+          if (key === 'LLM_MAX_RETRIES') return '2';
+          if (key === 'LOG_LLM_CONTENT') return 'true';
+          return null;
+        }),
+      } as unknown as ConfigService;
+      const loggingService = new GeminiService(loggingConfig, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+      const logger = (
+        loggingService as unknown as {
+          logger: {
+            debug: (...arguments_: unknown[]) => void;
+            log: (...arguments_: unknown[]) => void;
+          };
+        }
+      ).logger;
+      const debugSpy = vi.spyOn(logger, 'debug');
+      const dispatchSpy = vi.spyOn(logger, 'log');
+
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      await loggingService.send(
+        createMultiPartPayload([
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+        ]),
+      );
+
+      expectConversationRequest();
+      const messages = debugSpy.mock.calls
+        .flat()
+        .filter((value): value is string => typeof value === 'string');
+      expect(messages.join('\n')).not.toMatch(
+        /Unknown payload type|String payload|Image payload/i,
+      );
+      expect(messages.join('\n')).toMatch(/conversation/i);
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Dispatching LLM request \(conversation prompt/),
+      );
+    });
+
+    it.each([
+      {
+        label: 'image payload',
+        payload: {
+          ...createImagePayload(),
+          user: 'ignored text',
+          messages: [
+            {
+              role: 'user',
+              parts: [{ kind: 'text', text: 'ignored conversation' }],
+            },
+          ],
+        },
+        expectedMessage: 'Image payload being sent',
+      },
+      {
+        label: 'text payload',
+        payload: {
+          ...createStringPayload(),
+          messages: [
+            {
+              role: 'user',
+              parts: [{ kind: 'text', text: 'ignored conversation' }],
+            },
+          ],
+        },
+        expectedMessage: 'String payload being sent',
+      },
+    ])(
+      'uses unified image → text → conversation precedence for a colliding $label',
+      async ({ payload, expectedMessage }) => {
+        const loggingConfig = {
+          get: vi.fn((key: string): string | null => {
+            if (key === 'GEMINI_API_KEY') return 'test-api-key';
+            if (key === 'LLM_BACKOFF_BASE_MS') return '100';
+            if (key === 'LLM_MAX_RETRIES') return '2';
+            if (key === 'LOG_LLM_CONTENT') return 'true';
+            return null;
+          }),
+        } as unknown as ConfigService;
+        const loggingService = new GeminiService(loggingConfig, {
+          parse: mockParse,
+        } as unknown as JsonParserUtility);
+        const logger = (
+          loggingService as unknown as {
+            logger: { debug: (...arguments_: unknown[]) => void };
+          }
+        ).logger;
+        const debugSpy = vi.spyOn(logger, 'debug');
+
+        mockGenerateContent.mockResolvedValue(createValidResponse(1));
+        await loggingService.send(payload as unknown as LlmPayload);
+
+        expect(
+          debugSpy.mock.calls.some((call) => call.includes(expectedMessage)),
+        ).toBe(true);
+      },
+    );
+
+    it('labels the payload as a conversation in the error log rather than as text', async () => {
+      const errorSpy = vi.spyOn(
+        (
+          service as unknown as {
+            logger: { error: (...a: unknown[]) => void };
+          }
+        ).logger,
+        'error',
+      );
+
+      const providerError = new ApiError({
+        message: 'Invalid argument',
+        status: 400,
+      });
+      mockGenerateContent.mockRejectedValue(providerError);
+
+      await expect(
+        service.send(
+          createMultiPartPayload([
+            {
+              role: 'user',
+              parts: [
+                { kind: 'text', text: 'Question' },
+                { kind: 'image', mimeType: 'image/png', data: 'YWJj' },
+              ],
+            },
+          ]),
+        ),
+      ).rejects.toMatchObject({
+        originalError: providerError,
+        retryable: false,
+      });
+      expectConversationRequest();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'gemini-2.5-flash-lite',
+          payloadType: 'conversation',
+        }),
+        'Error communicating with or validating response from Gemini API',
+      );
+    });
+
+    it('sends role-tagged turn objects to the SDK with no leading-system turn', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      await service.send(
+        createMultiPartPayload([
+          {
+            role: 'system',
+            parts: [{ kind: 'text', text: 'Instructions' }],
+          },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+        ]),
+      );
+
+      const request = expectConversationRequest();
+      const contents: Content[] = [
+        { role: 'user', parts: [{ text: 'Question' }] },
+        { role: 'model', parts: [{ text: 'Answer' }] },
+      ];
+      expect(request.contents).toStrictEqual(contents);
+      expect(request.config.systemInstruction).toBe('Instructions');
+    });
+  });
+
+  describe('legacy payload request-shape regression', () => {
+    it('sends an unchanged legacy text request shape', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+
+      const payload = createStringPayload('test prompt');
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash-lite',
+        contents: ['test prompt'],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 1);
+    });
+
+    it('sends an unchanged legacy image request shape with mixed validity images', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [
+          { mimeType: 'image/png', data: 'valid-data' },
+          { mimeType: 'image/jpeg' }, // no data → silently dropped
+        ],
+      };
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith({
+        model: 'gemini-2.5-flash',
+        contents: [
+          { inlineData: { mimeType: 'image/png', data: 'valid-data' } },
+        ],
+        config: {
+          systemInstruction: 'system prompt',
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      expectValidResponse(result, 3);
+    });
+
+    it('sends an empty contents array when every legacy image lacks data', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(3));
+
+      const payload: ImagePromptPayload = {
+        system: 'system prompt',
+        images: [{ mimeType: 'image/png' }],
+      };
+
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: [],
+        }),
+      );
+      expectValidResponse(result, 3);
+    });
+  });
+
+  describe.each([
+    {
+      variant: 'legacy image',
+      legacy: createImagePayload(),
+      model: 'gemini-2.5-flash',
+      contents: [{ inlineData: { mimeType: 'image/png', data: 'test-data' } }],
+    },
+    {
+      variant: 'legacy text',
+      legacy: createStringPayload('test prompt'),
+      model: 'gemini-2.5-flash-lite',
+      contents: ['test prompt'],
+    },
+    {
+      variant: 'legacy image with a colliding user field',
+      legacy: { ...createImagePayload(), user: 'Ignored legacy text' },
+      model: 'gemini-2.5-flash',
+      contents: [{ inlineData: { mimeType: 'image/png', data: 'test-data' } }],
+    },
+  ])('discriminator precedence: $variant', ({ legacy, model, contents }) => {
+    const expectedRequest = {
+      model,
+      contents,
+      config: {
+        systemInstruction: 'system prompt',
+        temperature: 0,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    };
+
+    it('preserves legacy contents and system instruction despite valid extra messages', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      const payload = {
+        ...legacy,
+        ...createMultiPartPayload([
+          {
+            role: 'system',
+            parts: [{ kind: 'text', text: 'Ignored conversation instruction' }],
+          },
+          {
+            role: 'user',
+            parts: [{ kind: 'text', text: 'Ignored conversation content' }],
+          },
+        ]),
+      };
+
+      const result = await service.send(payload);
+
+      expect(mockGenerateContent).toHaveBeenCalledExactlyOnceWith(
+        expectedRequest,
+      );
+      expectValidResponse(result, 1);
+    });
+
+    it('sends the legacy request without reading or schema-parsing malformed extra messages', async () => {
+      mockGenerateContent.mockResolvedValue(createValidResponse(1));
+      const readMessages = vi.fn(() => null);
+      const payload = {
+        ...legacy,
+        get messages(): null {
+          return readMessages();
+        },
+      };
+
+      const result = service.send(payload);
+
+      expect.soft(readMessages).not.toHaveBeenCalled();
+      expectValidResponse(await result, 1);
+      expect(mockGenerateContent).toHaveBeenCalledExactlyOnceWith(
+        expectedRequest,
+      );
+    });
+  });
+
   describe('error handling', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('should throw an error if the SDK fails', async () => {
       mockGenerateContent.mockRejectedValue(new Error('SDK Error'));
 
@@ -515,6 +1138,41 @@ describe('GeminiService', () => {
       await expect(service.send(payload)).rejects.toThrow(ZodError);
     });
 
+    it('logs the invalid response structure once through the structured error log without a debug payload dump', async () => {
+      const logger = (
+        service as unknown as {
+          logger: {
+            error: (...a: unknown[]) => void;
+            debug: (...a: unknown[]) => void;
+          };
+        }
+      ).logger;
+      const errorSpy = vi.spyOn(logger, 'error');
+      const debugSpy = vi.spyOn(logger, 'debug');
+
+      mockGenerateContent.mockResolvedValue({
+        text: '{"invalid": "structure"}',
+      });
+
+      const payload = createStringPayload();
+      await expect(service.send(payload)).rejects.toThrow(ZodError);
+
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          model: 'gemini-2.5-flash-lite',
+          payloadType: 'text',
+          statusCode: undefined,
+          stack: expect.any(String),
+        }),
+        'Error communicating with or validating response from Gemini API',
+      );
+      const debugMessages = debugSpy.mock.calls
+        .flat()
+        .filter((value): value is string => typeof value === 'string')
+        .join('\n');
+      expect(debugMessages).not.toContain('Zod validation failed');
+    });
+
     it('should throw an error if JsonParserUtil fails to parse the response', async () => {
       mockGenerateContent.mockResolvedValue({
         text: 'This is not JSON.',
@@ -530,6 +1188,33 @@ describe('GeminiService', () => {
       await expect(sendPromise).rejects.toThrow(
         'LLM service error: Malformed or irreparable JSON string provided.',
       );
+    });
+
+    it('wraps a JsonParserUtility BadRequestException as LlmServiceError and preserves the original error', async () => {
+      mockGenerateContent.mockResolvedValue({
+        text: 'This is not JSON.',
+      });
+
+      const badRequestException = new BadRequestException(
+        'Malformed or irreparable JSON string provided.',
+      );
+      mockParse.mockImplementation(() => {
+        throw badRequestException;
+      });
+
+      const payload = createStringPayload();
+      let thrown: unknown;
+      try {
+        await service.send(payload);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(LlmServiceError);
+      expect((thrown as LlmServiceError).originalError).toBe(
+        badRequestException,
+      );
+      expect(thrown).not.toBeInstanceOf(InvalidRequestError);
     });
 
     it('should log enriched context on failure', async () => {
@@ -557,12 +1242,117 @@ describe('GeminiService', () => {
           payloadType: 'text',
           statusCode: 500,
           errorMessage: expect.stringContaining('Server error'),
-          errorBody: 'raw upstream body detail',
+          errorBody: undefined,
           stack: expect.any(String),
         }),
         'Error communicating with or validating response from Gemini API',
       );
     });
+
+    it('includes the upstream error body when content logging is enabled', async () => {
+      const loggingConfig = {
+        get: vi.fn((key: string): string | null => {
+          if (key === 'GEMINI_API_KEY') return 'test-api-key';
+          if (key === 'LLM_BACKOFF_BASE_MS') return '100';
+          if (key === 'LLM_MAX_RETRIES') return '2';
+          if (key === 'LOG_LLM_CONTENT') return 'true';
+          return null;
+        }),
+      } as unknown as ConfigService;
+      const loggingService = new GeminiService(loggingConfig, {
+        parse: mockParse,
+      } as unknown as JsonParserUtility);
+      const errorSpy = vi.spyOn(
+        (
+          loggingService as unknown as {
+            logger: { error: (...arguments_: unknown[]) => void };
+          }
+        ).logger,
+        'error',
+      );
+      mockGenerateContent.mockRejectedValue(
+        Object.assign(new ApiError({ message: 'Server error', status: 500 }), {
+          body: 'raw upstream body detail',
+        }),
+      );
+
+      await expect(
+        loggingService.send(createStringPayload()),
+      ).rejects.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ errorBody: 'raw upstream body detail' }),
+        'Error communicating with or validating response from Gemini API',
+      );
+    });
+
+    it.each([
+      {
+        label: 'rate limit',
+        status: 429,
+        message: 'Rate limit exceeded',
+        errorClass: RateLimitError,
+        retryable: true,
+        attempts: 3,
+      },
+      {
+        label: 'server error',
+        status: 500,
+        message: 'Server error',
+        errorClass: ProviderServerError,
+        retryable: true,
+        attempts: 3,
+      },
+      {
+        label: 'resource exhausted',
+        status: 429,
+        message: 'RESOURCE_EXHAUSTED: Quota exceeded',
+        errorClass: ResourceExhaustedError,
+        retryable: false,
+        attempts: 1,
+      },
+    ])(
+      'maps an SDK $label rejection for a conversation payload with $attempts attempt(s)',
+      async ({ status, message, errorClass, retryable, attempts }) => {
+        const logger = (
+          service as unknown as {
+            logger: { error: (...a: unknown[]) => void };
+          }
+        ).logger;
+        const errorSpy = vi.spyOn(logger, 'error');
+
+        const originalError = Object.assign(new ApiError({ message, status }), {
+          body: 'upstream detail',
+        });
+        mockGenerateContent.mockRejectedValue(originalError);
+
+        const payload = createMultiPartPayload([
+          {
+            role: 'assistant',
+            parts: [
+              { kind: 'text', text: 'Here is the chart' },
+              { kind: 'image', mimeType: 'image/png', data: 'Y2hhcnQ=' },
+            ],
+          },
+        ]);
+
+        let thrown: unknown;
+        try {
+          await service.send(payload);
+        } catch (error: unknown) {
+          thrown = error;
+        }
+
+        expect(thrown).toBeInstanceOf(errorClass);
+        expect(thrown).toMatchObject({
+          originalError,
+          providerName: 'gemini',
+          retryable,
+        });
+        expect(mockGenerateContent).toHaveBeenCalledTimes(attempts);
+        expect(errorSpy).toHaveBeenCalledTimes(attempts);
+      },
+    );
 
     it('should retry on 5xx server errors and throw ProviderServerError after exhausting retries', async () => {
       const serverError = new ApiError({
@@ -597,7 +1387,7 @@ describe('GeminiService', () => {
     });
   });
 
-  const testRetryBehaviorSuccess = async (
+  const testRetryBehaviourSuccess = async (
     errors: Error[],
     expectedCallCount: number,
   ): Promise<void> => {
@@ -614,7 +1404,7 @@ describe('GeminiService', () => {
     expect(mockGenerateContent).toHaveBeenCalledTimes(expectedCallCount);
   };
 
-  const testRetryBehaviorFailure = async (
+  const testRetryBehaviourFailure = async (
     errors: Error[],
     expectedCallCount: number,
   ): Promise<void> => {
@@ -630,14 +1420,14 @@ describe('GeminiService', () => {
 
   describe('retry logic', () => {
     it('should retry on 429 errors and eventually succeed', async () => {
-      await testRetryBehaviorSuccess(
+      await testRetryBehaviourSuccess(
         [new ApiError({ message: 'Rate limited', status: 429 })],
         2,
       );
     });
 
     it('should retry multiple times with exponential backoff', async () => {
-      await testRetryBehaviorSuccess(
+      await testRetryBehaviourSuccess(
         [
           new ApiError({ message: 'Rate limited', status: 429 }),
           new ApiError({ message: 'Rate limited', status: 429 }),
@@ -647,11 +1437,11 @@ describe('GeminiService', () => {
     });
 
     it('should retry on rate limit error messages', async () => {
-      await testRetryBehaviorSuccess([new Error('Rate limit exceeded')], 2);
+      await testRetryBehaviourSuccess([new Error('Rate limit exceeded')], 2);
     });
 
     it('should retry on "too many requests" error messages', async () => {
-      await testRetryBehaviorSuccess([new Error('Too many requests')], 2);
+      await testRetryBehaviourSuccess([new Error('Too many requests')], 2);
     });
 
     it('should throw error after max retries exceeded', async () => {
@@ -659,7 +1449,7 @@ describe('GeminiService', () => {
         message: 'Rate limited',
         status: 429,
       });
-      await testRetryBehaviorFailure(
+      await testRetryBehaviourFailure(
         [rateLimitError, rateLimitError, rateLimitError],
         3,
       );

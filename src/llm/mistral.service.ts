@@ -1,6 +1,10 @@
 import { Mistral } from '@mistralai/mistralai';
+import type {
+  ChatCompletionRequestMessage,
+  ContentChunk,
+  SystemMessageContentChunks,
+} from '@mistralai/mistralai/models/components';
 import { Injectable } from '@nestjs/common';
-import { ZodError } from 'zod';
 
 import {
   classifyLlmError,
@@ -12,6 +16,7 @@ import {
 import {
   LLMService,
   LlmPayload,
+  MultiPartPromptPayload,
   ReasoningEffort,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
@@ -64,8 +69,7 @@ const HTTP_CLIENT_ERROR_NAMES = new Set([
  *   `ConnectionError`, `RequestTimeoutError`, `RequestAbortedError`,
  *   `UnexpectedClientError`. It deliberately **excludes**
  *   `InvalidRequestError` to avoid a name collision with our own
- *   `InvalidRequestError` {@link LlmError} subclass — see the SPEC
- *   "InvalidRequestError name-collision" subsection for details.
+ *   `InvalidRequestError` {@link LlmError} subclass.
  */
 const MISTRAL_PROBES: LlmErrorMapperProbes = {
   providerName: 'mistral',
@@ -80,9 +84,6 @@ const MISTRAL_PROBES: LlmErrorMapperProbes = {
   isHttpClientError: (error: unknown): boolean => {
     if (typeof error !== 'object' || error === null) return false;
     const name = (error as Record<string, unknown>).name;
-    // Deliberately excluding 'InvalidRequestError' to avoid name collision
-    // with our LlmError subclass (see SPEC § "InvalidRequestError
-    // name-collision").
     return typeof name === 'string' && HTTP_CLIENT_ERROR_NAMES.has(name);
   },
 };
@@ -98,11 +99,10 @@ const MISTRAL_PROBES: LlmErrorMapperProbes = {
  *
  * ### Reasoning-effort mapping (abstract level → Mistral native):
  * `mistral-small-latest` only accepts the `none` and `high` reasoning-effort
- * values, so the abstract levels are collapsed accordingly:
- * - `'off'` → `'none'` (reasoning disabled)
- * - `'low'` → `'none'`
- * - `'high'` → `'high'`
- * - `'max'` → `'high'`.
+ * values, so the abstract levels are collapsed accordingly; see
+ * {@link mapReasoningEffort} for the per-level mapping. The `'off'` level is
+ * omitted from the request entirely, which the provider treats as reasoning
+ * disabled.
  */
 @Injectable()
 export class MistralService extends LLMService {
@@ -158,7 +158,7 @@ export class MistralService extends LLMService {
    * safePrompt, responseFormat), calls the Mistral SDK, extracts the response
    * text, repairs/parses JSON via {@link JsonParserUtility}, and validates
    * with {@link LlmResponseSchema}.
-   * @param payload - The payload to send (text or image).
+   * @param payload - The payload to send (text, image, or conversation).
    * @returns A validated {@link LlmResponse}.
    */
   protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
@@ -189,7 +189,10 @@ export class MistralService extends LLMService {
       this.logger.debug({ responseText }, 'Raw response from Mistral');
     }
 
-    const parsedJson: unknown = this.jsonParserUtility.parse(responseText);
+    const parsedJson: unknown = this.jsonParserUtility.parse(
+      responseText,
+      true,
+    );
     if (this.logLlmContent) {
       this.logger.debug({ parsedJson }, 'Parsed JSON response');
     }
@@ -198,15 +201,7 @@ export class MistralService extends LLMService {
       ? (parsedJson as unknown[])[0]
       : parsedJson;
 
-    // Second try: validate the parsed payload.
-    try {
-      return LlmResponseSchema.parse(dataToValidate);
-    } catch (error) {
-      this.logger.debug(
-        `Zod validation failed: ${JSON.stringify((error as ZodError).issues)}`,
-      );
-      throw error;
-    }
+    return LlmResponseSchema.parse(dataToValidate);
   }
 
   /**
@@ -225,10 +220,13 @@ export class MistralService extends LLMService {
       status?: number;
       body?: unknown;
     };
-    const statusCode = error_.statusCode ?? error_.status;
-    const payloadType = this.isImagePromptPayload(payload) ? 'image' : 'text';
+    const statusCode = error_?.statusCode ?? error_?.status;
+    const payloadType = this.payloadTypeName(payload);
     const errorMessage = isErrorObject(error) ? error.message : String(error);
-    const errorBody = typeof error_.body === 'string' ? error_.body : undefined;
+    const errorBody =
+      this.logLlmContent && typeof error_?.body === 'string'
+        ? error_.body
+        : undefined;
     const stack = isErrorObject(error) ? error.stack : undefined;
     this.logger.error(
       { model, payloadType, statusCode, errorMessage, errorBody, stack },
@@ -262,42 +260,87 @@ export class MistralService extends LLMService {
    * are silently dropped, mirroring the Gemini service's `mapImageParts`
    * guard.
    * @param payload - The LLM payload.
-   * @returns An array of system and user messages.
+   * @returns Native messages; conversations retain all caller roles and parts.
    */
   private buildMessages(
     payload: LlmPayload,
-  ): Array<{ role: string; content: unknown }> {
-    const userContent = this.mapPayload<unknown>(payload, {
+  ): MistralCompleteRequest['messages'] {
+    return this.mapPayload<MistralCompleteRequest['messages']>(payload, {
       image: (p) => [
+        { role: 'system', content: p.system },
         {
-          type: 'text' as const,
-          text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+          role: 'user',
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
+            },
+            ...p.images.flatMap((img) => {
+              // Mirror GeminiService.mapImageParts: only include entries where
+              // both `data` and `mimeType` are strings, so a missing `data`
+              // never produces a `base64,undefined` URI.
+              if (
+                typeof img.data === 'string' &&
+                typeof img.mimeType === 'string'
+              ) {
+                return [
+                  {
+                    type: 'image_url' as const,
+                    imageUrl: `data:${img.mimeType};base64,${img.data}`,
+                  },
+                ];
+              }
+              return [];
+            }),
+          ],
         },
-        ...p.images.flatMap((img) => {
-          // Mirror GeminiService.mapImageParts: only include entries where
-          // both `data` and `mimeType` are strings, so a missing `data`
-          // never produces a `base64,undefined` URI.
-          if (
-            typeof img.data === 'string' &&
-            typeof img.mimeType === 'string'
-          ) {
-            return [
-              {
-                type: 'image_url' as const,
-                imageUrl: `data:${img.mimeType};base64,${img.data}`,
-              },
-            ];
-          }
-          return [];
-        }),
       ],
-      text: (p) => p.user,
+      text: (p) => {
+        return [
+          { role: 'system', content: p.system },
+          { role: 'user', content: p.user },
+        ];
+      },
+      conversation: (p) => this.mapConversation(p),
     });
+  }
 
-    return [
-      { role: 'system', content: payload.system },
-      { role: 'user', content: userContent },
-    ];
+  /**
+   * Maps validated conversation messages to native Mistral messages.
+   * @param payload - The validated conversation in caller order.
+   * @returns Messages with ordered text and image data-URI chunks.
+   * @remarks Every message uses a uniform chunk array, including text-only
+   * messages. The legacy image-path instruction is intentionally not injected.
+   */
+  private mapConversation(
+    payload: MultiPartPromptPayload,
+  ): MistralCompleteRequest['messages'] {
+    return payload.messages.map((message): ChatCompletionRequestMessage => {
+      if (message.role === 'system') {
+        return {
+          role: message.role,
+          content: message.parts.map(
+            (part): Extract<SystemMessageContentChunks, { type: 'text' }> => {
+              return {
+                type: 'text',
+                text: part.text,
+              };
+            },
+          ),
+        };
+      }
+      return {
+        role: message.role,
+        content: message.parts.map((part): ContentChunk => {
+          return part.kind === 'text'
+            ? { type: 'text', text: part.text }
+            : {
+                type: 'image_url',
+                imageUrl: `data:${part.mimeType};base64,${part.data}`,
+              };
+        }),
+      };
+    });
   }
 
   /**
@@ -316,12 +359,12 @@ export class MistralService extends LLMService {
    */
   private buildRequest(
     model: string,
-    messages: Array<{ role: string; content: unknown }>,
+    messages: MistralCompleteRequest['messages'],
     payload: LlmPayload,
   ): MistralCompleteRequest {
     const request: MistralCompleteRequest = {
       model,
-      messages: messages as MistralCompleteRequest['messages'],
+      messages,
       temperature: payload.temperature ?? 0,
       safePrompt: false,
       responseFormat: { type: 'text' },
@@ -358,19 +401,20 @@ export class MistralService extends LLMService {
     }
     if (Array.isArray(rawContent)) {
       // Safely concatenate text chunks from the ContentChunk array
-      let result = '';
+      const chunks: string[] = [];
       for (const chunk of rawContent) {
+        const record = chunk as Record<string, unknown>;
         if (
           typeof chunk === 'object' &&
           chunk != null &&
           'type' in chunk &&
-          (chunk as Record<string, unknown>).type === 'text' &&
-          typeof (chunk as Record<string, unknown>).text === 'string'
+          record.type === 'text' &&
+          typeof record.text === 'string'
         ) {
-          result += (chunk as Record<string, unknown>).text;
+          chunks.push(record.text);
         }
       }
-      return result;
+      return chunks.join('');
     }
     return '';
   }

@@ -1,12 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { GeminiService } from './gemini.service.js';
-import { LlmPayload } from './llm.service.interface.js';
+import { LlmPayload, MultiPartPromptPayload } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
 import { SUPPORTED_MODELS } from './model-registry.js';
 import { RoutingLLMService } from './routing-llm.service.js';
 import { LlmResponse } from './types.js';
 import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 const VALID_TEXT_MODEL = 'gemini-2.5-flash-lite';
 const VALID_IMAGE_MODEL = 'gemini-2.5-flash';
@@ -81,6 +82,192 @@ const createRoutingService = (
 };
 
 describe('RoutingLLMService', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('multi-part routing and boundary validation', () => {
+    let service: RoutingLLMService;
+    let mockGemini: MockProvider;
+    let mockMistral: MockProvider;
+    let response: LlmResponse;
+    const imageModel = 'pixtral-12b';
+
+    beforeEach(() => {
+      mockGemini = createMockGemini();
+      mockMistral = createMockMistral();
+      response = createMockLlmResponse();
+      mockGemini.send.mockResolvedValue(response);
+      mockMistral.send.mockResolvedValue(response);
+      service = createRoutingService(
+        createMockConfig({ DEFAULT_IMAGE_MODEL: imageModel }),
+        mockGemini,
+        mockMistral,
+      );
+    });
+
+    it('routes text-only conversations with all roles using authoritative text settings without mutation', async () => {
+      const payload = buildMultiPartPromptPayload({
+        messages: [
+          { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          { role: 'assistant', parts: [{ kind: 'text', text: '' }] },
+        ],
+        model: imageModel,
+        reasoningEffort: 'max',
+        temperature: 0,
+        promptCacheKey: PROMPT_CACHE_KEY,
+      });
+      const original = structuredClone(payload);
+
+      await expect(service.send(payload)).resolves.toBe(response);
+
+      expect(mockGemini.send).toHaveBeenCalledExactlyOnceWith({
+        ...original,
+        model: VALID_TEXT_MODEL,
+        reasoningEffort: LOW_EFFORT,
+      });
+      expect(mockMistral.send).not.toHaveBeenCalled();
+      expect(mockGemini.send.mock.calls[0][0]).not.toBe(payload);
+      expect(payload).toStrictEqual(original);
+    });
+
+    it.each([
+      { role: 'user', position: 'first' },
+      { role: 'assistant', position: 'first' },
+      { role: 'user', position: 'later' },
+      { role: 'assistant', position: 'later' },
+    ] as const)(
+      'routes an image in the $position $role message using authoritative image settings without mutation',
+      async ({ role, position }) => {
+        const messages: MultiPartPromptPayload['messages'] = [];
+        if (position === 'later') {
+          messages.push(
+            { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
+            { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+            { role: 'assistant', parts: [{ kind: 'text', text: 'Answer' }] },
+          );
+        }
+        messages.push({
+          role,
+          parts: [
+            { kind: 'text', text: 'Before image' },
+            { kind: 'image', mimeType: 'image/png', data: 'YQ==' },
+            { kind: 'text', text: 'After image' },
+          ],
+        });
+        const payload = buildMultiPartPromptPayload({
+          messages,
+          model: VALID_TEXT_MODEL,
+          reasoningEffort: 'off',
+          temperature: 0.75,
+          promptCacheKey: PROMPT_CACHE_KEY,
+        });
+        const original = structuredClone(payload);
+
+        await expect(service.send(payload)).resolves.toBe(response);
+
+        expect.soft(mockMistral.send).toHaveBeenCalledExactlyOnceWith({
+          ...original,
+          model: imageModel,
+          reasoningEffort: HIGH_EFFORT,
+        });
+        expect.soft(mockGemini.send).not.toHaveBeenCalled();
+        expect(payload).toStrictEqual(original);
+        expect(mockMistral.send.mock.calls[0][0]).not.toBe(payload);
+      },
+    );
+
+    it.each([
+      { label: 'text', payload: { system: '', user: '' }, image: false },
+      {
+        label: 'image without data',
+        payload: { system: '', images: [{ mimeType: 'image/png' }] },
+        image: true,
+      },
+      {
+        label: 'image before text and malformed messages',
+        payload: { system: '', images: [], user: '', messages: null },
+        image: true,
+      },
+      {
+        label: 'undefined images before messages',
+        payload: { images: undefined, messages: null },
+        image: true,
+      },
+      {
+        label: 'text before malformed messages',
+        payload: { system: '', user: '', messages: null },
+        image: false,
+      },
+      {
+        label: 'undefined text before messages',
+        payload: { user: undefined, messages: null },
+        image: false,
+      },
+      {
+        label: 'text before image-containing messages',
+        payload: {
+          system: '',
+          user: '',
+          messages: [
+            {
+              role: 'user',
+              parts: [{ kind: 'image', mimeType: 'image/png', data: 'data' }],
+            },
+          ],
+        },
+        image: false,
+      },
+    ])(
+      'preserves legacy $label routing without validation or mutation',
+      async ({ payload, image }) => {
+        const original = {
+          ...payload,
+          model: 'caller-model',
+          reasoningEffort: 'max',
+          temperature: 0,
+          promptCacheKey: PROMPT_CACHE_KEY,
+        } as unknown as LlmPayload;
+        const snapshot = structuredClone(original);
+        const provider = image ? mockMistral : mockGemini;
+        const otherProvider = image ? mockGemini : mockMistral;
+
+        await expect(service.send(original)).resolves.toBe(response);
+
+        expect(provider.send).toHaveBeenCalledExactlyOnceWith({
+          ...snapshot,
+          model: image ? imageModel : VALID_TEXT_MODEL,
+          reasoningEffort: image ? HIGH_EFFORT : LOW_EFFORT,
+        });
+        expect(otherProvider.send).not.toHaveBeenCalled();
+        expect(provider.send.mock.calls[0][0]).not.toBe(original);
+        expect(original).toStrictEqual(snapshot);
+      },
+    );
+
+    it('routes a validated conversation by image-part presence rather than legacy discriminators', async () => {
+      const payload = buildMultiPartPromptPayload({
+        messages: [
+          { role: 'user', parts: [{ kind: 'text', text: 'Question' }] },
+          {
+            role: 'assistant',
+            parts: [{ kind: 'image', mimeType: 'image/png', data: 'YQ==' }],
+          },
+        ],
+      });
+
+      await expect(service.send(payload)).resolves.toBe(response);
+
+      expect(mockMistral.send).toHaveBeenCalledExactlyOnceWith({
+        ...payload,
+        model: imageModel,
+        reasoningEffort: HIGH_EFFORT,
+      });
+      expect(mockGemini.send).not.toHaveBeenCalled();
+    });
+  });
+
   describe('constructor validation', () => {
     it('throws when DEFAULT_TEXT_TABLE_MODEL is unrecognised; message contains the model name and supported prefixes', () => {
       const mockConfig = createMockConfig({

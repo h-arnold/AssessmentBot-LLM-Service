@@ -153,6 +153,10 @@ describe('buildMultiPartPromptPayload', () => {
         },
       ],
     },
+    {
+      label: 'a system-only conversation',
+      messages: [{ role: 'system', parts: [{ kind: 'text', text: '' }] }],
+    },
   ])(
     'rejects $label at the construction boundary',
     ({ messages: invalidMessages }) => {

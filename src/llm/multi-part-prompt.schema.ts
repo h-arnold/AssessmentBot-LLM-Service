@@ -72,7 +72,7 @@ export const LlmConversationMessageSchema = z.discriminatedUnion('role', [
 ]);
 
 /**
- * Validates a non-empty conversation and optional shared provider settings.
+ * Validates a conversation and optional shared provider settings.
  * Roles and parts retain caller order; `mimeType` and `data` are
  * validated for format at construction time.
  * The schema is branded for compile-time use. Runtime consumers rely on
@@ -81,9 +81,23 @@ export const LlmConversationMessageSchema = z.discriminatedUnion('role', [
 export const MultiPartPromptPayloadSchema = z
   .object({
     /**
-     * Ordered messages, each containing at least one part.
+     * Ordered messages, each containing at least one part. At least one
+     * message must have a `user` or `assistant` role: a system-only
+     * conversation is rejected because Gemini maps it to an empty
+     * `contents` array, which the Gemini API rejects.
      */
-    messages: z.array(LlmConversationMessageSchema).min(1),
+    messages: z
+      .array(LlmConversationMessageSchema)
+      .min(1)
+      .superRefine((messages, context) => {
+        if (messages.every((message) => message.role === 'system')) {
+          context.addIssue({
+            code: 'custom',
+            message:
+              'A conversation must contain at least one user or assistant message',
+          });
+        }
+      }),
     /**
      * Optional sampling temperature, interpreted by the provider.
      */

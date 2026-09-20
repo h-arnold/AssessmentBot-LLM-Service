@@ -94,6 +94,7 @@ The schema is the source of truth. `ReasoningEffortSchema`, `TextContentPartSche
 The schema enforces the following structural rules:
 
 - `messages` and each message's `parts` must be non-empty (`.min(1)`).
+- A conversation must contain at least one `user` or `assistant` message; a system-only conversation is rejected so Gemini never receives an empty `contents` array (the Gemini API rejects it).
 - System messages accept text parts only; image parts are restricted to `user` and `assistant` messages.
 - `mimeType` must match `image/<subtype>` (`/^image\/[a-zA-Z0-9.+-]+$/`). Parameters such as `; charset=utf-8`, whitespace, and non-lowercase `image/` prefixes are rejected.
 - `data` must be non-empty standard padded base64: a length that is a multiple of four, alphabet `[A-Za-z0-9+/]` with at most two trailing `=`, and a decoded size of at most 1 MiB (1 048 576 bytes) per image part. There is no aggregate cap across parts.

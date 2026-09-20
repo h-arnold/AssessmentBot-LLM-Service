@@ -337,7 +337,10 @@ export class GeminiService extends LLMService {
    * @param payload - The validated conversation in caller order.
    * @returns Native turns and the leading system instruction, computed once.
    * @remarks Mid-conversation system messages use user turns because Gemini
-   * contents only supports user/model roles; see `docs/modules/llm.md`.
+   * contents only supports user/model roles; see `docs/modules/llm.md`. The
+   * schema rejects system-only conversations at construction, so the leading
+   * system message, if any, is always followed by a user/model turn and
+   * `contents` is never empty.
    */
   private mapConversation(payload: MultiPartPromptPayload): GeminiPayloadView {
     const first = payload.messages[0];

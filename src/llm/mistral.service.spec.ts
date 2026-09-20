@@ -663,7 +663,7 @@ describe('MistralService', () => {
       expectValidResponse(result, 2);
     });
 
-    it.each(['system', 'user', 'assistant'] as const)(
+    it.each(['user', 'assistant'] as const)(
       'keeps a single %s message as a single text-chunk array without injecting content',
       async (role) => {
         mockComplete.mockResolvedValue(createValidResponse(1));
@@ -679,6 +679,17 @@ describe('MistralService', () => {
         expect(expectConversationRequest().messages).toStrictEqual(messages);
       },
     );
+
+    it('rejects a system-only conversation at construction', () => {
+      // A conversation with only a system message maps to no user/assistant
+      // turns; the schema rejects it at the construction boundary so the
+      // provider never receives a message array without user content.
+      expect(() => {
+        return buildMultiPartPromptPayload({
+          messages: [{ role: 'system', parts: [{ kind: 'text', text: '' }] }],
+        });
+      }).toThrow(ZodError);
+    });
 
     it('preserves an assistant-first conversation without adding or reordering turns', async () => {
       mockComplete.mockResolvedValue(createValidResponse(1));

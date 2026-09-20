@@ -568,18 +568,17 @@ describe('GeminiService', () => {
       );
     });
 
-    it('sends empty contents for a system-only conversation and keeps its instruction', async () => {
-      mockGenerateContent.mockResolvedValue(createValidResponse(1));
-
-      await service.send(
-        createMultiPartPayload([
+    it('rejects a system-only conversation at construction so the SDK never receives empty contents', () => {
+      // The Gemini API rejects an empty contents array; the schema therefore
+      // requires at least one user or assistant message, and a system-only
+      // conversation fails at the construction boundary without any
+      // provider contact.
+      expect(() => {
+        return createMultiPartPayload([
           { role: 'system', parts: [{ kind: 'text', text: 'Instructions' }] },
-        ]),
-      );
-
-      const request = expectConversationRequest();
-      expect(request.contents).toStrictEqual([]);
-      expect(request.config.systemInstruction).toBe('Instructions');
+        ]);
+      }).toThrow(ZodError);
+      expect(mockGenerateContent).not.toHaveBeenCalled();
     });
 
     it('omits systemInstruction when the conversation has no leading system message', async () => {

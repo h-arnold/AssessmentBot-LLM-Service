@@ -94,6 +94,16 @@ Delegate **WHAT** needs to be accomplished and **WHICH CONSTRAINTS** apply, not 
 
 Only pass files directly related to the task at hand. Do **not** include documentation the subagent is already required to read per its own instructions (e.g., testing docs for Testing Specialist, module docs for Implementation, canonical policy docs).
 
+### 4.5 No Subagent Session Resumption
+
+Every subagent invocation starts with a **fresh context**. OpenCode offers no configuration option to disable `task_id` resumption, so `.opencode/plugins/no-task-resume.ts` strips the `task_id` argument (and removes it from the tool schema) for all agents, appending a notice to the tool result when it does so.
+
+Consequences for orchestrators:
+
+- Never pass `task_id`; it will be stripped.
+- Every handoff must be self-contained. Sub-agents are stateless, so restate all context the subagent needs as `@`-prefixed paths plus explicit requirements.
+- Re-running a subagent means a brand new session, not a continuation. A prior `task_id` in a tool result is a historical identifier only.
+
 ## 5. Agentic Workflow for Non-Trivial Changes
 
 For non-trivial code changes (multi-file logic changes, behavioural changes, refactors, or risky fixes), follow this sequence:

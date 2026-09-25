@@ -11,6 +11,16 @@ const STRIPPED_NOTICE = [
   'Restate any needed context in the next prompt instead of relying on resumption.</notice>',
 ].join(' ');
 
+type JsonSchemaLike = {
+  properties?: Record<string, unknown>;
+};
+
+type ToolDefinitionOutput = {
+  description: string;
+  parameters: unknown;
+  jsonSchema?: JsonSchemaLike;
+};
+
 /**
  * Strip the `task_id` argument from Task tool invocations so that every
  * subagent runs in a fresh session, and tell the orchestrator when this
@@ -18,7 +28,10 @@ const STRIPPED_NOTICE = [
  *
  * OpenCode exposes no configuration option to disable Task tool session
  * resumption, so the behaviour is enforced here for every agent in the
- * project.
+ * project. The model-facing JSON Schema is `output.jsonSchema`; `parameters`
+ * is an opaque Effect schema. When `experimentalBackgroundSubagents` is
+ * enabled, the Task tool provides no `jsonSchema`, so only argument stripping
+ * applies.
  * @returns The opencode plugin hooks enforcing fresh subagent contexts.
  */
 export default (async (): Promise<Hooks> => {
@@ -27,7 +40,8 @@ export default (async (): Promise<Hooks> => {
   return {
     'tool.definition': async (input, output): Promise<void> => {
       if (input.toolID !== 'task') return;
-      const properties = output.parameters?.properties;
+      const definition = output as unknown as ToolDefinitionOutput;
+      const properties = definition.jsonSchema?.properties;
       if (properties) delete properties.task_id;
       output.description = `${output.description}\n\n${FRESH_CONTEXT_NOTE}`;
     },

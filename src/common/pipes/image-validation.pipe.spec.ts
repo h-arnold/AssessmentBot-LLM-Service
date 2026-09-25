@@ -16,9 +16,9 @@ describe('ImageValidationPipe', () => {
     configService = {
       get: vi.fn((key: string): unknown => {
         if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') return 1 as unknown;
-        if (key === 'ALLOWED_IMAGE_MIME_TYPES')
-          return ['image/png', 'image/jpeg'] as unknown;
-        return undefined;
+        return key === 'ALLOWED_IMAGE_MIME_TYPES'
+          ? (['image/png', 'image/jpeg'] as unknown)
+          : undefined;
       }),
     };
 
@@ -151,12 +151,8 @@ describe('ImageValidationPipe', () => {
   describe('Edge Cases', () => {
     it('should handle MAX_IMAGE_UPLOAD_SIZE_MB = 0 (reject all images)', async () => {
       vi.spyOn(configService, 'get').mockImplementation(
-        (key: string): unknown => {
-          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') {
-            return 0;
-          }
-          return ['image/png', 'image/jpeg'];
-        },
+        (key: string): unknown =>
+          key === 'MAX_IMAGE_UPLOAD_SIZE_MB' ? 0 : ['image/png', 'image/jpeg'],
       );
       const validPngBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
@@ -169,10 +165,9 @@ describe('ImageValidationPipe', () => {
 
     it('should handle empty ALLOWED_IMAGE_MIME_TYPES (reject all images)', async () => {
       const emptyMimeConfig = {
-        get: vi.fn((key: string): unknown => {
-          if (key === 'MAX_IMAGE_UPLOAD_SIZE_MB') return 1;
-          return [];
-        }),
+        get: vi.fn((key: string): unknown =>
+          key === 'MAX_IMAGE_UPLOAD_SIZE_MB' ? 1 : [],
+        ),
       };
       const emptyMimePipe = new ImageValidationPipe(
         emptyMimeConfig as unknown as ConfigService,

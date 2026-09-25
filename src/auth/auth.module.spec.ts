@@ -35,12 +35,9 @@ describe('AuthModule', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: vi.fn((key: keyof Config) => {
-              if (key === 'API_KEYS') {
-                return ['test-key'];
-              }
-              return null;
-            }),
+            get: vi.fn((key: keyof Config) =>
+              key === 'API_KEYS' ? ['test-key'] : null,
+            ),
           },
         },
         {

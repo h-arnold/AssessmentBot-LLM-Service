@@ -36,8 +36,12 @@ export const ImageContentPartSchema = z.object({
     .string()
     .regex(/^image\/[a-zA-Z0-9.+-]+$/, 'Invalid image MIME type'),
   data: z.string().refine((data) => {
-    if (data.length === 0 || data.length % 4 !== 0) return false;
-    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return false;
+    if (
+      data.length === 0 ||
+      data.length % 4 !== 0 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(data)
+    )
+      return false;
     const lastChar = data.at(-1);
     const secondLastChar = data.at(-2);
     let padding = 0;

@@ -334,7 +334,7 @@ DOCKER_BUILDKIT=1 docker build -f Docker/Dockerfile.prod .
 ```yaml
 strategy:
   matrix:
-    node-version: [20, 22]
+    node-version: [24]
     os: [ubuntu-latest, windows-latest]
 ```
 

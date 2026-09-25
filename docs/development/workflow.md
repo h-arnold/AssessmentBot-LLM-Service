@@ -4,7 +4,7 @@ Local development setup and daily workflows for the Assessment Bot LLM Service.
 
 ## Prerequisites
 
-- **Node.js 22** (as specified in `package.json` engines)
+- **Node.js 24** (24.15.0 or later, as specified in `package.json` engines)
 - **npm** (included with Node.js)
 - **Git**
 

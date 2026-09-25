@@ -75,13 +75,11 @@ const GEMINI_PROBES: LlmErrorMapperProbes = {
     const check = (v: unknown): boolean =>
       typeof v === 'string' && v.toLowerCase() === lowerValue;
 
-    if (check(error_.status)) return true;
-    if (check(error_.code)) return true;
+    if (check(error_.status) || check(error_.code)) return true;
 
     if (typeof error_.error === 'object' && error_.error !== null) {
       const nestedError = error_.error as Record<string, unknown>;
-      if (check(nestedError.status)) return true;
-      if (check(nestedError.code)) return true;
+      if (check(nestedError.status) || check(nestedError.code)) return true;
     }
 
     return false;

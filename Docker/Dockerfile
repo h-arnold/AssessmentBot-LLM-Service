@@ -1,6 +1,6 @@
 # Dockerfile for Development
 
-# Use the official Node.js 22 Alpine image as a base.
+# Use the official Node.js 24 Alpine image as a base.
 # Alpine is chosen for its small size.
 FROM node:24-alpine
 

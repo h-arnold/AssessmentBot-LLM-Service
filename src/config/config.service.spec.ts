@@ -35,11 +35,7 @@ const normalisePath = (filePath: PathOrFileDescriptor): string => {
     return filePath.pathname;
   }
 
-  if (Buffer.isBuffer(filePath)) {
-    return filePath.toString('utf8');
-  }
-
-  return '';
+  return Buffer.isBuffer(filePath) ? filePath.toString('utf8') : '';
 };
 
 describe('ConfigService', () => {

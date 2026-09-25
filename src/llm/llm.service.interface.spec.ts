@@ -96,9 +96,9 @@ function createService(
   const configService = {
     get: vi.fn((key: string) => {
       if (key === 'LLM_MAX_RETRIES') return configValues['LLM_MAX_RETRIES'];
-      if (key === 'LLM_BACKOFF_BASE_MS')
-        return configValues['LLM_BACKOFF_BASE_MS'];
-      return null;
+      return key === 'LLM_BACKOFF_BASE_MS'
+        ? configValues['LLM_BACKOFF_BASE_MS']
+        : null;
     }),
   } as unknown as ConfigService;
 

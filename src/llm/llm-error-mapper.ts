@@ -80,14 +80,12 @@ export interface LlmErrorMapperProbes {
  */
 export function normaliseStatusCode(value: unknown): number | undefined {
   if (typeof value === 'number') {
-    if (value === 0) return undefined;
-    return value;
+    return value === 0 ? undefined : value;
   }
   if (typeof value === 'string') {
     const n = Number(value);
     if (!Number.isNaN(n)) {
-      if (n === 0) return undefined;
-      return n;
+      return n === 0 ? undefined : n;
     }
   }
   return undefined;

@@ -5,6 +5,11 @@ import { MockInstance } from 'vitest';
 import { JsonParserUtility } from './json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 
+const createConfigGetter = (value: unknown): ((key: string) => unknown) => {
+  const values = new Map<string, unknown>([['LOG_LLM_CONTENT', value]]);
+  return (key: string): unknown => values.get(key) ?? null;
+};
+
 describe('JsonParserUtil', () => {
   let utility: JsonParserUtility;
   let logger: Logger;
@@ -19,10 +24,7 @@ describe('JsonParserUtil', () => {
     debugSpy = vi.spyOn(logger, 'debug').mockImplementation(() => {});
     errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
     configService = {
-      get: vi.fn((key: string): unknown => {
-        if (key === 'LOG_LLM_CONTENT') return false;
-        return null;
-      }),
+      get: vi.fn(createConfigGetter(false)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -96,10 +98,7 @@ describe('JsonParserUtil', () => {
   });
 
   it('logs raw unparseable response content only when LOG_LLM_CONTENT is enabled', () => {
-    configService.get.mockImplementation((key: string): unknown => {
-      if (key === 'LOG_LLM_CONTENT') return true;
-      return null;
-    });
+    configService.get.mockImplementation(createConfigGetter(true));
     utility = new JsonParserUtility(
       configService as unknown as ConfigService,
       logger,
@@ -165,10 +164,7 @@ describe('JsonParserUtil', () => {
 
     // Content logging explicitly enabled: repaired JSON appears at debug
     // level, not info level.
-    configService.get.mockImplementation((key: string): unknown => {
-      if (key === 'LOG_LLM_CONTENT') return true;
-      return null;
-    });
+    configService.get.mockImplementation(createConfigGetter(true));
     utility = new JsonParserUtility(
       configService as unknown as ConfigService,
       logger,

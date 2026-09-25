@@ -160,8 +160,7 @@ describe('MistralService', () => {
       get: vi.fn((key: string): string | null => {
         if (key === 'MISTRAL_API_KEY') return 'test-mistral-key';
         if (key === 'LLM_BACKOFF_BASE_MS') return '10';
-        if (key === 'LLM_MAX_RETRIES') return '2';
-        return null;
+        return key === 'LLM_MAX_RETRIES' ? '2' : null;
       }),
     } as unknown as ConfigService;
 
@@ -244,8 +243,7 @@ describe('MistralService', () => {
         get: vi.fn((key: string): string | null => {
           if (key === 'MISTRAL_API_KEY') return '';
           if (key === 'LLM_BACKOFF_BASE_MS') return '10';
-          if (key === 'LLM_MAX_RETRIES') return '2';
-          return null;
+          return key === 'LLM_MAX_RETRIES' ? '2' : null;
         }),
       } as unknown as ConfigService;
 
@@ -263,8 +261,7 @@ describe('MistralService', () => {
         get: vi.fn((key: string): string | null => {
           if (key === 'MISTRAL_API_KEY') return null;
           if (key === 'LLM_BACKOFF_BASE_MS') return '10';
-          if (key === 'LLM_MAX_RETRIES') return '2';
-          return null;
+          return key === 'LLM_MAX_RETRIES' ? '2' : null;
         }),
       } as unknown as ConfigService;
 
@@ -1502,8 +1499,7 @@ describe('MistralService', () => {
           if (key === 'MISTRAL_API_KEY') return 'test-mistral-key';
           if (key === 'LLM_BACKOFF_BASE_MS') return '10';
           if (key === 'LLM_MAX_RETRIES') return '2';
-          if (key === 'LOG_LLM_CONTENT') return 'true';
-          return null;
+          return key === 'LOG_LLM_CONTENT' ? 'true' : null;
         }),
       } as unknown as ConfigService;
       const loggingService = new MistralService(loggingConfig, {

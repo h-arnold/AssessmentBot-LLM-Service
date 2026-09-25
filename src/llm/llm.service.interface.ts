@@ -46,8 +46,7 @@ export function getPayloadTypeName(
   if (typeof candidate !== 'object' || candidate === null) return 'unknown';
   if ('images' in candidate) return 'image';
   if ('user' in candidate) return 'text';
-  if ('messages' in candidate) return 'conversation';
-  return 'unknown';
+  return 'messages' in candidate ? 'conversation' : 'unknown';
 }
 
 /**

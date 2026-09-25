@@ -28,7 +28,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Run SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v2
+        uses: SonarSource/sonarqube-scan-action@v8
         with:
           projectBaseDir: .
           # You must set SONAR_TOKEN as a secret in your repo

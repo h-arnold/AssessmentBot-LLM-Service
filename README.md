@@ -44,7 +44,7 @@ Run the backend locally with Docker Compose (recommended) or Node.js directly.
 
 ### Prerequisites
 
-- **Node.js**: Version 22.x
+- **Node.js**: Version 24.x (24.15.0 or later)
 - **Docker**: Docker Engine and Docker Compose
 - **Git**
 

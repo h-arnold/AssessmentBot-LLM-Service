@@ -5,7 +5,7 @@ version: 1
 
 environment:
   # Node.js version to match production
-  node_version: "22"
+  node_version: "24"
   
   # Environment variables required for development and testing
   variables:

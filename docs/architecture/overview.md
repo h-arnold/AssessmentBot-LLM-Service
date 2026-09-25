@@ -131,7 +131,7 @@ graph LR
 
 ## Technology Stack
 
-- **Runtime**: Node.js 22 (Debian dev container / `node:22-alpine` production)
+- **Runtime**: Node.js 24 (Debian dev container / `node:24-alpine` production)
 - **Framework**: NestJS with Express.js, TypeScript
 - **Validation**: Zod schemas for all runtime validation
 - **Auth**: Passport.js with `passport-http-bearer` strategy
@@ -143,8 +143,8 @@ graph LR
 
 ### Environment Differences
 
-- **Production** (`node:22-alpine`): Minimal Alpine Linux image for smaller, more secure containers.
-- **Development** (Debian-based): Full feature set with debugging tools and utilities. Always test production builds against `node:22-alpine` to ensure compatibility.
+- **Production** (`node:24-alpine`): Minimal Alpine Linux image for smaller, more secure containers.
+- **Development** (Debian-based): Full feature set with debugging tools and utilities. Always test production builds against `node:24-alpine` to ensure compatibility.
 
 ---
 

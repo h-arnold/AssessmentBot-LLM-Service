@@ -49,7 +49,7 @@ Repository context:
 - Codebase is TypeScript/NestJS; follow existing module/controller/service patterns and the documented project structure in `src/`.
 - Use explicit return types and avoid `any`; keep imports grouped by Node.js, external, internal, then relative modules.
 - Use British English in user-facing text, comments, logs, and documentation.
-- Keep configuration aligned with Node.js 22 and the established npm scripts.
+- Keep configuration aligned with Node.js 24 and the established npm scripts.
 - Environment variables are validated via Zod; ensure new configuration follows `docs/configuration/environment.md` patterns.
 - Prompt system changes should respect the prompt factory and template layout in `src/prompt/templates/`.
 - Reference docs for details: `docs/development/code-style.md`, `docs/development/workflow.md`, `docs/configuration/environment.md`, `docs/prompts/README.md`.

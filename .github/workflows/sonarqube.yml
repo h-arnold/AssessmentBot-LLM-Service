@@ -17,11 +17,16 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Install dependencies
         run: npm ci
       - name: Run Vitest coverage
         run: npm run test:cov
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Run SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v2
         with:

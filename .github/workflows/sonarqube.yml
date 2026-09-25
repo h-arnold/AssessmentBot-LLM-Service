@@ -31,6 +31,8 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v8
         with:
           projectBaseDir: .
+          # Use the Java 21 installed above rather than provisioning a JRE.
+          args: -Dsonar.scanner.skipJreProvisioning=true
           # You must set SONAR_TOKEN as a secret in your repo
           # SONAR_HOST_URL is configured in sonar-project.properties
         env:

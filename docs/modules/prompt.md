@@ -60,6 +60,17 @@ Instantiates the correct `Prompt` subclass based on `taskType` from the DTO.
 
 `buildMultiPartPromptPayload(input: unknown)` is the sole construction boundary for `MultiPartPromptPayload` conversations. It parses the input against `MultiPartPromptPayloadSchema` and returns the branded parsed object, or throws a raw `ZodError`. Routing and the provider LLM services consume the branded payload without re-parsing; the schema brand means a raw literal is rejected at compile time. The legacy prompt subclasses above do not produce multi-part payloads — that remains V2 workstream work. See [LLM Module](llm.md#construction-time-validation).
 
+### Planned multi-part abstraction — Not implemented
+
+`MultiPartPrompt` is planned in `src/prompt/multi-part.prompt.base.ts` as a
+subclass of `Prompt`. It will assemble an optional leading system message and
+one user message from a protected `buildUserParts()` hook, reusing
+`buildMultiPartPromptPayload()` for the sole payload-validation boundary and
+`buildPromptCacheKey()` for server-derived reference keys. `ImagePrompt` will
+use it for ordered reference/template/student label-image pairs. URI parsing
+will remain local to `ImagePrompt`; no provider mapping helper is planned.
+See repository-root `SPEC.md` and `ACTION_PLAN.md` for the delivery contract.
+
 ### ImagePrompt Security Measures
 
 - **Path traversal protection:** Blocks `..` sequences in filenames

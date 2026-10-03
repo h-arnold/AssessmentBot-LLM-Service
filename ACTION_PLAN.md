@@ -93,7 +93,8 @@ Testing Specialist, Implementation and Code Reviewer: `src/prompt/prompt.base.ts
 
 ### Implementation notes / deviations / follow-up
 
-Section 1 implemented and reviewed clean; commit/push gate in progress.
+Section 1 complete: `c289c03` — `feat: add reusable multi-part prompt base`,
+branch `feat/multi-part-image-prompting`; push succeeded.
 Full baseline passed on 3 October 2026;
 output retained in `.opencode/scratchpad/image-baseline.log`. All linters,
 formatter, build, unit/integration and mocked E2E checks passed (mocked E2E:
@@ -150,7 +151,20 @@ Testing Specialist, Implementation and Code Reviewer: new base and tests, `src/p
 
 ### Implementation notes / deviations / follow-up
 
-Not started.
+Section 2 implemented and reviewed clean; commit/push gate in progress.
+Recovered the red delegation after its upstream reporting failure; current
+tree and saved evidence independently verified. Red review passed with no
+findings (`section2-red-review.md`). Full red gate (`section2-red-full.log`)
+has exactly 22 intentional assertion failures (14 missing multipart messages,
+7 missing validation, 1 template wording), 738 passing unit tests and 52
+passing mocked E2E tests plus 1 existing todo; all other checks clean.
+Image tests: 470 lines; factory tests: 172 lines. Original template retained
+in ignored `section2-image-system-prompt.original.md` for preservation checks.
+Green review passed without findings (`section2-green-review.md`). Final full
+gate passed (`section2-final-full.log`): 760 unit tests, 52 mocked E2E tests,
+1 existing todo; zero regressions. IMAGE source: 113 lines. Template diff is
+only the image-count wording; examples and rubric are byte-identical.
+Review ledger: no open findings.
 
 ## Section 3 — Real assessment flow and SDK mock fidelity
 

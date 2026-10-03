@@ -4,7 +4,7 @@ Your role is to assess a student's work against a 'reference task'. You will sco
 
 # The Images
 
-You have been given 2 - 3 images.
+You have been given three images.
 
 - **The first image**: This is the reference task. It would score 5 across all criteria.
 - **The second image**: This is an un-filled template that the students complete.

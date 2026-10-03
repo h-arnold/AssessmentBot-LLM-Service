@@ -18,7 +18,7 @@ Read `SPEC.md` before executing. It owns behaviour, contracts, errors and scope;
 - Before non-trivial code/test work, record a baseline with the full check set (`AGENTS.md` §9: linters, formatter, build, and every test suite except `npm run test:e2e:live`); compare after delivery. Planning alone does not require a runtime baseline.
 - Every code section follows **Red → Green → Refactor**. Testing Specialist captures and reports the intended failure before Implementation starts. Finish each section with focused checks, then Code Reviewer; resolve findings before moving on.
 - Mandatory-read gate: for every delegated phase, include `SPEC.md`, `ACTION_PLAN.md`, that section's listed paths and all touched/read source/tests as `@`-prefixed paths. OpenCode injects those contents, so no `Files read` evidence is required. Agents load their own canonical policy docs. Do not inject AGENTS.md.
-- No commit or push unless explicitly requested. No live-provider calls required for acceptance.
+- Commit and push each completed section after its review and quality gates pass. No live-provider calls required for acceptance.
 
 ### Shared-helper decisions (settled before implementation)
 
@@ -93,7 +93,22 @@ Testing Specialist, Implementation and Code Reviewer: `src/prompt/prompt.base.ts
 
 ### Implementation notes / deviations / follow-up
 
-Not started. Record actual changes and checks during execution.
+Section 1 implemented and reviewed clean; commit/push gate in progress.
+Full baseline passed on 3 October 2026;
+output retained in `.opencode/scratchpad/image-baseline.log`. All linters,
+formatter, build, unit/integration and mocked E2E checks passed (mocked E2E:
+52 passed, 1 existing todo). User-owned agent-definition changes are excluded
+from edits and commits. Red review passed without findings; 19 new tests cover
+all seven required groups. Evidence: `section1-red.log`,
+`section1-red-full.log`, `section1-red-tsc.txt` and `section1-red-review.md`
+in `.opencode/scratchpad/`. Intentional red failures are the absent base module
+and its cascading TS2307/TS2339/TS7006 errors; existing 719 unit tests and
+52 mocked E2E tests remain green. Green full checks passed (738 unit tests,
+52 mocked E2E tests and 1 existing todo); evidence in `section1-green.log`
+and independent `review-s1-*.txt` reports. Review finding ledger:
+S1-G1 (closed, Implementation): summary now explicitly counts user parts.
+Final full gate passed in `section1-final-full.log`; clean sign-off in
+`section1-rereview.md`. New base: 85 lines; test suite: 411 lines.
 
 ## Section 2 — Labelled image parts and system-template alignment
 

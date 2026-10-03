@@ -58,6 +58,12 @@ Agent configuration files are defined in `.opencode/agents/`. Use the `task` too
 
 Every subagent handoff **MUST** include a `Mandatory Reading` section listing mandatory files as `@`-prefixed worktree-relative paths (e.g. `@SPEC.md`, `@src/v1/assessor/assessor.service.ts`) — opencode injects the line-numbered contents of each `@path` token into the sub-agent's context automatically. Bare paths in prose are not injected; only `@path` tokens are, and they must not be immediately preceded by a word character or backtick.
 
+**The `@` prefix is the delivery mechanism.** Injection puts the full contents of every listed file directly into the sub-agent's context before it starts work, so a sub-agent has provably received everything in `Mandatory Reading` without performing any read of its own. This is why:
+
+- **Every file a sub-agent must read must be passed with the `@` prefix.** Never mention a mandatory file as a bare path, and never rely on the sub-agent to discover or read it later.
+- **Do not ask sub-agents for `Files read` evidence.** There is no read-evidence gate: do not demand a list of files read, and do not return work to a sub-agent for omitting one. The injected `@path` contents _are_ the evidence.
+- URLs are the exception — they are not injected, so pass them as plain text and let the sub-agent fetch them.
+
 Sub-agents are stateless. Provide explicit context in prompts:
 
 - relevant source snippets (as `@`-prefixed paths, not pasted contents)
@@ -67,10 +73,9 @@ Sub-agents are stateless. Provide explicit context in prompts:
 - mandatory documentation that must be read for the task
 
 - **What goes in**: `SPEC.md`, `ACTION_PLAN.md`, and every source/test file changed or read in the current scope, each as an `@`-prefixed path.
-- **What stays out**: Do **not** include any `AGENTS.md` file (root or agent-specific) — these are auto-injected by OpenCode when the agent browses to the relevant directory.
+- **What stays out**: Do **not** include any `AGENTS.md` file (root or agent-specific) — these are auto-injected by OpenCode when the agent browses to the relevant directory. Do **not** include any `.opencode/agents/*.md` file for the same reason.
 - **Prompt body rule**: Never paste full file contents into the prompt body. The prompt body should contain only instructions, acceptance criteria, and references. File contents are delivered via `@`-prefixed paths and injected automatically.
 - **Pre-flight check**: Before issuing any `task` call, assemble the `Mandatory Reading` list. If it would be empty for a workflow handoff, **stop — do not send the call.**
-- **Missing files**: If a mandatory file is missing from `Files read`, return the work to the same subagent with a correction request. Do not proceed.
 
 ### 4.2 Available Sub-Agents
 
@@ -114,11 +119,11 @@ For non-trivial code changes (multi-file logic changes, behavioural changes, ref
 4. **Review**: Submit the diff to `Code Reviewer`. If findings return, cycle back to the executing agent until clean.
 5. **Document**: Delegate to `Docs` to update relevant developer documentation and JSDoc.
 6. **Clean up**: Optionally delegate to `De-Sloppification` for a final slop pass.
-7. **Commit**: Verify all checks pass (lint, tests, type-check). Commit and push.
+7. **Commit**: Verify the full check set passes. Commit and push.
 
 **E2E routing**: This project uses Vitest + Supertest for E2E. Delegate all E2E test work to `Testing Specialist` (not a separate agent).
 
-**Regression baseline**: Before starting any non-trivial code or test work, establish a regression baseline using the `regression-checker` skill. Verify no regressions before marking work complete.
+**Full check set**: Before starting any non-trivial code or test work, record a baseline by running the full check set (see §9). After each red-green loop, refactor, or cleanup phase, run it again and compare. Never mark work complete while any check regresses against that baseline.
 
 ## 6. Policy Source-of-Truth Signposts
 
@@ -126,7 +131,7 @@ Detailed policy lives in dedicated docs. AGENTS files are routing signposts only
 
 - Environment configuration: `docs/configuration/environment.md`
 - Code style: `docs/development/code-style.md`
-- Testing: `docs/testing/README.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/E2E_GUIDE.md`, `docs/testing/PROD_TESTS_GUIDE.md`
+- Testing: `docs/testing/README.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/E2E_GUIDE.md`
 - LLM error handling: `docs/modules/llm.md`
 - Prompt system: `docs/prompts/README.md`
 
@@ -147,10 +152,19 @@ If a requirement or behaviour is ambiguous, state 1-2 concise assumptions and pr
 - Build: `npm run build`
 - Dev server: `npm run start:dev`
 - Lint: `npm run lint`
+- British English check: `npm run lint:british`
+- Formatter: `npm run format`
 - Unit/integration tests: `npm run test`
 - E2E tests (mocked): `npm run test:e2e:mocked`
 - E2E tests (live): `npm run test:e2e:live`
-- All checks: `npm run build && npm run lint && npm run test && npm run test:e2e:mocked`
+
+**The full check set** — every linter, the formatter, and every test suite except the live E2E suite:
+
+```bash
+npm run lint && npm run lint:british && npm run format && npm run build && npm run test && npm run test:e2e:mocked
+```
+
+`npm run test:e2e:live` is **excluded** because it calls real LLM endpoints and requires provider credentials. Run it only when the user explicitly asks for live verification.
 
 ## 10. Ignore Patterns
 

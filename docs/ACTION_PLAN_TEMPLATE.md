@@ -185,11 +185,11 @@ _(Repeat above section template for each logical chunk of work, renumbering sect
 
 ### Required test cases/checks
 
-1. Run touched backend model/controller/API suites.
-2. Run touched frontend service/UI suites.
-3. Run backend frontend lint commands.
-4. Run any required e2e tests.
-5. Verify mandatory-read evidence (`Files read`) is complete for every delegated regression handoff.
+1. Run the targeted backend suites for the code you touch.
+2. Run `npm run build` for TypeScript compilation.
+3. Run `npm run lint` and `npm run lint:british`.
+4. Run the mocked E2E suites for API-level or integration changes (`npm run test:e2e:mocked`).
+5. Confirm every delegated handoff passed its mandatory files as `@`-prefixed paths; opencode injects their contents, so no `Files read` return is required.
 
 ### Section checks
 

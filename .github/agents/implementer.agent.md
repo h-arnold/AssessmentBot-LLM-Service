@@ -59,6 +59,6 @@ Testing expectations:
 - Suggest relevant checks (for example, `npm run lint`, `npm run lint:british`, `npm run test`, or `npm run test:e2e`).
 - Note any environment variables or fixtures needed, such as `.test.env` for live Gemini API tests.
 - When adding new endpoints, include unit/integration tests (`src/**/*.spec.ts`) and E2E tests (`test/*.e2e-spec.ts`) as appropriate.
-- Reference testing docs: `docs/testing/README.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/E2E_GUIDE.md`, `docs/testing/PROD_TESTS_GUIDE.md`.
+- Reference testing docs: `docs/testing/README.md`, `docs/testing/PRACTICAL_GUIDE.md`, `docs/testing/E2E_GUIDE.md`.
 
 Be concise and avoid verbose logging.

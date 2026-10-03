@@ -15,9 +15,9 @@ Read `SPEC.md` before executing. It owns behaviour, contracts, errors and scope;
 
 - Check `git status --short` before edits; do not overwrite other agents' changes.
 - British English, ESM `.js` imports, NestJS Logger, privacy-gated content logging and public JSDoc. Never bypass quality gates.
-- Before non-trivial code/test work, load `regression-checker` and establish its baseline; compare after delivery. Planning alone does not require a runtime baseline.
+- Before non-trivial code/test work, record a baseline with the full check set (`AGENTS.md` §9: linters, formatter, build, and every test suite except `npm run test:e2e:live`); compare after delivery. Planning alone does not require a runtime baseline.
 - Every code section follows **Red → Green → Refactor**. Testing Specialist captures and reports the intended failure before Implementation starts. Finish each section with focused checks, then Code Reviewer; resolve findings before moving on.
-- Mandatory-read gate: for every delegated phase, include `SPEC.md`, `ACTION_PLAN.md`, that section's listed paths and all touched/read source/tests as `@`-prefixed paths. Require explicit `Files read`; reject incomplete handoffs. Agents load their own canonical policy docs. Do not inject AGENTS.md.
+- Mandatory-read gate: for every delegated phase, include `SPEC.md`, `ACTION_PLAN.md`, that section's listed paths and all touched/read source/tests as `@`-prefixed paths. OpenCode injects those contents, so no `Files read` evidence is required. Agents load their own canonical policy docs. Do not inject AGENTS.md.
 - No commit or push unless explicitly requested. No live-provider calls required for acceptance.
 
 ### Shared-helper decisions (settled before implementation)
@@ -199,7 +199,7 @@ Testing Specialist and Code Reviewer: all changed source/tests plus `src/llm/rou
 
 - `npm test -- src/llm src/prompt src/v1/assessor`
 - `npm run build && npm run lint && npm run test && npm run test:e2e:mocked`
-- Run `regression-checker` comparison against the pre-implementation baseline; retain evidence in the execution handoff.
+- Run the full check set and compare it against the pre-implementation baseline; retain the output in `.opencode/scratchpad/` as execution handoff evidence.
 - Mandatory-read, Code Reviewer and module-sizing gates passed. No quality gate bypass.
 
 ### Implementation notes / deviations / follow-up

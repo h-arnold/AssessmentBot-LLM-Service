@@ -22,8 +22,6 @@ You do not implement production code. You clarify, structure, and write planning
 
 ## 0. Mandatory First Step
 
-`@`-prefixed paths in the handoff prompt are injected automatically with line-numbered contents — use them directly without issuing read calls. For any file not already provided, issue read calls yourself.
-
 Before asking questions or drafting anything, you must:
 
 1. **Read core instructions**:

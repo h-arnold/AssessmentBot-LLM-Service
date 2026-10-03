@@ -1,6 +1,6 @@
 ---
 name: pre-pr-review
-description: Pre-PR code review orchestrator. Runs the regression checker first and blocks on any regressions, then runs a set of code review focuses in parallel (repo rule compliance, KISS/DRY, de-sloppification, performance/Big-O, logging rules, plus optional layer-scoped focuses), synthesises them into a single PR_REVIEW.md at the repo root, walks through each finding with the user via the ask-user-a-question tool to capture a decision, and records those decisions in detail in the review document.
+description: Pre-PR code review orchestrator. Runs the full check set first and blocks on any regressions, then runs a set of code review focuses in parallel (repo rule compliance, KISS/DRY, de-sloppification, performance/Big-O, logging rules, plus optional layer-scoped focuses), synthesises them into a single PR_REVIEW.md at the repo root, walks through each finding with the user via the ask-user-a-question tool to capture a decision, and records those decisions in detail in the review document.
 user-invocable: true
 allowed-tools:
   - bash
@@ -14,13 +14,13 @@ allowed-tools:
 Use this skill before opening a pull request. It produces a single synthesised review document at the
 repo root named `PR_REVIEW.md`.
 
-The skill does **not** run automated checks itself beyond the regression gate. Every review agent is
+The skill does **not** run automated checks itself beyond the gate in Step 1. Every review agent is
 explicitly told not to run lint, type-check, or tests — those are expected to already pass and are
-verified by the regression checker up front.
+verified up front.
 
 ## What it does
 
-1. Runs the regression checker and blocks if the branch has regressed against the baseline.
+1. Runs the full check set and blocks if the branch has regressed against the baseline.
 2. Captures the diff between the current branch and `main`.
 3. Launches the review focuses in parallel.
 4. Synthesises the results into `PR_REVIEW.md` at the repo root.
@@ -40,32 +40,30 @@ the branch name and `main` are detected automatically.
 - British English in all outputs and the synthesised document.
 - Stay within scope: no auto-fix, no commit/push, no CI wiring.
 
-## Step 1 — Regression gate
+## Step 1 — Check gate
 
-Run the regression checker from the repo root with a long timeout (test suites can take minutes):
+Run the full check set from the repo root (see `AGENTS.md` §9) with a long timeout — test suites can
+take minutes:
 
 ```bash
-npm run regression-checker
+npm run lint && npm run lint:british && npm run format && npm run build && npm run test && npm run test:e2e:mocked
 ```
 
-> **Timeout:** Always set a 600000 ms (10 minute) timeout when invoking this via the `bash` tool.
+> **Timeout:** Always set a 900000 ms (15 minute) timeout when invoking this via the `bash` tool.
 
-Read the resulting `comparison.txt` (or `baseline.txt` on the first run) from the report directory
-(default `.ts-regression-checker/reports/<branch-name>/`). Inspect:
+`npm run test:e2e:live` is deliberately excluded: it calls real LLM endpoints and requires provider
+credentials.
 
-- `overallStatus`
-- `regressionsCount` / `newFailuresCount`
+Record the outcome of every command. If `npm run format` rewrites any file, the gate has failed —
+inspect the diff, then re-run.
 
-**If regressions are present:**
+**If any check fails or regresses:**
 
 - Stop immediately. Do not start the review.
-- Report the regressions (failed checks, new failures) to the user and instruct them to fix those
-  first, then re-run this skill.
-- The regression checker is the source of truth for whether the branch is healthy enough to review.
+- Report the failing commands to the user and instruct them to fix those first, then re-run this skill.
+- This gate is the source of truth for whether the branch is healthy enough to review.
 
 **If clean:** proceed to Step 2.
-
-See `regression-checker/SKILL.md` for full report-artefact details and validation notes.
 
 ## Step 2 — Diff and scope
 
@@ -96,7 +94,7 @@ For every focus, the handoff prompt MUST include:
   paths — opencode injects the line-numbered contents into the sub-agent's prompt; do not rely
   on the sub-agent to read them itself.
 - The explicit constraint: _"Do NOT run lint, type-check, or tests. All automated checks are expected
-  to pass already and are verified by the regression gate before this review began."_
+  to pass already and are verified by the check gate before this review began."_
   - The instruction to focus primarily on the diff findings, but also to report incidental issues
     discovered while inspecting the changed files (e.g. in surrounding code read for context). Incidental
     findings should be clearly separated from diff findings and labelled as incidental so the orchestrator
@@ -157,7 +155,7 @@ Write the synthesised document to `PR_REVIEW.md` at the repository root. Structu
 
 - **Base branch:** main
 - **Generated:** <ISO timestamp>
-- **Regression gate:** PASS (no regressions) | BLOCKED (see regressions above)
+- **Check gate:** PASS (no regressions) | BLOCKED (see failures above)
 - **Changed files:** <count> (<diff --stat summary pasted here>)
 
 ## Verdict
@@ -268,7 +266,7 @@ Structure:
 Print a brief summary:
 
 - The overall verdict (Pass / Needs Improvement / Fail).
-- Regression gate result.
+- Check gate result.
 - The list of focuses run.
 - The path to `PR_REVIEW.md` (now including the recorded decisions).
 
@@ -277,6 +275,6 @@ Critical items so the user can address them and re-run the skill.
 
 ## Notes
 
-- Keep the regression checker as the single source of truth for branch health. Never bypass the gate.
+- Keep the Step 1 check gate as the single source of truth for branch health. Never bypass the gate.
 - Parallelise all review agents in one message to keep the review fast.
 - The skill synthesises; it does not re-litigate individual findings. Trust agent evidence.

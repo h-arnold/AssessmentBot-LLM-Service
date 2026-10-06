@@ -1,4 +1,3 @@
-import * as fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { getCurrentDirname } from 'src/common/file-utilities';
@@ -10,14 +9,7 @@ import {
   AppInstance,
   delay,
 } from './utils/app-lifecycle.js';
-
-// Helper function to load a file and convert it to a data URI
-const loadFileAsDataURI = async (filePath: string): Promise<string> => {
-  const fileBuffer = await fs.readFile(filePath);
-  const mimeType =
-    path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
-};
+import { loadFileAsDataURI } from './utils/e2e-helpers.js';
 
 interface TaskData {
   taskType: string;
@@ -41,11 +33,26 @@ describe('AssessorController (e2e)', () => {
     studentTask: '',
   };
 
+  let referenceDataUri: string;
+  let templateDataUri: string;
+  let studentDataUri: string;
+
   beforeAll(async () => {
     app = await startApp(logFilePath, {
       DEFAULT_TEXT_TABLE_MODEL: 'gemini-flash-latest',
       DEFAULT_IMAGE_MODEL: 'gemini-flash-latest',
     });
+
+    const imageDirectory = path.join(getCurrentDirname(), 'test', 'ImageTasks');
+    referenceDataUri = await loadFileAsDataURI(
+      path.join(imageDirectory, 'referenceTask.png'),
+    );
+    templateDataUri = await loadFileAsDataURI(
+      path.join(imageDirectory, 'templateTask.png'),
+    );
+    studentDataUri = await loadFileAsDataURI(
+      path.join(imageDirectory, 'studentTask.png'),
+    );
   });
 
   afterAll(() => {
@@ -100,5 +107,43 @@ describe('AssessorController (e2e)', () => {
     expect(response.body).toHaveProperty('completeness');
     expect(response.body).toHaveProperty('accuracy');
     expect(response.body).toHaveProperty('spag');
+  });
+
+  it('/v1/assessor (POST) IMAGE should return 201 with the captured image assessment markers', async () => {
+    // Add delay before API call to avoid rate limiting
+    await delay(2000);
+
+    // Uses the actual DTO field names (`reference`, `template`,
+    // `studentResponse`), not the legacy `TaskData` fixture fields.
+    const imagePayload = {
+      taskType: 'IMAGE',
+      reference: referenceDataUri,
+      template: templateDataUri,
+      studentResponse: studentDataUri,
+    };
+
+    const response = await request(app.appUrl)
+      .post('/v1/assessor')
+      .set('Authorization', `Bearer ${app.apiKey}`)
+      .send(imagePayload)
+      .expect(201);
+
+    expect(response.body).toHaveProperty('completeness');
+    expect(response.body).toHaveProperty('accuracy');
+    expect(response.body).toHaveProperty('spag');
+    // Assert the captured image-response variant, whose scores and
+    // reasoning are distinct from the text variant (completeness 3,
+    // spag 2, fitness-tracker reasoning). The Gemini mock detects
+    // native conversation `inlineData` parts carrying image MIME
+    // types, so this image request selects the captured image
+    // response instead of the text/table fallback.
+    expect(response.body.completeness.score).toBe(5);
+    expect(response.body.completeness.reasoning).toContain(
+      'What actually happened',
+    );
+    expect(response.body.accuracy.score).toBe(5);
+    expect(response.body.accuracy.reasoning).toContain('code screenshot');
+    expect(response.body.spag.score).toBe(4);
+    expect(response.body.spag.reasoning).toContain('minor SPaG error');
   });
 });

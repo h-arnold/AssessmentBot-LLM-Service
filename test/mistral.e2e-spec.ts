@@ -127,11 +127,26 @@ describe('MistralAssessor (e2e)', () => {
     expect(response.body).toHaveProperty('completeness');
     expect(response.body).toHaveProperty('accuracy');
     expect(response.body).toHaveProperty('spag');
-    expect(typeof response.body.completeness.reasoning).toBe('string');
-    expect(response.body.completeness).toHaveProperty('score');
-    expect(typeof response.body.accuracy.reasoning).toBe('string');
-    expect(response.body.accuracy).toHaveProperty('score');
-    expect(typeof response.body.spag.reasoning).toBe('string');
-    expect(response.body.spag).toHaveProperty('score');
+    // Assert the captured image-response variant, not merely a
+    // schema-valid text response: completeness 5 (the submission has
+    // the same quantity of work as the reference task), accuracy 2
+    // (the actual output disagrees with the code shown) and SPaG 5
+    // (no spelling, punctuation, or grammar errors). The image
+    // variant uses fully realistic reasoning text, so it must not
+    // carry the "Mistral mocked" marker that identifies the
+    // text/table variants above.
+    expect(response.body.completeness.score).toBe(5);
+    expect(response.body.completeness.reasoning).toContain(
+      'matching the quantity of the reference task',
+    );
+    expect(response.body.accuracy.score).toBe(2);
+    expect(response.body.accuracy.reasoning).toContain('discrepancy');
+    expect(response.body.spag.score).toBe(5);
+    expect(response.body.spag.reasoning).toContain(
+      'no spelling, punctuation, or grammar errors',
+    );
+    expect(response.body.completeness.reasoning).not.toContain(
+      'Mistral mocked',
+    );
   });
 });

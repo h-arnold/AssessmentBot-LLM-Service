@@ -111,10 +111,20 @@ function selectGeminiResponse(contents) {
     : typeof contents === 'string'
       ? contents
       : '';
-  // Image tasks carry inline base64 `data:` URIs; detect that shape
-  // rather than relying on payload length (a text task with a tiny
-  // payload would otherwise be indistinguishable from a table by size alone).
-  if (/data:image\/[a-z]+;base64/i.test(serialised)) {
+  // Image tasks are identified by either native request shape: a
+  // legacy `data:` URI embedded in string content, or a Gemini
+  // `inlineData` part carrying an image MIME type. The conversation
+  // mapper nests those parts inside `contents[].parts[]` and the
+  // legacy image mapper emits them as bare parts; `JSON.stringify`
+  // flattens both nestings, so one serialised-form check covers each
+  // shape. Detection is shape-based rather than length-based, so a
+  // tiny text task is never mistaken for a table by size alone.
+  if (
+    /data:image\/[a-z]+;base64/i.test(serialised) ||
+    /"inlineData"\s*:\s*\{[^}]*"mimeType"\s*:\s*"image\/[a-z0-9.+-]+"/i.test(
+      serialised,
+    )
+  ) {
     return geminiImageResponse;
   }
   // Text and table tasks are indistinguishable once flattened; both are

@@ -151,7 +151,8 @@ Testing Specialist, Implementation and Code Reviewer: new base and tests, `src/p
 
 ### Implementation notes / deviations / follow-up
 
-Section 2 implemented and reviewed clean; commit/push gate in progress.
+Section 2 complete: `5f6f93f` — `feat: migrate image prompts to labelled multi-part messages`,
+branch `feat/multi-part-image-prompting`; push succeeded.
 Recovered the red delegation after its upstream reporting failure; current
 tree and saved evidence independently verified. Red review passed with no
 findings (`section2-red-review.md`). Full red gate (`section2-red-full.log`)
@@ -205,7 +206,23 @@ Use actual DTO field names for new IMAGE requests; the existing Gemini suite's `
 
 ### Implementation notes / deviations / follow-up
 
-Not started.
+Section 3 implemented and reviewed clean; commit/push gate in progress.
+Recovered partial red delegation after rate-limit failure; finished Mistral
+variant assertions and repaired test scoping lint. Red review clean
+(`section3-red-independent-review.md`). Full red gate (`section3-red-full.log`):
+764 unit tests pass; mocked E2E 52 pass, 1 intentional Gemini wrong-variant
+failure (completeness 3 instead of 5), 1 existing todo. All other checks clean.
+Coverage matrix: `section3-red-report.md`; integration suite 208 lines,
+Gemini E2E 151 lines, Mistral E2E 152 lines. Green checks passed: 764 unit
+tests and 53 mocked E2E tests plus 1 existing todo (`section3-green.log`).
+Review ledger: S3-G1 (closed, Implementation): Gemini test comment now
+describes the repaired inlineData detector; assertions unchanged. Clean
+re-review: `section3-green-rereview.md`. Final full gate independently
+verified in `section3-clean-full.log` (764 unit, 53 mocked E2E, 1 todo).
+Earlier final attempt timed out during E2E; its retry exposed an ignored
+generated early-exit stub left by interruption. Reviewer removed/rebuilt
+only generated output, then all checks passed. Failed/interrupted evidence
+retained; no infrastructure refactor or quality-gate waiver.
 
 ## Section 4 — Regression and contract hardening
 

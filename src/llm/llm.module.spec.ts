@@ -17,7 +17,6 @@ const defaults = {
   NODE_ENV: 'test',
   PORT: '3000',
   API_KEYS: 'test-api-key',
-  MAX_IMAGE_UPLOAD_SIZE_MB: '5',
   ALLOWED_IMAGE_MIME_TYPES: 'image/png,image/jpeg',
   LOG_LEVEL: 'debug',
   LLM_BACKOFF_BASE_MS: '1000',

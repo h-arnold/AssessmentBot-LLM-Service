@@ -93,13 +93,21 @@ export abstract class Prompt {
   }
 
   public async buildMessage(): Promise<LlmPayload> {
-    /* default implementation */
+    /* default text/table implementation */
   }
 }
 
-export class ImagePrompt extends Prompt {
-  public async buildMessage(): Promise<LlmPayload> {
-    /* image-specific override */
+export abstract class MultiPartPrompt extends Prompt {
+  protected abstract buildUserParts(): Promise<LlmContentPart[]>;
+
+  public async buildMessage(): Promise<MultiPartPromptPayload> {
+    /* assemble system + user messages, derive key, validate once */
+  }
+}
+
+export class ImagePrompt extends MultiPartPrompt {
+  protected async buildUserParts(): Promise<LlmContentPart[]> {
+    /* ordered reference/template/student label-image pairs */
   }
 }
 ```
@@ -202,7 +210,7 @@ const prompt = await promptFactory.create(dto); // Factory selects strategy
 prompt.buildMessage(); // Template Method with strategy-specific steps
 ```
 
-`PromptFactory` creates the appropriate prompt type (TextPrompt, ImagePrompt, TablePrompt), each of which implements the `Prompt` abstract class (Template Method) and serves as a concrete strategy.
+`PromptFactory` creates the appropriate prompt type (TextPrompt, TablePrompt, ImagePrompt). Each implements the `Prompt` abstract class (Template Method) and serves as a concrete strategy. `ImagePrompt` refines the pattern through `MultiPartPrompt`, which owns conversation assembly and delegates task-specific content to the `buildUserParts()` hook.
 
 ### Guard + Strategy + Provider
 

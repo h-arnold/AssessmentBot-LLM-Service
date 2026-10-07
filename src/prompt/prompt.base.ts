@@ -62,8 +62,8 @@ export function buildMultiPartPromptPayload(
  * @param {string} referenceTask - The raw reference task content to hash.
  * @returns {string} The 64-character lowercase hexadecimal SHA-256 digest.
  * @remarks
- * The single-input `sha256(referenceTask)` rule is a documented contract (see
- * `SPEC.md`): no separator, prefix, or task-type input is added. Mistral prefix
+ * The single-input `sha256(referenceTask)` rule is intentional: no separator,
+ * prefix, or task-type input is added. Mistral prefix
  * caching is prefix-content-based, so this key is a best-effort routing hint
  * that groups requests sharing the same reference prefix. Sharing keys across
  * task types is therefore intentional — the task type is deliberately excluded
@@ -175,7 +175,9 @@ export abstract class Prompt {
    * Builds the final payload to be sent to the LLM service.
    *
    * This is the default implementation for text and table prompts.
-   * Subclasses can override if needed (e.g., ImagePrompt).
+   * Multi-part assessment prompts instead extend {@link MultiPartPrompt},
+   * whose `buildMessage()` override assembles a validated conversation
+   * from the `buildUserParts()` hook.
    * @returns {Promise<LlmPayload>} A Promise that resolves to the LlmPayload.
    */
   public async buildMessage(): Promise<LlmPayload> {

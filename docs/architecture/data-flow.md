@@ -31,8 +31,13 @@ sequenceDiagram
     Prompt-->>-Factory: Prompt Instance
     Factory-->>-Service: Prompt Instance
     Service->>+Prompt: buildMessage()
-    Prompt->>Prompt: Load User Template
-    Prompt->>Prompt: Render with Mustache
+    alt Text/Table prompt
+        Prompt->>Prompt: Load User Template
+        Prompt->>Prompt: Render with Mustache
+    else Image prompt (MultiPartPrompt)
+        Prompt->>Prompt: Assemble labelled image parts
+        Prompt->>Prompt: Validate multi-part payload once
+    end
     Prompt-->>-Service: LlmPayload
     Service->>+LLM: send(payload)
     LLM->>LLM: Select configured model and provider
@@ -73,7 +78,7 @@ sequenceDiagram
 
 ### 5. Prompt Generation
 
-`PromptFactory` instantiates the correct prompt type (Text, Table, or Image) based on task type. The prompt validates inputs, loads Markdown templates, and renders them with Mustache using assessment variables (`{{referenceTask}}`, `{{studentTask}}`, `{{emptyTask}}`).
+`PromptFactory` instantiates the correct prompt type (Text, Table, or Image) based on task type. Text and table prompts validate inputs, load Markdown templates, and render them with Mustache using assessment variables (`{{referenceTask}}`, `{{studentTask}}`, `{{emptyTask}}`). For IMAGE tasks the factory passes the validated data-URI strings to `ImagePrompt`, which extends `MultiPartPrompt` to assemble a two-message conversation of ordered label-image parts, derive its cache key server-side, and validate the payload once.
 
 ### 6. LLM Integration
 

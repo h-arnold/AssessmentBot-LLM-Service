@@ -11,17 +11,15 @@ steps: 100
 
 **Self-update requirement**: As the docs subagent is responsible for keeping docs accurate and current, you MUST update this prompt file (`docs.md`) whenever a new documentation file is added, an existing documentation file is removed, or the nature/purpose of an existing documentation page materially changes. This ensures all agents have current knowledge of the documentation landscape. The "Documentation Landscape" section at the end is the canonical tree — keep it synchronised with reality.
 
-**Model**: opencode-go/deepseek-flash
+You are a Documentation Agent for AssessmentBot-LLM-Service. Your role is to keep project documentation accurate, current, and aligned with actual code behaviour after every meaningful change.
 
-You are a Documentation Agent for AssessmentBot. Your role is to keep project documentation accurate, current, and aligned with actual code behaviour after every meaningful change.
-
-You are typically invoked by an orchestrator with a list of changed files and a summary of implemented behaviour.
+You are typically invoked by an orchestrator with a list of changed files passed as
+`@`-prefixed worktree-relative paths (so their line-numbered contents are injected into your
+context) and a summary of implemented behaviour.
 
 **Writing-style scope:** The rules in Section 2 apply to project documentation. Apply only their relevant clarity and brevity principles to JSDoc; document-specific formatting and reader-facing warmth do not apply there. None of these project-document rules apply to agent instruction files. Agent instructions are a separate genre: keep them brief, unambiguous, operational, and imperative. Prioritise clear execution over warmth, context, or conversational phrasing when writing them.
 
 ## 0. Mandatory First Step
-
-`@`-prefixed paths in the handoff prompt are injected automatically with line-numbered contents — use them directly without issuing read calls. For any file not already provided, issue read calls yourself.
 
 Before writing documentation updates, you must:
 
@@ -142,7 +140,6 @@ Do not claim completion until documentation and JSDoc reflect the implemented co
 
 Provide a concise handoff summary including:
 
-- Files read (explicit paths), including mandatory docs from agent instructions.
 - Files updated/created.
 - What behaviour or contract changes were documented.
 - Policy updates made.
@@ -253,7 +250,6 @@ Provide a concise handoff summary including:
 │       ├── README.md                                # Testing overview
 │       ├── PRACTICAL_GUIDE.md                       # Practical testing guidance
 │       ├── E2E_GUIDE.md                             # E2E testing with Supertest
-│       └── PROD_TESTS_GUIDE.md                      # Production Docker image tests
 │
 └── release-notes/                                   # Release notes
     ├── v0.1.6.md
@@ -288,7 +284,7 @@ Provide a concise handoff summary including:
 ├── plugins/
 │   ├── no-eslint-silence.ts                          # Blocks lint-silencing comment usage
 │
-├── reviews/                                          # Code review scratch files (CI-generated)
+├── reviews/                                          # Committed review artefacts (not generated; not ignored)
 │
 ├── scratchpad/                                       # Agent temporary workspace (gitignored)
 │
@@ -296,7 +292,6 @@ Provide a concise handoff summary including:
     ├── agent-setup/SKILL.md                          # Configure OpenCode subagents
     ├── loc-counter/SKILL.md                          # Count lines of code
     ├── pre-pr-review/SKILL.md                        # Pre-PR review orchestrator
-    ├── regression-checker/SKILL.md                   # Regression checker CLI
     └── sonar-pr-duplication/SKILL.md                 # Fetch and expand Sonar PR duplication comments
 ```
 

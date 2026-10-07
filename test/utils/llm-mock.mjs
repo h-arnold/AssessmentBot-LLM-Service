@@ -111,10 +111,18 @@ function selectGeminiResponse(contents) {
     : typeof contents === 'string'
       ? contents
       : '';
-  // Image tasks carry inline base64 `data:` URIs; detect that shape
-  // rather than relying on payload length (a text task with a tiny
-  // payload would otherwise be indistinguishable from a table by size alone).
-  if (/data:image\/[a-z]+;base64/i.test(serialised)) {
+  // Image tasks are identified by Gemini `inlineData` parts carrying
+  // an image MIME type. The conversation
+  // mapper nests those parts inside `contents[].parts[]` and the
+  // legacy image mapper emits them as bare parts; `JSON.stringify`
+  // flattens both nestings, so one serialised-form check covers each
+  // shape. Detection is shape-based rather than length-based, so a
+  // tiny text task is never mistaken for a table by size alone.
+  if (
+    /"inlineData"\s*:\s*\{[^}]*"mimeType"\s*:\s*"image\/[a-z0-9.+-]+"/i.test(
+      serialised,
+    )
+  ) {
     return geminiImageResponse;
   }
   // Text and table tasks are indistinguishable once flattened; both are
@@ -169,7 +177,8 @@ Object.defineProperty(GoogleGenAI.prototype, 'models', {
 // sufficient; no setter interception is required. The `configurable: true`
 // flag is mandatory so this override can replace the SDK's own lazy-getter
 // definition. If a future SDK version switches to an own-property assignment,
-// this pattern must be revisited (see SPEC product decision #9).
+// this pattern must be revisited; the mocked-E2E shim contract is described
+// in `docs/testing/E2E_GUIDE.md`.
 Object.defineProperty(Mistral.prototype, 'chat', {
   configurable: true,
   get() {

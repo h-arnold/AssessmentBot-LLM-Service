@@ -6,6 +6,7 @@ import * as dotenv from 'dotenv';
 import { z } from 'zod';
 
 import { configSchema, type Config } from './environment.schema.js';
+import { MAX_JSON_PAYLOAD_SIZE } from '../common/image.constants.js';
 
 export type { Config } from './environment.schema.js';
 
@@ -79,14 +80,10 @@ export class ConfigService {
   }
 
   /**
-   * Calculates the global payload limit for the application based on the max
-   * image upload size. This is used to configure the `body-parser` middleware.
-   * @returns {string} A string representing the payload limit (e.g., '9mb').
+   * Returns the JSON payload limit, sized for three maximum base64 image data URIs.
+   * @returns {string} The fixed payload limit (`5mb`).
    */
   getGlobalPayloadLimit(): string {
-    const maxImageSizeMB = this.config.MAX_IMAGE_UPLOAD_SIZE_MB;
-    // Formula: ((MAX_IMAGE_UPLOAD_SIZE_MB * 1.33 * 3) + 1) MB
-    const limitInMB = Math.ceil(maxImageSizeMB * 1.33 * 3 + 1);
-    return `${limitInMB}mb`;
+    return MAX_JSON_PAYLOAD_SIZE;
   }
 }

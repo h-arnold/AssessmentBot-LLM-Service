@@ -38,7 +38,7 @@ Abstracts LLM provider interaction. Defines the `LLMService` abstract base class
 
 ### Prompt Module (`src/prompt/prompt.module.ts`)
 
-Task-specific prompt generation. `PromptFactory` (Factory pattern) creates `TextPrompt`, `TablePrompt`, or `ImagePrompt` instances inheriting from the `Prompt` base class (Template Method pattern). Uses Mustache for template rendering.
+Task-specific prompt generation. `PromptFactory` (Factory pattern) creates `TextPrompt`, `TablePrompt`, or `ImagePrompt` instances inheriting from the `Prompt` base class (Template Method pattern). `ImagePrompt` inherits through `MultiPartPrompt`, which assembles validated two-message conversations from ordered label-image parts; text and table prompts use the inherited Mustache template rendering.
 
 ## Module Dependency Graph
 

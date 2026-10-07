@@ -62,9 +62,6 @@ const getMockEnvironmentValue = (key: string): string | string[] => {
     case 'API_KEYS':
       value = process.env.API_KEYS ?? '';
       break;
-    case 'MAX_IMAGE_UPLOAD_SIZE_MB':
-      value = process.env.MAX_IMAGE_UPLOAD_SIZE_MB ?? '';
-      break;
     case 'APP_NAME':
       value = process.env.APP_NAME ?? '';
       break;
@@ -107,7 +104,6 @@ describe('AssessorService', () => {
     process.env.NODE_ENV = 'test';
     process.env.PORT = '3000';
     process.env.API_KEYS = 'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-    process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
     process.env.APP_NAME = 'Assessment Bot LLM Service';
     process.env.APP_VERSION = 'test-version';
     process.env.LOG_LEVEL = 'debug';

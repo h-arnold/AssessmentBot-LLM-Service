@@ -20,8 +20,6 @@ const getMockConfigValue = (key: string): unknown => {
       return 3000;
     case 'API_KEYS':
       return 'test-api-key';
-    case 'MAX_IMAGE_UPLOAD_SIZE_MB':
-      return 5;
     case 'ALLOWED_IMAGE_MIME_TYPES':
       return 'image/png,image/jpeg';
     case 'LOG_LEVEL':

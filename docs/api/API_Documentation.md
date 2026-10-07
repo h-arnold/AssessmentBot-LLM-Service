@@ -37,15 +37,16 @@ The request body is a JSON object that defines the assessment task. It uses a `t
 - `template`: (Required) The assessment template or instructions.
 - `studentResponse`: (Required) The student's response.
 
-For `IMAGE` tasks, the `reference`, `template`, and `studentResponse` fields can be a `Buffer` or a base64-encoded string with a Data URI prefix (e.g., `data:image/png;base64,...`).
+For `IMAGE` tasks, the `reference`, `template`, and `studentResponse` fields must each be a non-empty base64 data URI string (e.g., `data:image/png;base64,...`). `Buffer` input is not accepted.
 
 #### Image Validation (`IMAGE` Task Type)
 
 When `taskType` is `IMAGE`, specific validation rules apply to the image fields:
 
-- **Max Size:** The maximum image size is defined by the `MAX_IMAGE_UPLOAD_SIZE_MB` environment variable (default: 1 MB).
+- **Max Size:** Each image must decode to no more than **1 MiB**. The limit is fixed and not configurable.
+- **Aggregate Size:** The whole JSON request body is capped at 5 MiB; larger requests are rejected with `413 Payload Too Large`.
 - **MIME Types:** Allowed MIME types are defined in the `ALLOWED_IMAGE_MIME_TYPES` environment variable (default: `image/png`).
-- **Format:** Base64-encoded images **must** include the Data URI prefix.
+- **Format:** Images **must** be base64-encoded with the Data URI prefix.
 
 #### Example (`TEXT` task)
 

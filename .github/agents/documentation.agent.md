@@ -52,7 +52,7 @@ Docs map (folders and key files under `docs/`):
 - `development/`: `workflow.md` (local dev process), `debugging.md` (debug techniques), `code-style.md` (coding standards), `git-workflow.md` (branch/commit conventions), `codex-delegation.md` (delegation guidance).
 - `deployment/`: `docker.md` (container deployment), `production.md` (production setup), `cicd.md` (CI/CD), `monitoring.md` (observability).
 - `configuration/`: `environment.md` (environment variables and validation).
-- `testing/`: `README.md` (testing hub), `PRACTICAL_GUIDE.md` (unit/mocking patterns), `E2E_GUIDE.md` (E2E instructions), `PROD_TESTS_GUIDE.md` (production image tests).
+- `testing/`: `README.md` (testing hub), `PRACTICAL_GUIDE.md` (unit/mocking patterns), `E2E_GUIDE.md` (E2E instructions).
 - `api/`: `API_Documentation.md` (endpoint reference), `schemas.md` (request/response schemas), `error-codes.md` (API errors), `rate-limiting.md` (limits).
 - `auth/`: `API_Key_Management.md` (service API key handling), `provider-api-keys.md` (LLM provider keys and privacy requirements).
 - `modules/`: module-specific pages — `app.md`, `config.md`, `common.md`, `assessor.md`, `auth.md`, `llm.md`, `prompt.md`, `status.md`, `pipes.md`, `filters.md`, `guards.md`, `utilities.md`.

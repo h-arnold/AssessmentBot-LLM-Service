@@ -41,7 +41,7 @@ describe('CreateAssessorDto', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should accept a valid IMAGE task payload with Buffers', () => {
+    it('should reject IMAGE task payloads containing actual Buffers', () => {
       const validPayload = {
         taskType: TaskType.IMAGE,
         reference: Buffer.from('image data'),
@@ -49,7 +49,7 @@ describe('CreateAssessorDto', () => {
         studentResponse: Buffer.from('image data'),
       };
       const result = assessorDtoSchema.safeParse(validPayload);
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
 
     it('should reject when taskType is missing', () => {
@@ -157,9 +157,9 @@ describe('CreateAssessorDto', () => {
       const result = assessorDtoSchema.safeParse(payload);
       expect(result.success).toBe(false);
       const error = (result as { error: ZodError }).error;
-      expect(error.issues[0].message).toContain(
-        'For IMAGE taskType, reference, template, and studentResponse must all be of the same type',
-      );
+      expect(
+        error.issues.some((issue) => issue.path.includes('template')),
+      ).toBe(true);
     });
 
     it('should accept a valid IMAGE task payload with base64 strings', () => {

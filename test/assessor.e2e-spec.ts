@@ -1,4 +1,3 @@
-import * as fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { getCurrentDirname } from 'src/common/file-utilities';
@@ -10,21 +9,7 @@ import {
   AppInstance,
   delay,
 } from './utils/app-lifecycle.js';
-
-// Helper function to load a file and convert it to a data URI
-const loadFileAsDataURI = async (filePath: string): Promise<string> => {
-  const fileBuffer = await fs.readFile(filePath);
-  const mimeType =
-    path.extname(filePath) === '.png' ? 'image/png' : 'image/jpeg';
-  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
-};
-
-interface TaskData {
-  taskType: string;
-  referenceTask: string;
-  emptyTask: string;
-  studentTask: string;
-}
+import { loadFileAsDataURI, TaskData } from './utils/e2e-helpers.js';
 
 describe('AssessorController (e2e)', () => {
   let app: AppInstance;
@@ -41,11 +26,26 @@ describe('AssessorController (e2e)', () => {
     studentTask: '',
   };
 
+  let referenceDataUri: string;
+  let templateDataUri: string;
+  let studentDataUri: string;
+
   beforeAll(async () => {
     app = await startApp(logFilePath, {
       DEFAULT_TEXT_TABLE_MODEL: 'gemini-flash-latest',
       DEFAULT_IMAGE_MODEL: 'gemini-flash-latest',
     });
+
+    const imageDirectory = path.join(getCurrentDirname(), 'test', 'ImageTasks');
+    referenceDataUri = await loadFileAsDataURI(
+      path.join(imageDirectory, 'referenceTask.png'),
+    );
+    templateDataUri = await loadFileAsDataURI(
+      path.join(imageDirectory, 'templateTask.png'),
+    );
+    studentDataUri = await loadFileAsDataURI(
+      path.join(imageDirectory, 'studentTask.png'),
+    );
   });
 
   afterAll(() => {
@@ -100,5 +100,103 @@ describe('AssessorController (e2e)', () => {
     expect(response.body).toHaveProperty('completeness');
     expect(response.body).toHaveProperty('accuracy');
     expect(response.body).toHaveProperty('spag');
+  });
+
+  it('/v1/assessor (POST) IMAGE should return 201 with the captured image assessment markers', async () => {
+    // Add delay before API call to avoid rate limiting
+    await delay(2000);
+
+    // Uses the actual DTO field names (`reference`, `template`,
+    // `studentResponse`), not the legacy `TaskData` fixture fields.
+    const imagePayload = {
+      taskType: 'IMAGE',
+      reference: referenceDataUri,
+      template: templateDataUri,
+      studentResponse: studentDataUri,
+    };
+
+    const response = await request(app.appUrl)
+      .post('/v1/assessor')
+      .set('Authorization', `Bearer ${app.apiKey}`)
+      .send(imagePayload)
+      .expect(201);
+
+    expect(response.body).toHaveProperty('completeness');
+    expect(response.body).toHaveProperty('accuracy');
+    expect(response.body).toHaveProperty('spag');
+    // Assert the captured image-response variant, whose scores and
+    // reasoning are distinct from the text variant (completeness 3,
+    // spag 2, fitness-tracker reasoning). The Gemini mock detects
+    // native conversation `inlineData` parts carrying image MIME
+    // types, so this image request selects the captured image
+    // response instead of the text/table fallback.
+    expect(response.body.completeness.score).toBe(5);
+    expect(response.body.completeness.reasoning).toContain(
+      'What actually happened',
+    );
+    expect(response.body.accuracy.score).toBe(5);
+    expect(response.body.accuracy.reasoning).toContain('code screenshot');
+    expect(response.body.spag.score).toBe(4);
+    expect(response.body.spag.reasoning).toContain('minor SPaG error');
+  });
+
+  it('should return 400 when any IMAGE field exceeds 1 MiB despite obsolete size configuration', async () => {
+    const oversizedImage = `data:image/png;base64,${Buffer.alloc(1024 * 1024 + 1).toString('base64')}`;
+    const validImage = 'data:image/png;base64,aGVsbG8=';
+    for (const field of ['reference', 'template', 'studentResponse'] as const) {
+      const payload = {
+        taskType: 'IMAGE',
+        reference: validImage,
+        template: validImage,
+        studentResponse: validImage,
+        [field]: oversizedImage,
+      };
+      const response = await request(app.appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${app.apiKey}`)
+        .send(payload)
+        .expect(400);
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it('should accept a 1 MiB image in each IMAGE field despite obsolete size configuration', async () => {
+    const maximumSizeImage = `data:image/png;base64,${Buffer.alloc(1024 * 1024).toString('base64')}`;
+    const validImage = 'data:image/png;base64,aGVsbG8=';
+    for (const field of ['reference', 'template', 'studentResponse'] as const) {
+      const payload = {
+        taskType: 'IMAGE',
+        reference: validImage,
+        template: validImage,
+        studentResponse: validImage,
+        [field]: maximumSizeImage,
+      };
+      const response = await request(app.appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${app.apiKey}`)
+        .send(payload)
+        .expect(201);
+      expect(response.status).toBe(201);
+    }
+  });
+
+  it('/v1/assessor (POST) TEXT should not select the image mock for a data URI in text', async () => {
+    await delay(2000);
+
+    const textPayload = {
+      taskType: 'TEXT',
+      reference: 'Reference includes data:image/png;base64,ZmFrZQ==',
+      template: 'Template text',
+      studentResponse: 'Student text',
+    };
+
+    const response = await request(app.appUrl)
+      .post('/v1/assessor')
+      .set('Authorization', `Bearer ${app.apiKey}`)
+      .send(textPayload)
+      .expect(201);
+
+    expect(response.body.completeness.score).toBe(3);
+    expect(response.body.completeness.reasoning).toContain('fitness tracker');
   });
 });

@@ -1,5 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { detectBufferMime } from 'mime-detect';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { ImagePrompt } from './image.prompt.js';
 import { Prompt } from './prompt.base.js';
@@ -179,53 +178,12 @@ export class PromptFactory {
           this.configService,
         );
       case TaskType.IMAGE: {
-        let imageInputs: {
-          referenceTask: string;
-          studentTask: string;
-          emptyTask: string;
-        };
-
-        if (Buffer.isBuffer(dto.reference)) {
-          // superRefine guarantees all three fields are Buffers when one is
-          const [referenceMimeType, studentMimeType, templateMimeType] =
-            await Promise.all([
-              detectBufferMime(dto.reference),
-              detectBufferMime(dto.studentResponse as Buffer),
-              detectBufferMime(dto.template as Buffer),
-            ]);
-
-          if (!referenceMimeType) {
-            throw new BadRequestException(
-              'Unable to detect MIME type for reference image buffer.',
-            );
-          }
-          if (!studentMimeType) {
-            throw new BadRequestException(
-              'Unable to detect MIME type for student response image buffer.',
-            );
-          }
-          if (!templateMimeType) {
-            throw new BadRequestException(
-              'Unable to detect MIME type for template image buffer.',
-            );
-          }
-
-          imageInputs = {
-            referenceTask: `data:${referenceMimeType};base64,${dto.reference.toString('base64')}`,
-            studentTask: `data:${studentMimeType};base64,${(dto.studentResponse as Buffer).toString('base64')}`,
-            emptyTask: `data:${templateMimeType};base64,${(dto.template as Buffer).toString('base64')}`,
-          };
-        } else {
-          // superRefine guarantees all three fields are strings when reference is
-          imageInputs = {
-            referenceTask: dto.reference,
-            studentTask: dto.studentResponse as string,
-            emptyTask: dto.template as string,
-          };
-        }
-
         return new ImagePrompt(
-          imageInputs,
+          {
+            referenceTask: dto.reference,
+            studentTask: dto.studentResponse,
+            emptyTask: dto.template,
+          },
           this.logger,
           systemPrompt,
           this.configService,

@@ -32,14 +32,15 @@ Creates a new assessment by processing the provided task data.
 ```typescript
 {
   taskType: 'TEXT' | 'TABLE' | 'IMAGE',
-  reference: string | Buffer,
-  template: string | Buffer,
-  studentResponse: string | Buffer,
+  reference: string,
+  template: string,
+  studentResponse: string,
   // IMAGE tasks only:
-  images?: Array<{path: string, mimeType: string}>,
   systemPromptFile?: string
 }
 ```
+
+For `IMAGE` tasks, each image field must be a non-empty base64 Data URI string decoding to no more than 1 MiB. `Buffer` input is not accepted.
 
 **Response:**
 
@@ -54,8 +55,9 @@ Creates a new assessment by processing the provided task data.
 **Status Codes:**
 
 - `201 Created` — Assessment successfully created
-- `400 Bad Request` — Validation failed
+- `400 Bad Request` — Validation failed, including an image above 1 MiB decoded
 - `401 Unauthorised` — Missing or invalid API key
+- `413 Payload Too Large` — Request body exceeds the 5 MiB aggregate JSON cap
 - `429 Too Many Requests` — Rate limit exceeded
 - `500 Internal Server Error` — LLM service error
 

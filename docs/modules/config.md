@@ -54,14 +54,13 @@ const apiKeys = configService.get('API_KEYS'); // string[] | undefined
 
 #### `getGlobalPayloadLimit(): string`
 
-Calculates the global payload limit for `body-parser` middleware based on the maximum image upload size:
+Returns the fixed JSON body limit for `body-parser`, sized for three maximum-size base64 image data URIs:
 
 ```typescript
-// Formula: ((MAX_IMAGE_UPLOAD_SIZE_MB * 1.33 * 3) + 1) MB
-const limit = configService.getGlobalPayloadLimit(); // e.g., "9mb"
+const limit = configService.getGlobalPayloadLimit(); // "5mb"
 ```
 
-The formula accounts for Base64 encoding overhead (1.33×), multiple images (3×), and a buffer room (+1 MB).
+The value derives from `MAX_IMAGE_SIZE_BYTES` (1 MiB decoded per image) in `src/common/image.constants.ts`: three images expanded by the 4/3 base64 overhead, plus 1 MiB for data URI headers, padding, and other JSON overhead, rounded up to the next whole MiB. Requests above the limit are rejected with HTTP 413 before application code runs.
 
 ## Dependencies
 

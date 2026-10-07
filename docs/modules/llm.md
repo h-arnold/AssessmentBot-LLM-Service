@@ -85,7 +85,7 @@ priority rules, and how to add a new provider, see the dedicated guide:
 
 ## Multi-Part Conversation Payloads
 
-`MultiPartPromptPayload` is the third member of the `LlmPayload` union. It carries an ordered `messages` array whose messages have `system`, `user`, or `assistant` roles and whose parts are text (`{ kind: 'text', text }`) or image (`{ kind: 'image', mimeType, data }`). Image `data` is required standard padded base64. Construct instances with `buildMultiPartPromptPayload()` (see [Construction-time validation](#construction-time-validation)). This is the transport-layer contract for conversation-style requests; no HTTP surface exists yet, and no prompt subclass produces one (V2 workstream).
+`MultiPartPromptPayload` is the third member of the `LlmPayload` union. It carries an ordered `messages` array whose messages have `system`, `user`, or `assistant` roles and whose parts are text (`{ kind: 'text', text }`) or image (`{ kind: 'image', mimeType, data }`). Image `data` is required standard padded base64. Construct instances with `buildMultiPartPromptPayload()` (see [Construction-time validation](#construction-time-validation)). This is the transport-layer contract for conversation-style requests; `ImagePrompt` produces it via `MultiPartPrompt`, while text and table prompts remain legacy string payloads. No HTTP surface accepts a conversation directly.
 
 ### Schema-first contract
 
@@ -97,7 +97,7 @@ The schema enforces the following structural rules:
 - A conversation must contain at least one `user` or `assistant` message; a system-only conversation is rejected so Gemini never receives an empty `contents` array (the Gemini API rejects it).
 - System messages accept text parts only; image parts are restricted to `user` and `assistant` messages.
 - `mimeType` must match `image/<subtype>` (`/^image\/[a-zA-Z0-9.+-]+$/`). Parameters such as `; charset=utf-8`, whitespace, and non-lowercase `image/` prefixes are rejected.
-- `data` must be non-empty standard padded base64: a length that is a multiple of four, alphabet `[A-Za-z0-9+/]` with at most two trailing `=`, and a decoded size of at most 1 MiB (1 048 576 bytes) per image part. There is no aggregate cap across parts.
+- `data` must be non-empty standard padded base64: a length that is a multiple of four, alphabet `[A-Za-z0-9+/]` with at most two trailing `=`, and a decoded size of at most 1 MiB (1 048 576 bytes) per image part. This schema sets no aggregate cap across parts; the HTTP surface caps the whole JSON body at 5 MiB (HTTP 413) via `body-parser`.
 - Validation is structural only. No magic-byte inspection is performed and no provider allowlist is applied, so a well-formed but provider-unsupported image fails loudly at the provider rather than being rewritten.
 - `text` is a plain string with no non-empty constraint. Unknown keys are stripped by Zod's default object behaviour, and the input object is not mutated.
 
@@ -146,6 +146,7 @@ A multi-part payload sent directly to `GeminiService` (bypassing `RoutingLLMServ
 ### Testing notes
 
 - Construction-time schema validation (`buildMultiPartPromptPayload()`) and the single-parse contract: `src/prompt/prompt.base.spec.ts`.
+- Multi-part base assembly, the `buildUserParts()` hook contract, statelessness and IMAGE label-image construction: `src/prompt/multi-part.prompt.base.spec.ts` and `src/prompt/image.prompt.spec.ts`.
 - Base-class dispatch and `describePayload` summaries: `src/llm/llm.service.interface.spec.ts`.
 - Routing by image-part presence: `src/llm/routing-llm.service.spec.ts`.
 - Provider mapping and log labelling: `src/llm/gemini.service.spec.ts` and `src/llm/mistral.service.spec.ts`.
@@ -153,19 +154,21 @@ A multi-part payload sent directly to `GeminiService` (bypassing `RoutingLLMServ
 
 ## Prompt Cache Key
 
-All three payload variants — `StringPromptPayload`, `ImagePromptPayload`, and `MultiPartPromptPayload` — accept an optional `promptCacheKey?: string`. It is a provider-agnostic prefix-cache routing hint that groups repeated requests for the same reference task. For the legacy variants the key is derived server-side and is never accepted from clients; the multi-part variant accepts a caller-supplied key (see [Multi-part cache-key contract](#multi-part-cache-key-contract)).
+All three payload variants — `StringPromptPayload`, `ImagePromptPayload`, and `MultiPartPromptPayload` — accept an optional `promptCacheKey?: string`. It is a provider-agnostic prefix-cache routing hint that groups repeated requests for the same reference task. For the legacy variants the prompt layer derives the key server-side and clients cannot supply it. The multi-part variant's production producer, `MultiPartPrompt`, also derives it server-side, while the low-level schema additionally accepts a directly supplied key from a trusted caller (see [Multi-part cache-key contract](#multi-part-cache-key-contract)).
 
 ### Derivation
 
-The prompt layer owns derivation. `buildPromptCacheKey(referenceTask)` in `src/prompt/prompt.base.ts` returns the lowercase hexadecimal SHA-256 digest of the raw reference task string (64 characters). `Prompt.buildMessage()` (text and table) and `ImagePrompt.buildMessage()` both call it; for image payloads the reference task is the data-URI string held by the prompt, so multimodal payloads use the same rule as text payloads.
+The prompt layer owns derivation. `buildPromptCacheKey(referenceTask)` in `src/prompt/prompt.base.ts` returns the lowercase hexadecimal SHA-256 digest of the raw reference task string (64 characters). `Prompt.buildMessage()` (text and table) and `MultiPartPrompt.buildMessage()` (which `ImagePrompt` inherits) both call it; for image payloads the reference task is the data-URI string held by the prompt, so multimodal payloads use the same rule as text payloads.
 
 The rule is a single input — `sha256(referenceTask)` with no separator, prefix, or task-type component — and forms part of the documented contract. Changing it changes every effective cache key and therefore requires a deliberate contract revision. Keys are shared across task types by design: differing task types have differing reference content anyway.
 
 ### Multi-part cache-key contract
 
-**Contract decision (2026-09-17):** the multi-part variant accepts a caller-supplied `promptCacheKey`, in contrast to the legacy server-derived invariant. The value is forwarded verbatim to Mistral and ignored by Gemini. No derivation rule exists for conversations in v1; derivation belongs to the future V2 multi-part prompt base class workstream.
+`MultiPartPrompt.buildMessage()` derives the multi-part key server-side using the same `sha256(referenceTask)` rule as the legacy variants, so `ImagePrompt` produces a server-derived key that no HTTP client can influence.
 
-No HTTP surface constructs multi-part payloads today, so the key remains server-controlled. When the V2 endpoint wires a client payload to this field, the caller-supplied key becomes wire-controlled and introduces a cache-poisoning / cross-tenant hazard: a malicious caller could force cache collisions or probe another tenant's cached prefix. The V2 workstream must review this contract before exposing the field — derive the key server-side as the legacy variants do, restrict it to trusted callers, or explicitly accept the risk.
+Separately, the low-level `MultiPartPromptPayloadSchema` accepts an optional caller-supplied `promptCacheKey` for trusted callers. That field is forwarded verbatim to Mistral and ignored by Gemini. No HTTP surface constructs multi-part payloads today, so the field remains under server control.
+
+If a future endpoint ever wires a client-supplied payload to this field, the caller-supplied key would become wire-controlled and introduce a cache-poisoning / cross-tenant hazard: a malicious caller could force cache collisions or probe another tenant's cached prefix. Any such endpoint must derive the key server-side as this base does, restrict the field to trusted callers, or explicitly accept the risk.
 
 ### Provider Forwarding
 

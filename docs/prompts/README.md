@@ -8,7 +8,7 @@ The system uses a combination of the **Factory** and **Template Method** design 
 
 ### Core Components
 
-1.  **`Prompt` (Abstract Base Class)**: Located in `src/prompt/prompt.base.ts`, this class provides foundational functionality for all prompts, including input validation via the `PromptInputSchema` (Zod), and a common `buildMessage()` interface.
+1.  **`Prompt` (Abstract Base Class)**: Located in `src/prompt/prompt.base.ts`, this class provides foundational functionality for all prompts, including input validation via the `PromptInputSchema` (Zod), and a default `buildMessage()` implementation for text and table prompts.
 
     ```typescript
     // src/prompt/prompt.base.ts
@@ -19,11 +19,13 @@ The system uses a combination of the **Factory** and **Template Method** design 
     }
     ```
 
-2.  **Concrete `Prompt` Implementations**:
-    - **`TextPrompt` & `TablePrompt`**: Simple implementations for text and table-based tasks. They use the base class's `buildMessage()` method, which renders a Mustache template.
-    - **`ImagePrompt`**: A specialised implementation for multimodal tasks. It overrides `buildMessage()` to handle image processing, supporting both file paths and Base64 data URIs. It includes security checks to prevent path traversal and validate MIME types.
+2.  **`MultiPartPrompt` (Abstract Multi-Part Base Class)**: Located in `src/prompt/multi-part.prompt.base.ts`, this class extends `Prompt` for conversation-style assessment. Its `buildMessage()` override assembles an optional leading system message and exactly one user message from a protected `buildUserParts()` hook, derives the cache key server-side, and validates the conversation once through `buildMultiPartPromptPayload()`. It retains no history between builds.
 
-3.  **`PromptFactory`**: A NestJS injectable service (`src/prompt/prompt.factory.ts`) that instantiates the correct prompt class based on the `TaskType` from the `CreateAssessorDto`. It is responsible for loading the necessary template files from the filesystem.
+3.  **Concrete `Prompt` Implementations**:
+    - **`TextPrompt` & `TablePrompt`**: Simple implementations for text and table-based tasks. They use the base class's `buildMessage()` method, which renders a Mustache template.
+    - **`ImagePrompt`**: Extends `MultiPartPrompt` for multimodal tasks. It parses data URI inputs and supplies six ordered reference/template/student label-image parts through the `buildUserParts()` hook; it does not load files from disk. Malformed data URIs throw `BadRequestException`, and invalid or oversized base64 fails the multipart schema at build time.
+
+4.  **`PromptFactory`**: A NestJS injectable service (`src/prompt/prompt.factory.ts`) that instantiates the correct prompt class based on the `TaskType` from the `CreateAssessorDto`. It loads the necessary template files from the filesystem and passes the validated data-URI image strings straight to the `ImagePrompt` constructor.
 
 ## How It Works
 
@@ -35,7 +37,7 @@ The prompt generation process integrates into the assessment workflow as follows
 4.  It loads the system prompt markdown file from `src/prompt/templates/`.
 5.  It instantiates the corresponding prompt class (e.g., `new TextPrompt(...)`).
 6.  The `AssessorService` then calls `prompt.buildMessage()` on the instance.
-7.  This method builds the final `LlmPayload`, rendering the user prompt template with task data for text/table tasks, or processing images for image tasks.
+7.  This method builds the final payload: text/table prompts return a legacy `LlmPayload` with a rendered user template, while `ImagePrompt` returns a validated two-message `MultiPartPromptPayload` (one system message, one user message with three label-image pairs).
 8.  The resulting payload is sent to the `LlmService`.
 
 ```typescript
@@ -53,7 +55,7 @@ The system uses Markdown files with Mustache for templating.
 
 - **Location**: All templates are stored in `src/prompt/templates/`.
 - **System Prompts** (`*.system.prompt.md`): Define the LLM's role, the assessment criteria, and the required JSON output structure.
-- **User Prompts** (`*.user.prompt.md`): Structure the data (reference, student, and empty tasks) for the LLM. These are not used by `ImagePrompt`, as images are sent directly.
+- **User Prompts** (`*.user.prompt.md`): Structure the data (reference, student, and empty tasks) for the LLM. `ImagePrompt` has no user template; its user message is assembled from ordered label-image parts.
 
 ### Template Variables
 
@@ -105,7 +107,7 @@ Follow these steps to add support for a new task type (e.g., `EXAM_QUESTION`):
     ]);
     ```
 
-2.  **Create Prompt Class**: Create `src/prompt/exam-question.prompt.ts` with a class that extends `Prompt`.
+2.  **Create Prompt Class**: Create `src/prompt/exam-question.prompt.ts` with a class that extends `Prompt`, or `MultiPartPrompt` if it needs ordered mixed content parts.
 
     ```typescript
     // src/prompt/exam-question.prompt.ts

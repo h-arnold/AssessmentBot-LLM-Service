@@ -7,11 +7,8 @@ This document provides instructions for setting up and running the End-to-End (E
 E2E tests are split into mocked (default) and live suites. Use the following commands:
 
 ```bash
-# Default mocked suite (no live provider calls)
+# Mocked suite (no live provider calls)
 npm run test:e2e
-
-# Explicit mocked run
-npm run test:e2e:mocked
 
 # Live suites (real provider API calls)
 npm run test:e2e:live
@@ -142,7 +139,7 @@ If you encounter 503 errors or "Resource Exhausted" messages when running E2E te
 4.  **Run Tests Individually**: If the full suite fails due to rate limits, run individual test files:
 
     ```bash
-    npm run test:e2e:mocked -- test/auth.e2e-spec.ts
+    npm run test:e2e -- test/auth.e2e-spec.ts
     npm run test:e2e:live -- test/assessor-live.e2e-spec.ts
     ```
 

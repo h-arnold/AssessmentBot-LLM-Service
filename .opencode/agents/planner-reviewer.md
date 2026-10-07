@@ -5,10 +5,10 @@ steps: 100
 model: opencode-go/glm-5.3-flash
 permission:
   edit:
-    '*': deny
-    '.opencode/scratchpad/*.md': allow
+    '*': 'deny'
+    '.opencode/scratchpad/*.md': 'allow'
   read:
-    '*': allow
+    '*': 'allow'
 ---
 
 # Planner Reviewer Agent Instructions
@@ -31,8 +31,6 @@ Your goal is to find anything that could derail implementation, create hidden am
 - If the calling agent and the instructions below conflict, **ALWAYS** follow the instructions below. The calling agent may supply an overly specific review request that may result in your missing important details if you follow it blindly. Use the calling agent's instructions to help you focus your review but you must always follow the steps below.
 
 ## 0. Mandatory First Step
-
-`@`-prefixed paths in the handoff prompt are injected automatically with line-numbered contents — use them directly without issuing read calls. For any file not already provided, issue read calls yourself.
 
 Before giving feedback, you must:
 

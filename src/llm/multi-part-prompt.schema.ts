@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_IMAGE_SIZE_BYTES } from '../common/image.constants.js';
+
 /**
  * Validates the existing provider-neutral reasoning-effort levels. Single
  * source of truth: the shared {@linkcode ReasoningEffort} type is derived
@@ -49,7 +51,7 @@ export const ImageContentPartSchema = z.object({
       padding = secondLastChar === '=' ? 2 : 1;
     }
     const decodedLength = (data.length / 4) * 3 - padding;
-    return decodedLength <= 1048576;
+    return decodedLength <= MAX_IMAGE_SIZE_BYTES;
   }, 'Invalid base64 image data or exceeds 1 MiB decoded'),
 });
 
@@ -115,8 +117,9 @@ export const MultiPartPromptPayloadSchema = z
      */
     reasoningEffort: ReasoningEffortSchema.optional(),
     /**
-     * Optional cache hint: forwarded to Mistral, ignored by Gemini once mapped.
-     * Derivation is deferred to the V2 prompt layer.
+     * Optional cache hint: forwarded to Mistral; Gemini does not forward the
+     * field. A trusted caller may supply this directly; the prompt layer
+     * instead derives it server-side in `MultiPartPrompt.buildMessage()`.
      */
     promptCacheKey: z
       .string()
@@ -151,8 +154,9 @@ export type LlmConversationMessage = z.infer<
  * Schema-first conversation payload with shared provider options.
  * @remarks Derived via `z.infer`; validated at construction time via
  * `buildMultiPartPromptPayload`. Legacy payloads are not validated.
- * Cache-key derivation belongs to the future V2 prompt layer; provider
- * integration is documented in `docs/modules/llm.md`.
+ * This schema accepts a caller-supplied `promptCacheKey`; the prompt layer's
+ * `MultiPartPrompt.buildMessage()` derives it server-side from the reference
+ * task. Provider integration is documented in `docs/modules/llm.md`.
  */
 export type MultiPartPromptPayload = z.infer<
   typeof MultiPartPromptPayloadSchema

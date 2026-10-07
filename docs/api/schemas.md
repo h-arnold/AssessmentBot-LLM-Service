@@ -24,15 +24,15 @@ The request schema is a discriminated union based on the `taskType` field.
 
 ### `IMAGE` Task
 
-- `reference`: `string` or `Buffer`
-- `template`: `string` or `Buffer`
-- `studentResponse`: `string` or `Buffer`
+- `reference`: `string` (non-empty base64 Data URI)
+- `template`: `string` (non-empty base64 Data URI)
+- `studentResponse`: `string` (non-empty base64 Data URI)
 
 **`IMAGE` Task Requirements:**
 
-- All three fields (`reference`, `template`, `studentResponse`) must be of the same type (all strings or all Buffers).
-- String values **must** be a Data URI (e.g., `data:image/png;base64,...`).
-- Image validation rules (size, MIME type) are configured via environment variables.
+- Each field **must** be a non-empty Data URI string (e.g., `data:image/png;base64,...`). `Buffer` values are rejected.
+- Each image must decode to no more than 1 MiB. The size limit is fixed in code and not configurable.
+- The MIME type must appear in `ALLOWED_IMAGE_MIME_TYPES`.
 
 ## Assessment Response
 

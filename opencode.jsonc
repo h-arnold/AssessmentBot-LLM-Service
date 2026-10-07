@@ -4,7 +4,8 @@
   "small_model": "opencode/nemotron-3.5-lightening-free",
   "permission": {
     "edit": {
-      "*": "allow",
+      "opencode.json*": "ask",
+      "**/opencode.json*": "ask",
       "eslint.config.*": "ask",
       "**/eslint.config.*": "ask",
       ".eslint*": "ask",
@@ -14,10 +15,9 @@
       ".prettierrc*": "ask",
       "**/.prettierrc*": "ask",
       "prettier.config.*": "ask",
-      "**/prettier.config.*": "ask"
+      "**/prettier.config.*": "ask",
     },
     "bash": {
-      "*": "allow",
       "git reset*": "ask",
       "git rebase*": "ask",
       "git stash*": "ask",
@@ -41,17 +41,17 @@
       "shred*": "ask",
       "truncate*": "ask",
       "rm *": "ask",
-      "rm": "ask"
-    }
+      "rm": "ask",
+    },
   },
   "agent": {
     "explore": {
-      "model": "opencode/nemotron-3.5-lightening-free"
+      "model": "opencode/nemotron-3.5-lightening-free",
     },
     "code-reviewer": {
       "description": "Reviews code for quality, standards adherence, and defects",
       "mode": "subagent",
-      "reasoningEffort": "high"
-    }
-  }
+      "reasoningEffort": "high",
+    },
+  },
 }

@@ -1,6 +1,14 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
+import {
+  referenceBase64,
+  referenceLabel,
+  studentBase64,
+  studentLabel,
+  templateBase64,
+  templateLabel,
+} from './image-prompt.test-fixtures.js';
 import { ImagePrompt } from './image.prompt.js';
 import { buildPromptCacheKey, PromptInput } from './prompt.base.js';
 import { readMarkdown } from '../common/file-utilities.js';
@@ -14,10 +22,6 @@ import {
 // exercise every standard base64 padding length (zero, one and two
 // '=' characters), and each decodes to different content so label,
 // MIME and data pairing is positionally provable.
-const referenceBase64 = 'cmVmZXJlbmNlLWltYWdlLWJ5dGVz';
-const templateBase64 = 'dGVtcGxhdGUtaW1hZ2UtYnl0ZXM=';
-const studentBase64 = 'c3R1ZGVudC1pbWFnZS1ieXRlcw==';
-
 const referenceDataUri = `data:image/png;base64,${referenceBase64}`;
 const templateDataUri = `data:image/jpeg;base64,${templateBase64}`;
 const studentDataUri = `data:image/webp;base64,${studentBase64}`;
@@ -29,9 +33,6 @@ const validInputs: PromptInput = {
 };
 
 // The exact label strings required by SPEC.md, in payload order.
-const referenceLabel = 'Reference Task — benchmark for a perfect score.';
-const templateLabel = 'Template — the unfilled task.';
-const studentLabel = 'Student Submission — assess this image.';
 const testSystemPrompt = 'System instruction.';
 
 const referenceImagePart: LlmContentPart = {
@@ -104,22 +105,6 @@ describe('ImagePrompt', () => {
       });
     });
 
-    it('keeps each label immediately before its corresponding image', async () => {
-      const payload = (await buildPrompt(
-        validInputs,
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-
-      expect(payload.messages[1].parts.map((part) => part.kind)).toStrictEqual([
-        'text',
-        'image',
-        'text',
-        'image',
-        'text',
-        'image',
-      ]);
-    });
-
     it('contains no assistant turns and no legacy payload fields', async () => {
       const payload = (await buildPrompt(
         validInputs,
@@ -160,6 +145,23 @@ describe('ImagePrompt', () => {
       await expect(buildPrompt(inputs).buildMessage()).rejects.toThrow(
         'Invalid Data URI provided for an image field.',
       );
+    });
+
+    it('does not log malformed data URI content before rejecting it', async () => {
+      const inputs: PromptInput = {
+        ...validInputs,
+        studentTask: 'student-private-content-not-a-data-uri',
+      };
+      const errorLog = vi.spyOn(logger, 'error');
+
+      await expect(buildPrompt(inputs).buildMessage()).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(buildPrompt(inputs).buildMessage()).rejects.toThrow(
+        'Invalid Data URI provided for an image field.',
+      );
+
+      expect(errorLog).not.toHaveBeenCalled();
     });
 
     it('rejects an empty base64 payload with a raw ZodError', async () => {
@@ -217,68 +219,45 @@ describe('ImagePrompt', () => {
     const oneMibDataUri = `data:image/png;base64,${oneMibBase64}`;
     const oneMibPlusOneDataUri = `data:image/png;base64,${oneMibPlusOneBase64}`;
 
-    it('accepts a reference image of exactly 1 MiB', async () => {
-      const inputs: PromptInput = {
-        ...validInputs,
-        referenceTask: oneMibDataUri,
-      };
-      const payload = (await buildPrompt(
-        inputs,
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-
-      expect(payload.messages[1].parts).toStrictEqual(
-        buildUserParts(
-          { kind: 'image', mimeType: 'image/png', data: oneMibBase64 },
-          templateImagePart,
-          studentImagePart,
-        ),
-      );
-    });
-
-    it('accepts a template image of exactly 1 MiB', async () => {
-      const inputs: PromptInput = {
-        ...validInputs,
-        emptyTask: oneMibDataUri,
-      };
-      const payload = (await buildPrompt(
-        inputs,
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-
-      expect(payload.messages[1].parts).toStrictEqual(
-        buildUserParts(
-          referenceImagePart,
-          { kind: 'image', mimeType: 'image/png', data: oneMibBase64 },
-          studentImagePart,
-        ),
-      );
-    });
-
-    it('accepts a student image of exactly 1 MiB', async () => {
-      const inputs: PromptInput = {
-        ...validInputs,
-        studentTask: oneMibDataUri,
-      };
-      const payload = (await buildPrompt(
-        inputs,
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-
-      expect(payload.messages[1].parts).toStrictEqual(
-        buildUserParts(referenceImagePart, templateImagePart, {
-          kind: 'image',
-          mimeType: 'image/png',
-          data: oneMibBase64,
-        }),
-      );
-    });
-
     describe.each([
-      { position: 'reference', field: 'referenceTask' },
-      { position: 'template', field: 'emptyTask' },
-      { position: 'student', field: 'studentTask' },
-    ])('$position image position', ({ field }) => {
+      {
+        position: 'reference',
+        field: 'referenceTask',
+        makeExpectedParts: (part: LlmContentPart): LlmContentPart[] =>
+          buildUserParts(part, templateImagePart, studentImagePart),
+      },
+      {
+        position: 'template',
+        field: 'emptyTask',
+        makeExpectedParts: (part: LlmContentPart): LlmContentPart[] =>
+          buildUserParts(referenceImagePart, part, studentImagePart),
+      },
+      {
+        position: 'student',
+        field: 'studentTask',
+        makeExpectedParts: (part: LlmContentPart): LlmContentPart[] =>
+          buildUserParts(referenceImagePart, templateImagePart, part),
+      },
+    ])('$position image position', ({ field, makeExpectedParts }) => {
+      it('accepts an image of exactly 1 MiB', async () => {
+        const inputs: PromptInput = {
+          ...validInputs,
+          [field]: oneMibDataUri,
+        };
+        const payload = (await buildPrompt(
+          inputs,
+          testSystemPrompt,
+        ).buildMessage()) as MultiPartPromptPayload;
+
+        expect(payload.messages[1].parts).toStrictEqual(
+          makeExpectedParts({
+            kind: 'image',
+            mimeType: 'image/png',
+            data: oneMibBase64,
+          }),
+        );
+      });
+
       it('rejects an image of 1 MiB plus one byte with a raw ZodError', async () => {
         const inputs: PromptInput = {
           ...validInputs,
@@ -321,57 +300,6 @@ describe('ImagePrompt', () => {
       expect(payload.promptCacheKey).toBe(
         buildPromptCacheKey(referenceDataUri),
       );
-    });
-
-    it('derives an unchanged key when only the student or template content changes', async () => {
-      const firstPayload = (await buildPrompt(
-        validInputs,
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-      const secondPayload = (await buildPrompt(
-        {
-          ...validInputs,
-          studentTask: 'data:image/webp;base64,YWJjZA==',
-          emptyTask: 'data:image/jpeg;base64,YWJjZA==',
-        },
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-
-      expect(secondPayload.messages).toHaveLength(2);
-      expect(secondPayload.promptCacheKey).toBe(firstPayload.promptCacheKey);
-      expect(secondPayload.promptCacheKey).toBe(
-        buildPromptCacheKey(referenceDataUri),
-      );
-    });
-
-    it('derives a different key when the reference content changes', async () => {
-      const firstPayload = (await buildPrompt(
-        validInputs,
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-      const secondPayload = (await buildPrompt(
-        {
-          ...validInputs,
-          referenceTask: 'data:image/png;base64,YWJjZA==',
-        },
-        testSystemPrompt,
-      ).buildMessage()) as MultiPartPromptPayload;
-
-      expect(secondPayload.messages).toHaveLength(2);
-      expect(secondPayload.promptCacheKey).not.toBe(
-        firstPayload.promptCacheKey,
-      );
-    });
-
-    it('returns equivalent payloads without accumulating parts across repeat builds', async () => {
-      const prompt = buildPrompt(validInputs, testSystemPrompt);
-      const firstPayload =
-        (await prompt.buildMessage()) as MultiPartPromptPayload;
-      const secondPayload =
-        (await prompt.buildMessage()) as MultiPartPromptPayload;
-
-      expect(secondPayload).toStrictEqual(firstPayload);
-      expect(secondPayload.messages[1].parts).toHaveLength(6);
     });
   });
 

@@ -8,15 +8,14 @@ We follow a **test-driven development (TDD)** approach, prioritising security, r
 
 ## Running Tests
 
-| Command                   | Description                                              |
-| ------------------------- | -------------------------------------------------------- |
-| `npm run test`            | Run all unit and integration tests (`*.spec.ts`).        |
-| `npm run test:watch`      | Run unit/integration tests in watch mode.                |
-| `npm run test:cov`        | Run unit/integration tests and generate coverage.        |
-| `npm run test:e2e`        | Run mocked E2E tests (default).                          |
-| `npm run test:e2e:mocked` | Run mocked E2E tests with the LLM mock shim enabled.     |
-| `npm run test:e2e:live`   | Run live E2E tests against the configured provider APIs. |
-| `npm run test:debug`      | Debug tests with the Node.js inspector.                  |
+| Command                 | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `npm run test`          | Run all unit and integration tests (`*.spec.ts`).        |
+| `npm run test:watch`    | Run unit/integration tests in watch mode.                |
+| `npm run test:cov`      | Run unit/integration tests and generate coverage.        |
+| `npm run test:e2e`      | Run mocked E2E tests with the LLM mock shim enabled.     |
+| `npm run test:e2e:live` | Run live E2E tests against the configured provider APIs. |
+| `npm run test:debug`    | Debug tests with the Node.js inspector.                  |
 
 ## Test Architecture
 

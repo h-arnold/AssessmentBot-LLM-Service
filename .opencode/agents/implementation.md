@@ -1,7 +1,7 @@
 ---
 description: Implements code changes in an idiomatic and type-safe manner with validated results
 mode: all
-model: opencode/fledge-alpha-free
+model: openai/gpt-6-luna
 steps: 100
 ---
 
@@ -101,7 +101,7 @@ Run the full `npm run test` only when the affected tests cannot be identified.
 For changes that affect API contracts or integration flows:
 
 ```bash
-npm run test:e2e:mocked
+npm run test:e2e
 ```
 
 ### Cross-cutting changes

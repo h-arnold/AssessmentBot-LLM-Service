@@ -12,6 +12,14 @@ import {
 } from '../../llm/llm.service.interface.js';
 import { LlmResponse } from '../../llm/types.js';
 import {
+  referenceBase64,
+  referenceLabel,
+  studentBase64,
+  studentLabel,
+  templateBase64,
+  templateLabel,
+} from '../../prompt/image-prompt.test-fixtures.js';
+import {
   buildMultiPartPromptPayload,
   buildPromptCacheKey,
 } from '../../prompt/prompt.base.js';
@@ -19,19 +27,9 @@ import { PromptModule } from '../../prompt/prompt.module.js';
 
 // Distinct, genuinely valid standard padded base64 payloads, one per
 // assessment position, so MIME/data pairing is provable.
-const referenceBase64 = 'cmVmZXJlbmNlLWltYWdlLWJ5dGVz';
-const templateBase64 = 'dGVtcGxhdGUtaW1hZ2UtYnl0ZXM=';
-const studentBase64 = 'c3R1ZGVudC1pbWFnZS1ieXRlcw==';
-
 const referenceDataUri = `data:image/png;base64,${referenceBase64}`;
 const templateDataUri = `data:image/jpeg;base64,${templateBase64}`;
 const studentDataUri = `data:image/webp;base64,${studentBase64}`;
-
-// The exact label strings the ImagePrompt hook interleaves with the
-// images, in payload order.
-const referenceLabel = 'Reference Task — benchmark for a perfect score.';
-const templateLabel = 'Template — the unfilled task.';
-const studentLabel = 'Student Submission — assess this image.';
 
 // A valid IMAGE assessment DTO built from the three fixture data URIs.
 const validDto = (): CreateAssessorDto => {
@@ -71,8 +69,7 @@ describe('AssessorService IMAGE multi-part integration', () => {
   beforeAll(async () => {
     // Controlled configuration for the real ConfigService, which
     // validates these values against the environment schema when the
-    // testing module compiles. The schema defaults route both task
-    // types to the Mistral prefix, so both provider keys are required.
+    // testing module compiles. Both model routes default to Mistral, so MISTRAL_API_KEY is required; the Gemini key is harmless.
     process.env.GEMINI_API_KEY = 'test-key';
     process.env.MISTRAL_API_KEY = 'test-key';
     process.env.NODE_ENV = 'test';

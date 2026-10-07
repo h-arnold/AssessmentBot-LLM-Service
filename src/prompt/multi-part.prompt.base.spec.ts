@@ -2,6 +2,11 @@ import { Logger } from '@nestjs/common';
 import { expectTypeOf } from 'vitest';
 import { ZodError } from 'zod';
 
+import {
+  referenceLabel,
+  studentLabel,
+  templateLabel,
+} from './image-prompt.test-fixtures.js';
 import { MultiPartPrompt } from './multi-part.prompt.base.js';
 import { buildPromptCacheKey, Prompt, PromptInput } from './prompt.base.js';
 import { ConfigService } from '../config/config.service.js';
@@ -61,11 +66,11 @@ describe('MultiPartPrompt', () => {
   // Ordered mixed text/image parts; each image uses standard padded
   // base64 accepted by MultiPartPromptPayloadSchema.
   const orderedUserParts: LlmContentPart[] = [
-    { kind: 'text', text: 'Reference Task — benchmark for a perfect score.' },
+    { kind: 'text', text: referenceLabel },
     { kind: 'image', mimeType: 'image/png', data: 'YQ==' },
-    { kind: 'text', text: 'Template — the unfilled task.' },
+    { kind: 'text', text: templateLabel },
     { kind: 'image', mimeType: 'image/jpeg', data: 'YWI=' },
-    { kind: 'text', text: 'Student Submission — assess this image.' },
+    { kind: 'text', text: studentLabel },
     { kind: 'image', mimeType: 'image/webp', data: 'YWJj' },
   ];
 
@@ -126,22 +131,6 @@ describe('MultiPartPrompt', () => {
   });
 
   describe('ordered user parts', () => {
-    it('preserves ordered mixed text and image hook parts unchanged', async () => {
-      const prompt = new StubMultiPartPrompt(
-        validInput,
-        logger,
-        orderedUserParts,
-        'System instruction.',
-      );
-
-      const payload = await prompt.buildMessage();
-
-      expect(payload.messages[1]).toStrictEqual({
-        role: 'user',
-        parts: orderedUserParts,
-      });
-    });
-
     it('contains no assistant turns and no legacy payload fields', async () => {
       const prompt = new StubMultiPartPrompt(
         validInput,

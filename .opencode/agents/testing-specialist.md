@@ -1,7 +1,7 @@
 ---
 description: Creates, maintains, and debugs Vitest unit/integration tests and E2E tests
 mode: all
-model: opencode/fledge-alpha-free
+model: openai/gpt-6-luna
 steps: 100
 ---
 
@@ -110,7 +110,7 @@ Before writing or modifying tests, you **MUST** conduct research:
   - Start the NestJS application using the bootstrap factory from `src/bootstrap.ts`.
   - Use Supertest `request(app.getHttpServer())` for HTTP assertions.
   - Mock LLM responses for deterministic E2E tests.
-  - Use the mocked config (`npm run test:e2e:mocked`) for CI and development; live config (`npm run test:e2e:live`) for integration testing against real LLM endpoints.
+  - Use the mocked config (`npm run test:e2e`) for CI and development; live config (`npm run test:e2e:live`) for integration testing against real LLM endpoints.
 
 ## 4. Command Selection
 
@@ -118,9 +118,9 @@ Use commands relevant to test scope:
 
 - Full unit/integration suite: `npm run test`
 - Targeted test file: `npm run test -- <path_to_spec>`
-- E2E (mocked LLM): `npm run test:e2e:mocked`
+- E2E (mocked LLM): `npm run test:e2e`
 - E2E (live LLM): `npm run test:e2e:live`
-- All tests (unit + E2E mocked): `npm run test` and `npm run test:e2e:mocked`
+- All tests (unit + E2E mocked): `npm run test` and `npm run test:e2e`
 
 If you add or modify tests, run the smallest targeted command first, then widen only as far as the change requires. The end-of-cycle full check gate runs the full check set, including E2E.
 
@@ -215,7 +215,7 @@ Before declaring completion:
 
 1. Run tests you changed (targeted first with `npm run test -- <path>`).
 2. Run the linter: `npm run lint`. **YOU MUST** return code free of new linter issues, errors, and warnings.
-3. Run the tests relevant to your change, including `npm run test:e2e:mocked` for API-level or integration changes. Do not run the full suite unless the affected tests cannot be identified.
+3. Run the tests relevant to your change, including `npm run test:e2e` for API-level or integration changes. Do not run the full suite unless the affected tests cannot be identified.
 4. **HARD GATE**: The checks relevant to your change MUST introduce **no new errors or warnings**. Report any pre-existing failures you observed but did not cause. In a RED phase, the bounded exception above applies instead.
 5. **Attempt limit**: You have 5 attempts maximum. After 5 failed attempts, you MUST hand back to orchestrator with:
    - The word **VALIDATION FAILURE** at the start of your response

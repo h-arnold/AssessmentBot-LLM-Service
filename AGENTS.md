@@ -45,7 +45,7 @@ src/
 ├── common/          # Shared utilities, filters, pipes, JSON parser
 ├── config/          # Zod-validated env config (no direct @nestjs/config)
 ├── llm/             # Abstract LlmService + Gemini implementation
-├── prompt/          # Prompt template generation (PromptFactory, PromptBase)
+├── prompt/          # Prompt template generation (PromptFactory, Prompt, MultiPartPrompt)
 ├── status/          # Health check endpoints
 test/                # E2E tests (Supertest)
 ```
@@ -155,13 +155,13 @@ If a requirement or behaviour is ambiguous, state 1-2 concise assumptions and pr
 - British English check: `npm run lint:british`
 - Formatter: `npm run format`
 - Unit/integration tests: `npm run test`
-- E2E tests (mocked): `npm run test:e2e:mocked`
+- E2E tests (mocked): `npm run test:e2e`
 - E2E tests (live): `npm run test:e2e:live`
 
 **The full check set** — every linter, the formatter, and every test suite except the live E2E suite:
 
 ```bash
-npm run lint && npm run lint:british && npm run format && npm run build && npm run test && npm run test:e2e:mocked
+npm run lint && npm run lint:british && npm run format && npm run build && npm run test && npm run test:e2e
 ```
 
 `npm run test:e2e:live` is **excluded** because it calls real LLM endpoints and requires provider credentials. Run it only when the user explicitly asks for live verification.

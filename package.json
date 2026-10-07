@@ -25,8 +25,7 @@
     "test:watch": "vitest --project unit",
     "test:cov": "vitest run --coverage --project unit",
     "test:debug": "node --inspect-brk node_modules/.bin/vitest run --project unit --pool=forks --poolOptions.forks.singleFork",
-    "test:e2e": "npm run test:e2e:mocked",
-    "test:e2e:mocked": "npm run build && vitest run --project e2e",
+    "test:e2e": "npm run build && vitest run --project e2e",
     "test:e2e:live": "npm run build && vitest run --project e2e-live",
     "prepare": "husky"
   },

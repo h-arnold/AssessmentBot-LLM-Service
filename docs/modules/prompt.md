@@ -89,11 +89,8 @@ A malformed data URI still throws `BadRequestException` with the existing messag
 
 ### ImagePrompt Data Handling
 
-- **Data URI parsing only:** Extracts MIME type and base64 data from `data:image/<subtype>;base64,<data>` strings. No file loading and no filesystem access.
-- **Malformed URI handling:** Throws `BadRequestException` with the existing invalid-data-URI message.
-- **Base64 validation:** Delegated to the multipart payload builder; malformed or empty base64 throws a raw `ZodError`.
-- **Size limit:** Exactly 1 MiB decoded per image is accepted; 1 MiB plus one byte is rejected. No aggregate limit across the three images.
-- **Upstream validation:** The `ImageValidationPipe` validates uploaded images before prompt construction; with the default 1 MiB upload limit it rejects oversized individual images with HTTP 400 first.
+- **Data URI parsing only:** Extracts MIME type and base64 data from `data:image/<subtype>;base64,<data>` strings. It performs no file loading and no filesystem access.
+- **Validation ownership:** Malformed data URIs, base64 defects, per-image size limits and upstream `ImageValidationPipe` behaviour all follow the shared construction rules above.
 
 The migration to labelled multi-part messages does not change the system template's examples, rubric, or JSON output structure, and it does not establish score-quality gains — it establishes transport correctness.
 

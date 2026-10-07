@@ -1,6 +1,14 @@
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  referenceBase64,
+  referenceLabel,
+  studentBase64,
+  studentLabel,
+  templateBase64,
+  templateLabel,
+} from './image-prompt.test-fixtures.js';
 import { ImagePrompt } from './image.prompt.js';
 import { PromptFactory } from './prompt.factory.js';
 import { TablePrompt } from './table.prompt.js';
@@ -79,10 +87,6 @@ describe('PromptFactory', () => {
     // Distinct, genuinely valid standard padded base64 payloads with
     // distinct MIME types per position, so MIME/data pairing and
     // reference → template → student ordering are provable.
-    const referenceBase64 = 'cmVmZXJlbmNlLWltYWdlLWJ5dGVz';
-    const templateBase64 = 'dGVtcGxhdGUtaW1hZ2UtYnl0ZXM=';
-    const studentBase64 = 'c3R1ZGVudC1pbWFnZS1ieXRlcw==';
-
     it('builds a multipart payload with the real system template for string inputs', async () => {
       const dto: CreateAssessorDto = {
         taskType: TaskType.IMAGE,
@@ -104,12 +108,12 @@ describe('PromptFactory', () => {
       expect(payload.messages[1].parts).toStrictEqual([
         {
           kind: 'text',
-          text: 'Reference Task — benchmark for a perfect score.',
+          text: referenceLabel,
         },
         { kind: 'image', mimeType: 'image/png', data: referenceBase64 },
-        { kind: 'text', text: 'Template — the unfilled task.' },
+        { kind: 'text', text: templateLabel },
         { kind: 'image', mimeType: 'image/jpeg', data: templateBase64 },
-        { kind: 'text', text: 'Student Submission — assess this image.' },
+        { kind: 'text', text: studentLabel },
         { kind: 'image', mimeType: 'image/webp', data: studentBase64 },
       ]);
     });
@@ -147,20 +151,20 @@ describe('PromptFactory', () => {
       expect(payload.messages[1].parts).toStrictEqual([
         {
           kind: 'text',
-          text: 'Reference Task — benchmark for a perfect score.',
+          text: referenceLabel,
         },
         {
           kind: 'image',
           mimeType: 'image/png',
           data: pngBuffer.toString('base64'),
         },
-        { kind: 'text', text: 'Template — the unfilled task.' },
+        { kind: 'text', text: templateLabel },
         {
           kind: 'image',
           mimeType: 'image/jpeg',
           data: jpegBuffer.toString('base64'),
         },
-        { kind: 'text', text: 'Student Submission — assess this image.' },
+        { kind: 'text', text: studentLabel },
         {
           kind: 'image',
           mimeType: 'image/webp',

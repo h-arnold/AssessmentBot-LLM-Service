@@ -46,8 +46,8 @@ NODE_OPTIONS="--inspect=0.0.0.0:9229"      # Enable Node.js inspector
 ## Debugging E2E Tests
 
 ```bash
-npm run test:e2e:mocked              # Run mocked E2E tests (default, no external calls)
-npm run test:e2e:mocked -- --verbose # Verbose output
+npm run test:e2e                     # Run mocked E2E tests (default, no external calls)
+npm run test:e2e -- --verbose        # Verbose output
 npm run test:debug                   # Unit tests in debug mode
 npx vitest run --project e2e test/specific.e2e-spec.ts  # Single test file
 npm run test:e2e:live -- --verbose   # Live E2E tests (requires real provider API keys)

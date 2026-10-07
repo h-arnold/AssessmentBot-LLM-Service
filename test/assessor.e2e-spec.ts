@@ -9,14 +9,7 @@ import {
   AppInstance,
   delay,
 } from './utils/app-lifecycle.js';
-import { loadFileAsDataURI } from './utils/e2e-helpers.js';
-
-interface TaskData {
-  taskType: string;
-  referenceTask: string;
-  emptyTask: string;
-  studentTask: string;
-}
+import { loadFileAsDataURI, TaskData } from './utils/e2e-helpers.js';
 
 describe('AssessorController (e2e)', () => {
   let app: AppInstance;
@@ -145,5 +138,25 @@ describe('AssessorController (e2e)', () => {
     expect(response.body.accuracy.reasoning).toContain('code screenshot');
     expect(response.body.spag.score).toBe(4);
     expect(response.body.spag.reasoning).toContain('minor SPaG error');
+  });
+
+  it('/v1/assessor (POST) TEXT should not select the image mock for a data URI in text', async () => {
+    await delay(2000);
+
+    const textPayload = {
+      taskType: 'TEXT',
+      reference: 'Reference includes data:image/png;base64,ZmFrZQ==',
+      template: 'Template text',
+      studentResponse: 'Student text',
+    };
+
+    const response = await request(app.appUrl)
+      .post('/v1/assessor')
+      .set('Authorization', `Bearer ${app.apiKey}`)
+      .send(textPayload)
+      .expect(201);
+
+    expect(response.body.completeness.score).toBe(3);
+    expect(response.body.completeness.reasoning).toContain('fitness tracker');
   });
 });

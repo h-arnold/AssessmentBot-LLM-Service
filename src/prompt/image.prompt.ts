@@ -87,13 +87,9 @@ export class ImagePrompt extends MultiPartPrompt {
    * @throws {BadRequestException} If any data URI is malformed.
    */
   private buildImagesFromDataUris(): { data: string; mimeType: string }[] {
-    // Assumes validation pipeline guarantees all three tasks are valid data URIs
     const parseDataUri = (uri: string): { data: string; mimeType: string } => {
       const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(uri);
       if (!match) {
-        this.logger.error(
-          `Invalid data URI encountered while building image prompt: ${uri.slice(0, 30)}...`,
-        );
         throw new BadRequestException(
           'Invalid Data URI provided for an image field.',
         );

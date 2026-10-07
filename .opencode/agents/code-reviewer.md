@@ -1,7 +1,7 @@
 ---
 description: Reviews code for quality, standards adherence, and defects using project-specific checklists
 mode: all
-model: opencode-go/glm-5.3-flash
+model: openai/gpt-6-luna
 steps: 100
 permission:
   edit:
@@ -188,7 +188,7 @@ Run tests for the touched code:
 npm run test
 
 # E2E tests (for integration-level changes)
-npm run test:e2e:mocked
+npm run test:e2e
 ```
 
 Review coverage output to verify that new logic is exercised. Flag any significant untested paths as at least an Improvement.
@@ -257,7 +257,7 @@ Apply only the rows relevant to the module(s) under review.
 - [ ] E2E tests use Supertest against the NestJS application instance.
 - [ ] Tests assert behaviour, not implementation details.
 - [ ] No reliance on external services — external dependencies are mocked.
-- [ ] E2E tests for integration-level changes use `npm run test:e2e:mocked`.
+- [ ] E2E tests for integration-level changes use `npm run test:e2e`.
 - [ ] Tests follow the patterns in `docs/testing/PRACTICAL_GUIDE.md`.
 
 ## 7. Reporting Format

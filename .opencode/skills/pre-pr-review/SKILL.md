@@ -46,7 +46,7 @@ Run the full check set from the repo root (see `AGENTS.md` §9) with a long time
 take minutes:
 
 ```bash
-npm run lint && npm run lint:british && npm run format && npm run build && npm run test && npm run test:e2e:mocked
+npm run lint && npm run lint:british && npm run format && npm run build && npm run test && npm run test:e2e
 ```
 
 > **Timeout:** Always set a 900000 ms (15 minute) timeout when invoking this via the `bash` tool.
@@ -77,11 +77,15 @@ git diff main...HEAD
 Save the full diff and the `--stat` summary to the scratchpad. Build the changed-file list and
 classify which layers are touched:
 
-- Frontend: any path under `src/frontend/`
-- Backend: any path under `src/backend/`
-- Builder: any path under `scripts/builder/`
+- Backend: any path under `src/`, including the root application and bootstrap files
+  (`src/main.ts`, `src/app.module.ts`, `src/bootstrap.ts`) and the NestJS modules
+  (`src/v1/assessor/`, `src/auth/`, `src/common/`, `src/config/`, `src/llm/`,
+  `src/prompt/`, `src/status/`), plus E2E tests under `test/`.
+- Documentation and agent instructions: any path under `docs/`, `AGENTS.md`, `.opencode/` or
+  `.github/agents/`.
 
-This classification drives which optional focuses run (Step 3).
+This repository has no frontend or Apps Script/builder source tree. Select only focuses whose layer
+appears in the diff (Step 3).
 
 ## Step 3 — Parallel review agents
 
@@ -114,37 +118,29 @@ For every focus, the handoff prompt MUST include:
    - Focus on algorithmic complexity of hot paths and routines. Identify loops, nested iteration, and
      data-structure choices that could be faster; express cost in Big-O notation and name the routine.
 5. **Logging rules compliance** → `code-reviewer`
-   - Focus on the logging and error-handling policy for the touched modules (backend
-     `docs/developer/backend/backend-logging-and-error-handling.md`, frontend
-     `docs/developer/frontend/frontend-logging-and-error-handling.md`). Check no `console.*`, correct
-     log boundaries, no double-logging, and rethrow-at-boundary discipline.
+   - Focus on the logging and error-handling policy for the touched modules. Use the canonical
+     references `docs/modules/llm.md` and `docs/configuration/environment.md`, including the
+     privacy-gated `LOG_LLM_CONTENT` content logging. Check no `console.*`, correct log boundaries,
+     no double-logging, and rethrow-at-boundary discipline.
 
 ### Optional focuses (run only when the layer is in the diff)
 
 Enable each only if its layer appears in the Step 2 classification.
 
-- **Frontend layout / design principles / accessibility** → `code-reviewer` (frontend only)
-  - References: `docs/developer/frontend/frontend-spacing-and-padding-standards.md`,
-    `docs/developer/frontend/frontend-loading-and-width-standards.md`,
-    `docs/developer/frontend/frontend-shell-navigation-and-motion.md`,
-    `docs/developer/frontend/frontend-modal-patterns.md`.
-  - Check 8px grid spacing, width-token ownership, loading/busy accessibility semantics
-    (`role="status"`, `aria-busy`, `aria-live`), keyboard activation, and motion conventions.
-- **Frontend data shape / schema consistency** → `code-reviewer` (frontend only)
-  - Consistency of view-model/prop shapes and API boundary contracts in the changed frontend code.
 - **Backend data shape / schema consistency** → `code-reviewer` (backend only)
-  - Consistency of entities, `toJSON`/`fromJSON` shapes, and `appsscript.json` scope/service changes.
-- **Security & secrets** → `code-reviewer`
-  - Hardcoded credentials/keys, `PropertiesService`/`ScriptApp` misuse, unsafe HtmlService output,
-    and injection-prone string building.
-- **Test-coverage gaps** → `code-reviewer`
-  - Changed logic with no corresponding test, per `docs/developer/backend/backend-testing.md` and
-    `docs/developer/frontend/frontend-testing.md`. Flag untested paths; do not write tests.
+  - Consistency of Zod DTO schemas, `toJSON`/`fromJSON` shapes, and API request/response contracts.
+- **Security & secrets** → `code-reviewer` (backend only)
+  - Hardcoded credentials/keys, `process.env` secret handling, injection-prone string building, and
+    missing Zod input validation.
+- **Test-coverage gaps** → `code-reviewer` (backend only)
+  - Changed logic with no corresponding test, per `docs/testing/README.md`,
+    `docs/testing/PRACTICAL_GUIDE.md` and `docs/testing/E2E_GUIDE.md`. Flag untested paths; do not
+    write tests.
 - **British-English consistency** → `code-reviewer`
   - American-English spellings in user-facing strings, identifiers, and comments — use the British forms (`colour`, `centre`, `normalise`, etc.).
-- **Error-handling robustness** → `code-reviewer`
-  - Broad `catch`/swallow, missing rethrow at boundaries, and missing `Validate.requireParams` on
-    public backend methods.
+- **Error-handling robustness** → `code-reviewer` (backend only)
+  - Broad `catch`/swallow, missing rethrow at boundaries, and missing Zod validation on public
+    controller/DTO boundaries.
 
 ## Step 4 — Synthesise into PR_REVIEW.md
 
@@ -181,14 +177,6 @@ Write the synthesised document to `PR_REVIEW.md` at the repository root. Structu
 ...
 
 ### Logging rules compliance
-
-...
-
-### Frontend layout / design / accessibility (optional)
-
-...
-
-### Frontend data shape / schema consistency (optional)
 
 ...
 
@@ -252,11 +240,11 @@ Structure:
 
 ### Repo rule compliance
 
-- **[Critical] `src/backend/foo.js:42`** — Decision: Fix later. Approach: extract the duplicated
-  validation into `Validate.requireParams` and add a unit test; deferred because it is not on the hot
-  path. Rationale: user wants the PR to ship first, follow-up ticket to be raised.
-- **[Nitpick] `src/frontend/Bar.tsx:88`** — Decision: Wontfix. Rationale: intentional deviation agreed
-  with design; documented so a future reviewer does not re-raise it.
+- **[Critical] `src/v1/assessor/foo.service.ts:42`** — Decision: Fix later. Approach: extract the
+  duplicated validation into a shared Zod schema and add a unit test; deferred because it is not on the
+  hot path. Rationale: user wants the PR to ship first, follow-up ticket to be raised.
+- **[Nitpick] `src/prompt/bar.ts:88`** — Decision: Wontfix. Rationale: intentional deviation agreed
+  with the module owner; documented so a future reviewer does not re-raise it.
 
 ...
 ```

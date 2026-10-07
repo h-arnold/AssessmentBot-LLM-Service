@@ -5,9 +5,9 @@
 Before writing or executing this plan:
 
 1. Read the current `SPEC.md`.
-2. Read any related frontend layout spec or other companion planning doc.
+2. Read any related companion planning doc.
 3. Treat those documents as the source of truth for product behaviour, contracts, and layout rules.
-4. Use this action plan to sequence delivery and testing; do not restate or redefine material already settled in the spec or layout docs.
+4. Use this action plan to sequence delivery and testing; do not restate or redefine material already settled in the spec or companion docs.
 
 ## Scope and assumptions
 
@@ -52,10 +52,10 @@ When a section is delegated to sub-agents, the plan must define and enforce mand
 
 For each delegated phase (`Testing Specialist`, `Implementation`, `Code Reviewer`, `Docs`, `De-Sloppification`, or planning agents when used):
 
-1. list required documentation file paths under that phase before delegation
-2. require the sub-agent handoff to include `Files read` with explicit file paths
-3. verify every mandatory file is listed before accepting the handoff
-4. if any mandatory file is missing, return the work to the same sub-agent and block progression to the next phase
+1. list every required file under that phase as an `@`-prefixed worktree-relative path before delegation
+2. pass those paths in the handoff's `Mandatory Reading` section; opencode injects the line-numbered contents automatically
+3. do not request `Files read` evidence — the injected `@path` contents are the evidence
+4. if a required path is missing from the handoff, add it and re-issue the handoff before accepting the work
 
 ### Shared-helper planning gate (mandatory when helper changes are expected)
 
@@ -68,12 +68,15 @@ When a section is likely to introduce helper reuse, helper extension, or new sha
 
 ### Validation commands hierarchy
 
-- Backend lint: `npm run lint:backend`
-- Frontend lint: `npm run lint:frontend`
-- Builder lint (if touched): `npm run lint:builder`
-- Backend tests: `npm run test:backend -- <target>`
-- Frontend unit tests: `npm run test:frontend -- <target>`
-- Frontend e2e tests (if UX changes): `npm run test:frontend:e2e -- <target>`
+Run the narrowest relevant command first, then widen as required.
+
+- Lint: `npm run lint`
+- British-English check: `npm run lint:british`
+- Formatter: `npm run format`
+- Build and type-check: `npm run build`
+- Unit/integration tests: `npm run test -- <target>`
+- Mocked E2E tests: `npm run test:e2e`
+- Live E2E tests (explicit user request only): `npm run test:e2e:live`
 
 ---
 
@@ -89,21 +92,23 @@ When a section is likely to introduce helper reuse, helper extension, or new sha
 
 ### Delegation mandatory reads (when sub-agents are used)
 
-Testing Specialist mandatory docs:
+List every required file as an `@`-prefixed worktree-relative path.
 
-- ...
+Testing Specialist mandatory paths:
 
-Implementation mandatory docs:
+- `@...`
 
-- ...
+Implementation mandatory paths:
 
-Code Reviewer mandatory docs:
+- `@...`
 
-- ...
+Code Reviewer mandatory paths:
 
-Other delegated agents (if used) mandatory docs:
+- `@...`
 
-- ...
+Other delegated agents (if used) mandatory paths:
+
+- `@...`
 
 ### Shared helper plan (when helper changes are expected)
 
@@ -123,27 +128,23 @@ Helper decision entries:
 
 ### Required test cases (Red first)
 
-Backend model tests:
+Service/unit tests:
 
 1. ...
 2. ...
 
-Backend controller tests:
+Controller/integration tests:
 
 1. ...
 
-API layer tests:
-
-1. ...
-
-Frontend tests:
+E2E/API tests:
 
 1. ...
 
 ### Section checks
 
-- `npm test -- tests/...`
-- Mandatory-read evidence gate passed for all delegated handoffs in this section.
+- `npm run test -- <target>`
+- Mandatory `@`-prefixed paths were passed for every delegated handoff in this section.
 - Shared-helper planning entries are present when helper changes are expected.
 - Planned helper entries were added to relevant canonical docs with status `Not implemented` before implementation starts.
 
@@ -185,10 +186,10 @@ _(Repeat above section template for each logical chunk of work, renumbering sect
 
 ### Required test cases/checks
 
-1. Run the targeted backend suites for the code you touch.
+1. Run the targeted unit/integration suites for the code you touch (`npm run test -- <target>`).
 2. Run `npm run build` for TypeScript compilation.
-3. Run `npm run lint` and `npm run lint:british`.
-4. Run the mocked E2E suites for API-level or integration changes (`npm run test:e2e:mocked`).
+3. Run `npm run lint`, `npm run lint:british` and `npm run format`.
+4. Run the mocked E2E suite for API-level or integration changes (`npm run test:e2e`).
 5. Confirm every delegated handoff passed its mandatory files as `@`-prefixed paths; opencode injects their contents, so no `Files read` return is required.
 
 ### Section checks
@@ -222,7 +223,7 @@ _(Repeat above section template for each logical chunk of work, renumbering sect
 1. Verify docs mention persistence/transport strategies.
 2. Verify API docs list new endpoints/methods.
 3. Confirm notes/deviations fields are filled during implementation.
-4. Verify mandatory-read evidence (`Files read`) is complete for delegated docs/review handoffs.
+4. Confirm every delegated docs/review handoff passed its mandatory files as `@`-prefixed paths; no `Files read` return is required.
 5. Reconcile planned shared-helper entries in canonical docs: keep `Not implemented` where still pending, and update implemented entries where delivered.
 
 ### Optional `@remarks` JSDoc review

@@ -206,7 +206,8 @@ Use actual DTO field names for new IMAGE requests; the existing Gemini suite's `
 
 ### Implementation notes / deviations / follow-up
 
-Section 3 implemented and reviewed clean; commit/push gate in progress.
+Section 3 complete: `ce7b2b6` — `test: verify real multi-part image assessment flow`,
+branch `feat/multi-part-image-prompting`; push succeeded.
 Recovered partial red delegation after rate-limit failure; finished Mistral
 variant assertions and repaired test scoping lint. Red review clean
 (`section3-red-independent-review.md`). Full red gate (`section3-red-full.log`):
@@ -250,7 +251,18 @@ Testing Specialist and Code Reviewer: all changed source/tests plus `src/llm/rou
 
 ### Implementation notes / deviations / follow-up
 
-Not started.
+Section 4 verified and reviewed clean; commit/push gate in progress.
+Existing assertions cover all required contracts; no missing regression was
+found, so the conditional red/green repair was unnecessary. Focused checks:
+512 tests pass. Full gate: 764 unit tests, 53 mocked E2E tests and 1 existing
+todo; all linters, formatter and build pass with zero baseline regressions.
+Evidence: `section4-focused-check.log`, `section4-full-check-final.log` and
+`section4-verification-report.md` in `.opencode/scratchpad/`. Migration sizing:
+10 changed modules, 2,201 physical lines total; every module below 500 lines.
+No migration-specific duplication requiring cleanup. Review ledger: S4-R1
+(closed, Testing Specialist), corrected migration inventory; S4-R2 (closed,
+Testing Specialist), relocated ephemeral report to scratchpad. Independent
+clean re-review: `section4-rereview.md`. No source/test changes or live calls.
 
 ## Section 5 — Documentation and rollout
 

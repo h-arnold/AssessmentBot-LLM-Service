@@ -317,7 +317,10 @@ Final documentation audit found no additional migration drift. Evidence:
 independent clean `final-cleanup-review.md` in `.opencode/scratchpad/`.
 Full cleanup gate passed (`final-cleanup-full-check.log`): every linter,
 formatter, build, 764 unit tests and 53 mocked E2E tests plus 1 existing todo;
-zero regressions, no live provider calls. Cleanup commit/push gate in progress.
+zero regressions, no live provider calls. Cleanup complete: `6b7bd8a` —
+`test: tidy final image prompting contract checks`, branch
+`feat/multi-part-image-prompting`; push succeeded. All five sections and final
+cleanup/documentation sync delivered; no outstanding in-scope follow-ups.
 
 ## Suggested implementation order
 

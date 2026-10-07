@@ -24,7 +24,8 @@ import {
  * It is committed as a constant on purpose: if it ever mismatches, the
  * derivation rule is what changed — the constant must never be edited to
  * accommodate an implementation. The rule is single-input `sha256(referenceTask)`
- * with no separator, prefix, or task-type input (SPEC product decision #4).
+ * with no separator, prefix, or task-type input; see the cache-key derivation
+ * contract in `docs/modules/llm.md`.
  */
 const GOLDEN_REFERENCE_TASK =
   'Golden reference task for prompt cache key derivation.';

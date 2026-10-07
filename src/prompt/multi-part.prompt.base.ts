@@ -30,9 +30,10 @@ export abstract class MultiPartPrompt extends Prompt {
    *
    * Implementations supply task-specific content (for example the
    * reference/template/student label and image pairs) in the exact
-   * order it must reach the provider. The base never parses images
-   * or invents task-specific content; empty or invalid parts fail
-   * the multipart schema at build time.
+   * order it must reach the provider. Parts retain their returned
+   * array order and any adjacency between them. The base never parses
+   * images or invents task-specific content; empty or invalid parts
+   * fail the multipart schema at build time.
    * @returns {Promise<LlmContentPart[]>} The ordered user content
    *   parts.
    */

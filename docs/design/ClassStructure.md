@@ -36,6 +36,7 @@ classDiagram
 
     %% Prompt Hierarchy
     class PromptBase
+    class MultiPartPrompt
     class TextPrompt
     class TablePrompt
     class ImagePrompt
@@ -84,7 +85,8 @@ classDiagram
     %% Prompt Inheritance
     PromptBase <|-- TextPrompt
     PromptBase <|-- TablePrompt
-    PromptBase <|-- ImagePrompt
+    PromptBase <|-- MultiPartPrompt
+    MultiPartPrompt <|-- ImagePrompt
 
     %% LLM Service Inheritance
     LLMService <|-- GeminiService

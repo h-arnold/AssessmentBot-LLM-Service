@@ -116,7 +116,8 @@ export const MultiPartPromptPayloadSchema = z
     reasoningEffort: ReasoningEffortSchema.optional(),
     /**
      * Optional cache hint: forwarded to Mistral, ignored by Gemini once mapped.
-     * Derivation is deferred to the V2 prompt layer.
+     * A trusted caller may supply this directly; the prompt layer instead
+     * derives it server-side in `MultiPartPrompt.buildMessage()`.
      */
     promptCacheKey: z
       .string()
@@ -151,8 +152,9 @@ export type LlmConversationMessage = z.infer<
  * Schema-first conversation payload with shared provider options.
  * @remarks Derived via `z.infer`; validated at construction time via
  * `buildMultiPartPromptPayload`. Legacy payloads are not validated.
- * Cache-key derivation belongs to the future V2 prompt layer; provider
- * integration is documented in `docs/modules/llm.md`.
+ * This schema accepts a caller-supplied `promptCacheKey`; the prompt layer's
+ * `MultiPartPrompt.buildMessage()` derives it server-side from the reference
+ * task. Provider integration is documented in `docs/modules/llm.md`.
  */
 export type MultiPartPromptPayload = z.infer<
   typeof MultiPartPromptPayloadSchema

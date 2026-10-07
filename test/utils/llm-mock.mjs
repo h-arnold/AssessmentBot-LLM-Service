@@ -179,7 +179,8 @@ Object.defineProperty(GoogleGenAI.prototype, 'models', {
 // sufficient; no setter interception is required. The `configurable: true`
 // flag is mandatory so this override can replace the SDK's own lazy-getter
 // definition. If a future SDK version switches to an own-property assignment,
-// this pattern must be revisited (see SPEC product decision #9).
+// this pattern must be revisited; the mocked-E2E shim contract is described
+// in `docs/testing/E2E_GUIDE.md`.
 Object.defineProperty(Mistral.prototype, 'chat', {
   configurable: true,
   get() {

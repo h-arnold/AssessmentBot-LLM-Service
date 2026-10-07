@@ -175,7 +175,9 @@ export abstract class Prompt {
    * Builds the final payload to be sent to the LLM service.
    *
    * This is the default implementation for text and table prompts.
-   * Subclasses can override if needed (e.g., ImagePrompt).
+   * Multi-part assessment prompts instead extend {@link MultiPartPrompt},
+   * whose `buildMessage()` override assembles a validated conversation
+   * from the `buildUserParts()` hook.
    * @returns {Promise<LlmPayload>} A Promise that resolves to the LlmPayload.
    */
   public async buildMessage(): Promise<LlmPayload> {

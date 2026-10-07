@@ -251,7 +251,8 @@ Testing Specialist and Code Reviewer: all changed source/tests plus `src/llm/rou
 
 ### Implementation notes / deviations / follow-up
 
-Section 4 verified and reviewed clean; commit/push gate in progress.
+Section 4 complete: `6301a97` — `docs: record clean image migration regression checks`,
+branch `feat/multi-part-image-prompting`; push succeeded.
 Existing assertions cover all required contracts; no missing regression was
 found, so the conditional red/green repair was unnecessary. Focused checks:
 512 tests pass. Full gate: 764 unit tests, 53 mocked E2E tests and 1 existing
@@ -289,7 +290,17 @@ Docs and Code Reviewer: all changed public source and template files, `docs/modu
 
 ### Implementation notes / deviations / follow-up
 
-Not started. Record documentation reconciliation and any actual deviations before final handoff.
+Section 5 reconciled and reviewed clean; commit/push gate in progress.
+Seven documentation files and five source/test/mock comment-only files now
+describe the implemented hierarchy, labelled transport, validation and cache
+ownership. Planned helper entry reconciled; stale file-loading, V2 and numbered
+decision references corrected. Examples/rubric, assertions, golden values and
+executable behaviour unchanged; no scoring-quality gain claimed.
+Coverage matrix: `.opencode/scratchpad/section5-docs-report.md`. Independent
+review passed without findings (`section5-independent-review.md`). Focused
+prompt/LLM checks: 478 tests pass. Full gate (`section5-full-check.log`): all
+linters, formatter, build, 764 unit tests, 53 mocked E2E tests and 1 existing
+todo pass; zero regressions. Final cleanup/documentation sync remains pending.
 
 ## Suggested implementation order
 

@@ -20,6 +20,10 @@ export class UserAuthorizationService { ... }
 - **No `any` types.** Use explicit types or `unknown` with type guards (enforced by `@typescript-eslint/no-explicit-any`).
 - **All input validation uses Zod schemas.** DTOs are derived via `z.infer<typeof schema>`.
 
+## Comments
+
+You can wrap comments across multiple lines when doing so improves readability, as long lines are harder to scan. The `unicorn/no-manually-wrapped-comments` rule is disabled globally in `eslint.config.js`, permitting manually wrapped comments.
+
 ## File Naming Conventions
 
 ```

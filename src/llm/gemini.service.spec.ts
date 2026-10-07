@@ -1453,8 +1453,8 @@ describe('GeminiService', () => {
 
   const testResourceExhaustedError = async (
     errorMessage: string,
-    statusCode: number = 429,
   ): Promise<void> => {
+    const statusCode = 429;
     const payload = createStringPayload();
 
     const error = errorMessage.includes('RESOURCE_EXHAUSTED')

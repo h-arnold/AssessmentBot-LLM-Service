@@ -11,7 +11,7 @@ import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+const eslintConfig = tseslint.config(
   {
     ignores: ['dist', 'node_modules', 'coverage', '**/*.mjs'],
   },
@@ -30,7 +30,12 @@ export default tseslint.config(
     },
   },
   // Apply unicorn's complete rule set (modern JS preferences)
-  unicorn.configs['flat/all'],
+  unicorn.configs.all,
+  {
+    rules: {
+      'unicorn/no-manually-wrapped-comments': 'off',
+    },
+  },
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
@@ -344,3 +349,5 @@ export default tseslint.config(
     },
   },
 );
+
+export default eslintConfig;

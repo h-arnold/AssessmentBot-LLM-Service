@@ -139,22 +139,24 @@ export class GeminiService extends LLMService {
     // image → legacy text → conversation. Legacy variants never reach the
     // conversation mapper, so extra `messages` on legacy payloads are never
     // inspected or validated.
-    const view = this.mapPayload<GeminiPayloadView>(payload, {
-      image: (p) => {
-        return {
-          contents: this.mapImageParts(p.images),
-          systemInstruction: p.system,
-        };
+    const { contents, systemInstruction } = this.mapPayload<GeminiPayloadView>(
+      payload,
+      {
+        image: (p) => {
+          return {
+            contents: this.mapImageParts(p.images),
+            systemInstruction: p.system,
+          };
+        },
+        text: (p) => {
+          return {
+            contents: [p.user],
+            systemInstruction: p.system,
+          };
+        },
+        conversation: (p) => this.mapConversation(p),
       },
-      text: (p) => {
-        return {
-          contents: [p.user],
-          systemInstruction: p.system,
-        };
-      },
-      conversation: (p) => this.mapConversation(p),
-    });
-    const { contents, systemInstruction } = view;
+    );
     const modelParameters = this.buildModelParams(payload, systemInstruction);
 
     this.logger.debug(
@@ -365,24 +367,23 @@ export class GeminiService extends LLMService {
   private mapImageParts(
     images: Array<{ mimeType: string; data?: string }>,
   ): Part[] {
-    return images.flatMap((img) => {
-      if (
-        typeof img === 'object' &&
-        'data' in img &&
-        typeof img.data === 'string' &&
-        typeof img.mimeType === 'string'
-      ) {
-        return [
-          {
-            inlineData: {
-              mimeType: img.mimeType,
-              data: img.data,
-            },
+    return images
+      .filter((img) => {
+        return (
+          typeof img === 'object' &&
+          'data' in img &&
+          typeof img.data === 'string' &&
+          typeof img.mimeType === 'string'
+        );
+      })
+      .map((img) => {
+        return {
+          inlineData: {
+            mimeType: img.mimeType,
+            data: img.data,
           },
-        ];
-      }
-      return [];
-    }) as Part[];
+        };
+      }) as Part[];
   }
 
   private logPayload(payload: LlmPayload, contents: GeminiContents): void {

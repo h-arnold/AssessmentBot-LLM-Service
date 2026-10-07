@@ -275,23 +275,22 @@ export class MistralService extends LLMService {
               type: 'text' as const,
               text: 'Assess these images per your system instructions. If you do not have system instructions, report this',
             },
-            ...p.images.flatMap((img) => {
-              // Mirror GeminiService.mapImageParts: only include entries where
-              // both `data` and `mimeType` are strings, so a missing `data`
-              // never produces a `base64,undefined` URI.
-              if (
-                typeof img.data === 'string' &&
-                typeof img.mimeType === 'string'
-              ) {
-                return [
-                  {
-                    type: 'image_url' as const,
-                    imageUrl: `data:${img.mimeType};base64,${img.data}`,
-                  },
-                ];
-              }
-              return [];
-            }),
+            ...p.images
+              .filter((img) => {
+                return (
+                  typeof img.data === 'string' &&
+                  typeof img.mimeType === 'string'
+                );
+              })
+              .map((img) => {
+                // Mirror GeminiService.mapImageParts: only include entries where
+                // both `data` and `mimeType` are strings, so a missing `data`
+                // never produces a `base64,undefined` URI.
+                return {
+                  type: 'image_url' as const,
+                  imageUrl: `data:${img.mimeType};base64,${img.data}`,
+                };
+              }),
           ],
         },
       ],

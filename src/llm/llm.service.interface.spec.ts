@@ -82,16 +82,12 @@ class ExposedLLMService extends LLMService {
 // ---------------------------------------------------------------------------
 /**
  * Creates a test instance of ExposedLLMService with a mocked ConfigService.
- * @param overrides - Optional overrides for the configuration values.
  * @returns A configured ExposedLLMService instance.
  */
-function createService(
-  overrides?: Partial<Record<string, number>>,
-): ExposedLLMService {
+function createService(): ExposedLLMService {
   const configValues: Record<string, number | null> = {
     LLM_MAX_RETRIES: 2,
     LLM_BACKOFF_BASE_MS: 100,
-    ...overrides,
   };
   const configService = {
     get: vi.fn((key: string) => {

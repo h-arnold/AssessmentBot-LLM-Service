@@ -60,8 +60,8 @@ class TestPrompt extends Prompt {
 // Concrete subclass that deliberately does not override `buildMessage`, so the
 // inherited base (default text/table) population path is exercised directly.
 class InheritedBuildMessagePrompt extends Prompt {
-  constructor(inputs: unknown, logger: Logger, configService?: ConfigService) {
-    super(inputs, logger, undefined, undefined, configService);
+  constructor(inputs: unknown, logger: Logger) {
+    super(inputs, logger);
   }
 }
 

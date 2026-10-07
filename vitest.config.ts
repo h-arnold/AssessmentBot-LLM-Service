@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 // Resolves to the TypeScript source (not dist) so tests exercise live code.
 const sourceAlias = { src: path.resolve(process.cwd(), 'src') };
 
-export default defineConfig({
+const vitestConfig = defineConfig({
   test: {
     reporters: ['default', 'junit'],
     outputFile: './junit/vitest-junit.xml',
@@ -57,3 +57,5 @@ export default defineConfig({
     ],
   },
 });
+
+export default vitestConfig;

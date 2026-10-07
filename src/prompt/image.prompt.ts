@@ -9,8 +9,7 @@ import { LlmContentPart } from '../llm/llm.service.interface.js';
  * Prompt implementation for assessing image-based tasks.
  *
  * This class handles the creation of prompts for image assessment
- * tasks using data URI encoded images (including Buffers converted
- * to data URIs upstream by PromptFactory). It manages the extraction
+ * tasks using data URI encoded images. It manages the extraction
  * of base64-encoded image data from data URI strings and supplies
  * the ordered label and image pairs through the
  * {@link MultiPartPrompt.buildUserParts} hook; the inherited base

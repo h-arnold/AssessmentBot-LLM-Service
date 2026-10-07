@@ -32,7 +32,6 @@ export const DEFAULT_API_KEY_PREFIX = 'abt_';
  * @property {string} [APP_VERSION] - The optional version of the application.
  * @property {string} API_KEY_PREFIX - The prefix required for all API keys (default: 'abt_').
  * @property {string[]} [API_KEYS] - A comma-separated list of API keys, transformed into an array.
- * @property {number} MAX_IMAGE_UPLOAD_SIZE_MB - The maximum size for image uploads in megabytes.
  * @property {string[]} ALLOWED_IMAGE_MIME_TYPES - A comma-separated list of allowed image MIME types, transformed into an array.
  * @property {string} [GEMINI_API_KEY] - The API key for the Google Gemini service. Required only when a configured model (`DEFAULT_TEXT_TABLE_MODEL` / `DEFAULT_IMAGE_MODEL`) routes to the Gemini provider.
  * @property {string} [MISTRAL_API_KEY] - The API key for the Mistral AI service. Required only when a configured model (`DEFAULT_TEXT_TABLE_MODEL` / `DEFAULT_IMAGE_MODEL`) routes to the Mistral provider.
@@ -64,7 +63,6 @@ export const configObjectSchema = z.object({
     .transform((value) =>
       value === undefined ? undefined : value.split(',').map((s) => s.trim()),
     ),
-  MAX_IMAGE_UPLOAD_SIZE_MB: z.coerce.number().int().min(0).default(1),
   ALLOWED_IMAGE_MIME_TYPES: z
     .string()
     .default('image/png')

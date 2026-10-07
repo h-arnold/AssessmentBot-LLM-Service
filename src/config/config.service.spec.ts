@@ -48,7 +48,6 @@ describe('ConfigService', () => {
     process.env.NODE_ENV = 'test';
     process.env.PORT = '3000';
     process.env.API_KEYS = 'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-    process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
     process.env.ALLOWED_IMAGE_MIME_TYPES = 'image/png,image/jpeg';
     process.env.LOG_LEVEL = 'debug';
   });
@@ -74,7 +73,6 @@ describe('ConfigService', () => {
     process.env.PORT = '3000';
 
     delete process.env.APP_VERSION; // Ensure APP_VERSION is clean for tests that expect it to be undefined
-    delete process.env.MAX_IMAGE_UPLOAD_SIZE_MB;
     delete process.env.ALLOWED_IMAGE_MIME_TYPES;
   });
 
@@ -255,22 +253,10 @@ describe('ConfigService', () => {
       expect(configService.get('PORT')).toBe(3001);
     });
 
-    it('ConfigService should load MAX_IMAGE_UPLOAD_SIZE_MB as a number', () => {
+    it('should ignore obsolete image upload size configuration', () => {
       process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '2';
       const configService = new ConfigService();
-      expect(configService.get('MAX_IMAGE_UPLOAD_SIZE_MB')).toBe(2);
-    });
-
-    it('ConfigService should use default MAX_IMAGE_UPLOAD_SIZE_MB if not set', () => {
-      // Ensure the environment variable is not set
-      delete process.env.MAX_IMAGE_UPLOAD_SIZE_MB;
-      const configService = new ConfigService();
-      expect(configService.get('MAX_IMAGE_UPLOAD_SIZE_MB')).toBe(1);
-    });
-
-    it('ConfigService should reject invalid MAX_IMAGE_UPLOAD_SIZE_MB', () => {
-      process.env.MAX_IMAGE_UPLOAD_SIZE_MB = 'abc';
-      expect(() => new ConfigService()).toThrow();
+      expect(configService.getGlobalPayloadLimit()).toBe('5mb');
     });
 
     it('ConfigService should load ALLOWED_IMAGE_MIME_TYPES as an array of strings', () => {
@@ -307,19 +293,9 @@ describe('ConfigService', () => {
   });
 
   describe('getGlobalPayloadLimit', () => {
-    it('should calculate correctly for default MAX_IMAGE_UPLOAD_SIZE_MB', () => {
-      // Ensure we use the default value
-      delete process.env.MAX_IMAGE_UPLOAD_SIZE_MB;
+    it('should keep the aggregate payload limit fixed at 5mb', () => {
       const configService = new ConfigService();
-      // Formula: ((1 * 1.33 * 3) + 1) = 4.99 -> 5MB
       expect(configService.getGlobalPayloadLimit()).toBe('5mb');
-    });
-
-    it('should calculate correctly for a different MAX_IMAGE_UPLOAD_SIZE_MB', () => {
-      process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '2';
-      const configService = new ConfigService();
-      // Formula: ((2 * 1.33 * 3) + 1) = 8.98 -> 9MB
-      expect(configService.getGlobalPayloadLimit()).toBe('9mb');
     });
   });
 

@@ -78,7 +78,7 @@ sequenceDiagram
 
 ### 5. Prompt Generation
 
-`PromptFactory` instantiates the correct prompt type (Text, Table, or Image) based on task type. Text and table prompts validate inputs, load Markdown templates, and render them with Mustache using assessment variables (`{{referenceTask}}`, `{{studentTask}}`, `{{emptyTask}}`). For IMAGE tasks the factory converts Buffer inputs to data URIs, and `ImagePrompt` extends `MultiPartPrompt` to assemble a two-message conversation of ordered label-image parts, derive its cache key server-side, and validate the payload once.
+`PromptFactory` instantiates the correct prompt type (Text, Table, or Image) based on task type. Text and table prompts validate inputs, load Markdown templates, and render them with Mustache using assessment variables (`{{referenceTask}}`, `{{studentTask}}`, `{{emptyTask}}`). For IMAGE tasks the factory passes the validated data-URI strings to `ImagePrompt`, which extends `MultiPartPrompt` to assemble a two-message conversation of ordered label-image parts, derive its cache key server-side, and validate the payload once.
 
 ### 6. LLM Integration
 

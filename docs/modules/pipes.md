@@ -25,20 +25,21 @@ Can be applied to individual parameters, entire methods, or globally. Note that 
 
 **Location:** `src/common/pipes/image-validation.pipe.ts`
 
-Specialises in validating image uploads, supporting both Buffer objects and base64 Data URIs.
+Validates base64 Data URI image uploads. Any non-string value is rejected.
 
 **Validations:**
 
-- Rejects empty buffers or base64 data
-- Enforces `MAX_IMAGE_UPLOAD_SIZE_MB` limit from configuration
+- Rejects empty base64 data
+- Enforces the fixed 1 MiB decoded per-image limit (`MAX_IMAGE_SIZE_BYTES` in `src/common/image.constants.ts`)
 - Restricts MIME types to `ALLOWED_IMAGE_MIME_TYPES` from configuration
-- For base64 strings: validates `data:image/` prefix, proper encoding, and enforces a 10MB string length limit (ReDoS protection)
-- MIME type detection uses `mime-detect`; base64 validation uses `validator`
+- Validates the `data:image/` prefix, base64 encoding, and a 10 MB string length limit (ReDoS protection)
+- Base64 validation uses `validator`. No magic-byte detection is performed
 
-**Usage:**
+**Usage** (instantiated programmatically per IMAGE task in `AssessorController`):
 
 ```typescript
-@Body('image', ImageValidationPipe) imageData: Buffer | string
+const imagePipe = new ImageValidationPipe(this.configService);
+await imagePipe.transform(assessorDto.reference); // string data URI
 ```
 
 ## Related Documentation

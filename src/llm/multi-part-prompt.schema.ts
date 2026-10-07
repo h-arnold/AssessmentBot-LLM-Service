@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_IMAGE_SIZE_BYTES } from '../common/image.constants.js';
+
 /**
  * Validates the existing provider-neutral reasoning-effort levels. Single
  * source of truth: the shared {@linkcode ReasoningEffort} type is derived
@@ -49,7 +51,7 @@ export const ImageContentPartSchema = z.object({
       padding = secondLastChar === '=' ? 2 : 1;
     }
     const decodedLength = (data.length / 4) * 3 - padding;
-    return decodedLength <= 1048576;
+    return decodedLength <= MAX_IMAGE_SIZE_BYTES;
   }, 'Invalid base64 image data or exceeds 1 MiB decoded'),
 });
 

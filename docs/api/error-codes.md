@@ -65,9 +65,9 @@ Invalid request body that doesn't match the expected schema.
 
 For IMAGE task types with invalid image data, such as exceeding size limits or using disallowed MIME types.
 
-#### Type Consistency Errors
+#### Image Input Type Errors
 
-For IMAGE tasks where reference, template, and studentResponse have inconsistent types (e.g., a mix of strings and Buffers).
+For IMAGE tasks, each field must be a base64 Data URI string. A `Buffer` or a Buffer-like JSON object fails schema validation.
 
 ### 401 - Unauthorized
 
@@ -81,7 +81,7 @@ Returned when authentication fails or is missing.
 
 ### 413 - Payload Too Large
 
-Returned when the request body exceeds the configured size limit. This is handled separately from other validation as it occurs before the main application logic.
+Returned when the request body exceeds the fixed 5 MiB JSON body cap, which is sized for three maximum-size base64 images. This is handled by `body-parser` before the main application logic, so it bypasses schema and image validation.
 
 ### 429 - Too Many Requests
 
@@ -143,7 +143,7 @@ The central `HttpExceptionFilter` logs all errors with appropriate severity leve
 
 1.  Check the `errors` array in the response for specific field issues.
 2.  Verify data types and constraints against the API schema.
-3.  For `IMAGE` tasks, ensure all image fields have consistent types and meet size/MIME requirements.
+3.  For `IMAGE` tasks, ensure each field is a base64 Data URI string that decodes to no more than 1 MiB and uses an allowed MIME type.
 
 ### Authentication Errors (401)
 

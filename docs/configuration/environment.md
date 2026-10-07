@@ -33,10 +33,13 @@ Omit any of these to accept the default.
 
 ### Image uploads
 
+Images must be base64 data URI strings and are limited to **1 MiB decoded per image**. The size limit is fixed in code (`MAX_IMAGE_SIZE_BYTES` in `src/common/image.constants.ts`), not configurable.
+
 | Variable                   | What it does                                          | Allowed values / default                                                |
 | -------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
-| `MAX_IMAGE_UPLOAD_SIZE_MB` | Maximum accepted image size in megabytes              | Integer ≥ 0. Default `1`                                                |
 | `ALLOWED_IMAGE_MIME_TYPES` | Comma-separated MIME types accepted for image uploads | Comma-separated list. Default `image/png` (e.g. `image/png,image/jpeg`) |
+
+`MAX_IMAGE_UPLOAD_SIZE_MB` from earlier releases is no longer read — setting it has no effect, so remove it from existing `.env` files.
 
 ### Rate limiting
 
@@ -110,7 +113,6 @@ API_KEYS=abt_<32-char-base64url-body>
 NODE_ENV=development
 PORT=3000
 LOG_LEVEL=info
-MAX_IMAGE_UPLOAD_SIZE_MB=1
 DEFAULT_TEXT_TABLE_MODEL=mistral-small-latest
 DEFAULT_IMAGE_MODEL=mistral-small-latest
 TEXT_REASONING_EFFORT=low

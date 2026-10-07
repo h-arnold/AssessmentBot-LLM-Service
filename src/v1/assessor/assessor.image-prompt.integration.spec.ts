@@ -75,7 +75,6 @@ describe('AssessorService IMAGE multi-part integration', () => {
     process.env.NODE_ENV = 'test';
     process.env.PORT = '3000';
     process.env.API_KEYS = 'abt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-    process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
     process.env.APP_NAME = 'Assessment Bot LLM Service';
     process.env.APP_VERSION = 'test-version';
     process.env.LOG_LEVEL = 'debug';

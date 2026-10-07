@@ -11,7 +11,6 @@ process.env.API_KEYS = testApiKey;
 process.env.GEMINI_API_KEY = 'test-key';
 process.env.NODE_ENV = 'test';
 process.env.PORT = '3000';
-process.env.MAX_IMAGE_UPLOAD_SIZE_MB = '5';
 process.env.LOG_LEVEL = 'debug';
 process.env.THROTTLER_TTL = '60';
 process.env.UNAUTHENTICATED_THROTTLER_LIMIT = '10';

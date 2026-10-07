@@ -69,7 +69,7 @@ Instantiates the correct `Prompt` subclass based on `taskType` from the DTO.
 1. Extracts `referenceTask`, `studentTask`, `emptyTask` from the DTO
 2. Selects system prompt and user template files based on `taskType`
 3. Loads the system prompt markdown file from `src/prompt/templates/`
-4. For IMAGE tasks, converts Buffer inputs to `data:<mimeType>;base64,<data>` URIs first, detecting each MIME type with `detectBufferMime()` and throwing `BadRequestException` when detection fails
+4. For IMAGE tasks, passes the validated data-URI strings straight to the `ImagePrompt` constructor
 5. Instantiates the appropriate prompt subclass
 
 ### Multi-Part Payload Construction
@@ -82,15 +82,15 @@ Instantiates the correct `Prompt` subclass based on `taskType` from the DTO.
 
 Construction-time validation enforces:
 
-- Standard padded base64 for image data. Exactly 1 MiB (1,048,576 bytes) decoded is accepted per image; 1 MiB plus one byte is rejected. There is no aggregate limit across the three images.
+- Standard padded base64 for image data. Exactly 1 MiB (1,048,576 bytes) decoded is accepted per image; 1 MiB plus one byte is rejected. The schema sets no aggregate cap across the three images; the HTTP surface separately caps the whole JSON body at 5 MiB (HTTP 413).
 - At least one part per message, at least one non-system message, and text-only system messages.
 
-A malformed data URI still throws `BadRequestException` with the existing message. Once data URIs are extracted, invalid base64, invalid structure, or an oversized image fails as a raw `ZodError`, which the global exception filter maps to HTTP 500 (sanitised in production). With the default 1 MiB upload limit, `ImageValidationPipe` rejects an oversized individual image earlier with HTTP 400; if operators configure a larger upload limit, images above 1 MiB that previously reached a provider now fail construction.
+A malformed data URI throws `BadRequestException` with the existing message. Once data URIs are extracted, invalid base64 or invalid structure fails as a raw `ZodError`, which the global exception filter maps to HTTP 500 (sanitised in production). The 500 path applies to direct internal construction of a payload, not to HTTP image requests. On the HTTP path, `ImageValidationPipe` rejects any image above 1 MiB decoded earlier with HTTP 400, so exactly 1 MiB is accepted and 1 MiB plus one byte is rejected; a request body above the 5 MiB aggregate cap is rejected with HTTP 413 by `body-parser`.
 
 ### ImagePrompt Data Handling
 
 - **Data URI parsing only:** Extracts MIME type and base64 data from `data:image/<subtype>;base64,<data>` strings. It performs no file loading and no filesystem access.
-- **Validation ownership:** Malformed data URIs, base64 defects, per-image size limits and upstream `ImageValidationPipe` behaviour all follow the shared construction rules above.
+- **Validation ownership:** Public image fields are non-empty data URI strings; `Buffer` input is rejected at the DTO boundary. `ImageValidationPipe` owns the HTTP-layer base64 format and 1 MiB per-image limit, while the multipart schema re-applies structural base64 and size checks at construction.
 
 The migration to labelled multi-part messages does not change the system template's examples, rubric, or JSON output structure, and it does not establish score-quality gains — it establishes transport correctness.
 

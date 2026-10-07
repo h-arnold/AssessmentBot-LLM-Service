@@ -12,6 +12,15 @@ const validEnvironment = {
 };
 
 describe('Environment schema', () => {
+  it('should drop the obsolete image upload size setting', () => {
+    const result = configSchema.parse({
+      ...validEnvironment,
+      MAX_IMAGE_UPLOAD_SIZE_MB: '2',
+    });
+
+    expect(result).not.toHaveProperty('MAX_IMAGE_UPLOAD_SIZE_MB');
+  });
+
   describe('DEFAULT_API_KEY_PREFIX export', () => {
     it('should export DEFAULT_API_KEY_PREFIX as abt_', () => {
       expect(DEFAULT_API_KEY_PREFIX).toBe('abt_');

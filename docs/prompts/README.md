@@ -25,7 +25,7 @@ The system uses a combination of the **Factory** and **Template Method** design 
     - **`TextPrompt` & `TablePrompt`**: Simple implementations for text and table-based tasks. They use the base class's `buildMessage()` method, which renders a Mustache template.
     - **`ImagePrompt`**: Extends `MultiPartPrompt` for multimodal tasks. It parses data URI inputs and supplies six ordered reference/template/student label-image parts through the `buildUserParts()` hook; it does not load files from disk. Malformed data URIs throw `BadRequestException`, and invalid or oversized base64 fails the multipart schema at build time.
 
-4.  **`PromptFactory`**: A NestJS injectable service (`src/prompt/prompt.factory.ts`) that instantiates the correct prompt class based on the `TaskType` from the `CreateAssessorDto`. It loads the necessary template files from the filesystem and converts Buffer image inputs to data URIs before constructing `ImagePrompt`.
+4.  **`PromptFactory`**: A NestJS injectable service (`src/prompt/prompt.factory.ts`) that instantiates the correct prompt class based on the `TaskType` from the `CreateAssessorDto`. It loads the necessary template files from the filesystem and passes the validated data-URI image strings straight to the `ImagePrompt` constructor.
 
 ## How It Works
 

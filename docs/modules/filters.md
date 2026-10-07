@@ -9,7 +9,7 @@ A global exception filter that catches all errors and formats them into standard
 ### What It Does
 
 - Catches all `HttpException` instances plus unexpected errors
-- Handles Express `PayloadTooLargeError` (returns HTTP 413)
+- Handles Express `PayloadTooLargeError` (returns HTTP 413) for request bodies above the 5 MiB JSON cap
 - Redacts sensitive headers (`authorization`, `cookie`, `x-api-key`) before logging
 - In production (`NODE_ENV=production`), masks detailed error messages for 5xx errors with a generic "Internal server error"
 - Preserves Zod validation error details in 4xx responses (development only)

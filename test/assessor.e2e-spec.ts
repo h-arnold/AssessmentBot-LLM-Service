@@ -140,6 +140,46 @@ describe('AssessorController (e2e)', () => {
     expect(response.body.spag.reasoning).toContain('minor SPaG error');
   });
 
+  it('should return 400 when any IMAGE field exceeds 1 MiB despite obsolete size configuration', async () => {
+    const oversizedImage = `data:image/png;base64,${Buffer.alloc(1024 * 1024 + 1).toString('base64')}`;
+    const validImage = 'data:image/png;base64,aGVsbG8=';
+    for (const field of ['reference', 'template', 'studentResponse'] as const) {
+      const payload = {
+        taskType: 'IMAGE',
+        reference: validImage,
+        template: validImage,
+        studentResponse: validImage,
+        [field]: oversizedImage,
+      };
+      const response = await request(app.appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${app.apiKey}`)
+        .send(payload)
+        .expect(400);
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it('should accept a 1 MiB image in each IMAGE field despite obsolete size configuration', async () => {
+    const maximumSizeImage = `data:image/png;base64,${Buffer.alloc(1024 * 1024).toString('base64')}`;
+    const validImage = 'data:image/png;base64,aGVsbG8=';
+    for (const field of ['reference', 'template', 'studentResponse'] as const) {
+      const payload = {
+        taskType: 'IMAGE',
+        reference: validImage,
+        template: validImage,
+        studentResponse: validImage,
+        [field]: maximumSizeImage,
+      };
+      const response = await request(app.appUrl)
+        .post('/v1/assessor')
+        .set('Authorization', `Bearer ${app.apiKey}`)
+        .send(payload)
+        .expect(201);
+      expect(response.status).toBe(201);
+    }
+  });
+
   it('/v1/assessor (POST) TEXT should not select the image mock for a data URI in text', async () => {
     await delay(2000);
 

@@ -32,7 +32,7 @@ const validInputs: PromptInput = {
   emptyTask: templateDataUri,
 };
 
-// The exact label strings required by SPEC.md, in payload order.
+// The exact label strings required by the IMAGE prompt contract, in payload order.
 const testSystemPrompt = 'System instruction.';
 
 const referenceImagePart: LlmContentPart = {
@@ -68,7 +68,7 @@ const buildUserParts = (
   ];
 };
 
-// The exact six ordered user parts required by SPEC.md.
+// The exact six ordered user parts required by the IMAGE prompt contract.
 const expectedUserParts = buildUserParts(
   referenceImagePart,
   templateImagePart,

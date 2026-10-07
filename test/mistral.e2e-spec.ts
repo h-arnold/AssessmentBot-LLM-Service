@@ -120,10 +120,8 @@ describe('MistralAssessor (e2e)', () => {
       .send(imagePayload)
       .expect(201);
 
-    // The mock's `mistralImageResponse` is realistic captured data — it has
-    // `completeness`, `accuracy`, and `spag` at the top level but does NOT
-    // carry the `"Mistral mocked"` marker (the image variant uses fully
-    // realistic reasoning text).
+    // The realistic captured image variant has the score fields below but
+    // no "Mistral mocked" marker, which identifies the text/table variants.
     expect(response.body).toHaveProperty('completeness');
     expect(response.body).toHaveProperty('accuracy');
     expect(response.body).toHaveProperty('spag');
@@ -132,9 +130,7 @@ describe('MistralAssessor (e2e)', () => {
     // the same quantity of work as the reference task), accuracy 2
     // (the actual output disagrees with the code shown) and SPaG 5
     // (no spelling, punctuation, or grammar errors). The image
-    // variant uses fully realistic reasoning text, so it must not
-    // carry the "Mistral mocked" marker that identifies the
-    // text/table variants above.
+    // variant uses fully realistic reasoning text.
     expect(response.body.completeness.score).toBe(5);
     expect(response.body.completeness.reasoning).toContain(
       'matching the quantity of the reference task',

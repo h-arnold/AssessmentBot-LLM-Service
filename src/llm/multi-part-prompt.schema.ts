@@ -115,9 +115,9 @@ export const MultiPartPromptPayloadSchema = z
      */
     reasoningEffort: ReasoningEffortSchema.optional(),
     /**
-     * Optional cache hint: forwarded to Mistral, ignored by Gemini once mapped.
-     * A trusted caller may supply this directly; the prompt layer instead
-     * derives it server-side in `MultiPartPrompt.buildMessage()`.
+     * Optional cache hint: forwarded to Mistral; Gemini does not forward the
+     * field. A trusted caller may supply this directly; the prompt layer
+     * instead derives it server-side in `MultiPartPrompt.buildMessage()`.
      */
     promptCacheKey: z
       .string()

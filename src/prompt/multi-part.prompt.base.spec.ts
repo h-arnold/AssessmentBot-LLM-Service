@@ -335,15 +335,16 @@ describe('MultiPartPrompt', () => {
       } as unknown as ConfigService;
       const verboseSpy = vi.spyOn(logger, 'verbose');
 
-      const prompt = new StubMultiPartPrompt(
-        validInput,
-        logger,
-        orderedUserParts,
-        undefined,
-        configService,
-      );
+      expect(() => {
+        return new StubMultiPartPrompt(
+          validInput,
+          logger,
+          orderedUserParts,
+          undefined,
+          configService,
+        );
+      }).not.toThrow();
 
-      expect(prompt).toBeInstanceOf(StubMultiPartPrompt);
       expect(verboseSpy).not.toHaveBeenCalledWith(
         { inputs: validInput },
         'Prompt constructor received inputs',
@@ -356,15 +357,16 @@ describe('MultiPartPrompt', () => {
       } as unknown as ConfigService;
       const verboseSpy = vi.spyOn(logger, 'verbose');
 
-      const prompt = new StubMultiPartPrompt(
-        validInput,
-        logger,
-        orderedUserParts,
-        undefined,
-        configService,
-      );
+      expect(() => {
+        return new StubMultiPartPrompt(
+          validInput,
+          logger,
+          orderedUserParts,
+          undefined,
+          configService,
+        );
+      }).not.toThrow();
 
-      expect(prompt).toBeInstanceOf(StubMultiPartPrompt);
       expect(verboseSpy).toHaveBeenCalledWith(
         { inputs: validInput },
         'Prompt constructor received inputs',

@@ -290,7 +290,8 @@ Docs and Code Reviewer: all changed public source and template files, `docs/modu
 
 ### Implementation notes / deviations / follow-up
 
-Section 5 reconciled and reviewed clean; commit/push gate in progress.
+Section 5 complete: `6132622` — `docs: reconcile multi-part image prompting contracts`,
+branch `feat/multi-part-image-prompting`; push succeeded.
 Seven documentation files and five source/test/mock comment-only files now
 describe the implemented hierarchy, labelled transport, validation and cache
 ownership. Planned helper entry reconciled; stale file-loading, V2 and numbered
@@ -300,7 +301,23 @@ Coverage matrix: `.opencode/scratchpad/section5-docs-report.md`. Independent
 review passed without findings (`section5-independent-review.md`). Focused
 prompt/LLM checks: 478 tests pass. Full gate (`section5-full-check.log`): all
 linters, formatter, build, 764 unit tests, 53 mocked E2E tests and 1 existing
-todo pass; zero regressions. Final cleanup/documentation sync remains pending.
+todo pass; zero regressions.
+
+### Final cleanup and documentation sync
+
+Final de-sloppification found no substantive defects. All three in-scope
+minor findings resolved: F1 (Docs), clarified Gemini does not forward the
+cache hint; F2 (Testing Specialist), replaced redundant instance assertions
+with explicit successful-construction assertions while retaining logging
+checks; F3 (Testing Specialist), consolidated overlapping Mistral comments
+without changing response assertions. Pre-existing observations outside the
+SPEC's scope were excluded; no speculative cleanup performed.
+Final documentation audit found no additional migration drift. Evidence:
+`final-de-sloppification.md`, `final-test-cleanup.md`, `final-doc-sync.md` and
+independent clean `final-cleanup-review.md` in `.opencode/scratchpad/`.
+Full cleanup gate passed (`final-cleanup-full-check.log`): every linter,
+formatter, build, 764 unit tests and 53 mocked E2E tests plus 1 existing todo;
+zero regressions, no live provider calls. Cleanup commit/push gate in progress.
 
 ## Suggested implementation order
 

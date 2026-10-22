@@ -41,6 +41,21 @@ The production image uses a multi-stage build to create a minimal, secure runtim
 
 ## Production Deployment
 
+### Node.js security updates
+
+The Node.js security releases on 21 October 2026 address high-severity vulnerabilities,
+including a Brotli remote code execution issue and TLS validation bypasses. See the
+[official Node.js advisory](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
+This project requires Node.js 24.22.1 or later within 24.x. Rebuild and redeploy
+containers using the updated image; restarting an existing container does not update
+its Node.js runtime, and `npm audit fix` does not patch Node.js itself. Confirm the
+runtime with `node --version` (24.22.1 or later in 24.x), and verify a container with
+`docker run --rm <image> node --version`.
+
+Existing devcontainers must be rebuilt to apply the pinned Node.js feature version;
+reopen the project and choose **Dev Containers: Rebuild Container**. Verify with
+`node --version` inside the rebuilt environment.
+
 For production, it is recommended to use Docker Compose, which orchestrates the application, a Caddy reverse proxy, and a Fail2ban intrusion prevention service.
 
 ### Docker Compose Deployment

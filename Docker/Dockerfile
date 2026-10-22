@@ -2,7 +2,7 @@
 
 # Use the official Node.js 24 Alpine image as a base.
 # Alpine is chosen for its small size.
-FROM node:24-alpine
+FROM node:24.22.1-alpine
 
 # Set the working directory in the container to /app.
 # All subsequent commands will be run from this directory.

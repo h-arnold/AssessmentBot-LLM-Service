@@ -1,6 +1,13 @@
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { readMarkdown } from '../common/file-utilities.js';
+import { ConfigModule } from '../config/config.module.js';
+import { MultiPartPromptPayload } from '../llm/llm.service.interface.js';
+import {
+  CreateAssessorDto,
+  TaskType,
+} from '../v1/assessor/dto/create-assessor.dto.js';
 import {
   referenceBase64,
   referenceLabel,
@@ -13,13 +20,6 @@ import { ImagePrompt } from './image.prompt.js';
 import { PromptFactory } from './prompt.factory.js';
 import { TablePrompt } from './table.prompt.js';
 import { TextPrompt } from './text.prompt.js';
-import { readMarkdown } from '../common/file-utilities.js';
-import { ConfigModule } from '../config/config.module.js';
-import { MultiPartPromptPayload } from '../llm/llm.service.interface.js';
-import {
-  CreateAssessorDto,
-  TaskType,
-} from '../v1/assessor/dto/create-assessor.dto.js';
 
 describe('PromptFactory', () => {
   let factory: PromptFactory;

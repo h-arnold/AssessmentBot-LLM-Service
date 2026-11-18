@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Mock } from 'vitest';
 
-import { ImageValidationPipe } from './image-validation.pipe.js';
 import { ConfigService } from '../../config/config.service.js';
+import { ImageValidationPipe } from './image-validation.pipe.js';
 
 interface PipeLike {
   transform: (value: unknown) => Promise<unknown>;

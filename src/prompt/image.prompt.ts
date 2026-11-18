@@ -1,9 +1,9 @@
 import { Logger, BadRequestException } from '@nestjs/common';
 
-import { MultiPartPrompt } from './multi-part.prompt.base.js';
-import { PromptInput } from './prompt.base.js';
 import { ConfigService } from '../config/config.service.js';
 import { LlmContentPart } from '../llm/llm.service.interface.js';
+import { MultiPartPrompt } from './multi-part.prompt.base.js';
+import { PromptInput } from './prompt.base.js';
 
 /**
  * Prompt implementation for assessing image-based tasks.

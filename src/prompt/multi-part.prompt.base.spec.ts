@@ -2,6 +2,12 @@ import { Logger } from '@nestjs/common';
 import { expectTypeOf } from 'vitest';
 import { ZodError } from 'zod';
 
+import { ConfigService } from '../config/config.service.js';
+import {
+  LlmContentPart,
+  MultiPartPromptPayload,
+  MultiPartPromptPayloadSchema,
+} from '../llm/llm.service.interface.js';
 import {
   referenceLabel,
   studentLabel,
@@ -9,12 +15,6 @@ import {
 } from './image-prompt.test-fixtures.js';
 import { MultiPartPrompt } from './multi-part.prompt.base.js';
 import { buildPromptCacheKey, Prompt, PromptInput } from './prompt.base.js';
-import { ConfigService } from '../config/config.service.js';
-import {
-  LlmContentPart,
-  MultiPartPromptPayload,
-  MultiPartPromptPayloadSchema,
-} from '../llm/llm.service.interface.js';
 
 // Minimal concrete subclass exercising the abstract hook. The parts
 // supplied at construction time are returned verbatim so each test can

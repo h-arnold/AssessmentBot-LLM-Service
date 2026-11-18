@@ -7,17 +7,17 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 
-import { AssessorService } from './assessor.service.js';
-import {
-  type CreateAssessorDto,
-  assessorDtoSchema,
-} from './dto/create-assessor.dto.js';
 import { ApiKeyGuard } from '../../auth/api-key.guard.js';
 import { ImageValidationPipe } from '../../common/pipes/image-validation.pipe.js';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
 import { ConfigService } from '../../config/config.service.js';
 import { authenticatedThrottler } from '../../config/throttler.config.js';
 import { LlmResponse } from '../../llm/types.js';
+import { AssessorService } from './assessor.service.js';
+import {
+  type CreateAssessorDto,
+  assessorDtoSchema,
+} from './dto/create-assessor.dto.js';
 
 /**
  * @class AssessorController

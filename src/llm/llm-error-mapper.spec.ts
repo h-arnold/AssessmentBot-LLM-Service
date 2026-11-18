@@ -1,12 +1,5 @@
 import { describe, it, expect } from 'vitest';
 
-import type { LlmErrorMapperProbes } from './llm-error-mapper.js';
-import {
-  classifyLlmError,
-  NETWORK_ERROR_PATTERN,
-  normaliseStatusCode,
-  probeStatusCode,
-} from './llm-error-mapper.js';
 import { AuthenticationError } from '../common/errors/authentication.error.js';
 import { ContentFilteredError } from '../common/errors/content-filtered.error.js';
 import { ContextLengthExceededError } from '../common/errors/context-length-exceeded.error.js';
@@ -15,6 +8,13 @@ import { NetworkError } from '../common/errors/network.error.js';
 import { ProviderServerError } from '../common/errors/provider-server.error.js';
 import { RateLimitError } from '../common/errors/rate-limit.error.js';
 import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
+import type { LlmErrorMapperProbes } from './llm-error-mapper.js';
+import {
+  classifyLlmError,
+  NETWORK_ERROR_PATTERN,
+  normaliseStatusCode,
+  probeStatusCode,
+} from './llm-error-mapper.js';
 
 // ---------------------------------------------------------------------------
 // Test helpers

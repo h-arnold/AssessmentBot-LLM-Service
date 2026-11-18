@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { CreateAssessorDto } from './dto/create-assessor.dto.js';
 import type { ILlmService } from '../../llm/llm.service.interface.js';
 import {
   getPayloadTypeName,
@@ -9,6 +8,7 @@ import {
 } from '../../llm/llm.service.interface.js';
 import { LlmResponse } from '../../llm/types.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
+import { CreateAssessorDto } from './dto/create-assessor.dto.js';
 
 /**
  * Service responsible for orchestrating the assessment creation process.

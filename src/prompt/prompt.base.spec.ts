@@ -2,13 +2,6 @@ import { Logger } from '@nestjs/common';
 import { expectTypeOf } from 'vitest';
 import { ZodError } from 'zod';
 
-import {
-  buildMultiPartPromptPayload,
-  buildPromptCacheKey,
-  Prompt,
-  PromptInput,
-  PromptInputSchema,
-} from './prompt.base.js';
 import { readMarkdown } from '../common/file-utilities.js';
 import { ConfigService } from '../config/config.service.js';
 import {
@@ -16,6 +9,13 @@ import {
   MultiPartPromptPayload,
   MultiPartPromptPayloadSchema,
 } from '../llm/llm.service.interface.js';
+import {
+  buildMultiPartPromptPayload,
+  buildPromptCacheKey,
+  Prompt,
+  PromptInput,
+  PromptInputSchema,
+} from './prompt.base.js';
 
 /*
  * Frozen golden input and its expected SHA-256 digest. The digest was generated

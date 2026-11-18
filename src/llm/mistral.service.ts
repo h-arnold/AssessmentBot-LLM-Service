@@ -6,6 +6,10 @@ import type {
 } from '@mistralai/mistralai/models/components';
 import { Injectable } from '@nestjs/common';
 
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { isErrorObject } from '../common/utils/type-guards.js';
+import { ConfigService } from '../config/config.service.js';
 import {
   classifyLlmError,
   type LlmErrorMapperProbes,
@@ -20,10 +24,6 @@ import {
   ReasoningEffort,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
-import type { LlmError } from '../common/errors/llm-error.base.js';
-import { JsonParserUtility } from '../common/json-parser.utility.js';
-import { isErrorObject } from '../common/utils/type-guards.js';
-import { ConfigService } from '../config/config.service.js';
 
 // ---------------------------------------------------------------------------
 // SDK type helpers (accessed via the Mistral class's property types so we

@@ -2,8 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
-import { AssessorService } from './assessor.service.js';
-import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto.js';
 import { readMarkdown } from '../../common/file-utilities.js';
 import {
   ILlmService,
@@ -24,6 +22,8 @@ import {
   buildPromptCacheKey,
 } from '../../prompt/prompt.base.js';
 import { PromptModule } from '../../prompt/prompt.module.js';
+import { AssessorService } from './assessor.service.js';
+import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto.js';
 
 // Distinct, genuinely valid standard padded base64 payloads, one per
 // assessment position, so MIME/data pairing is provable.

@@ -2,8 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
 import { Mock } from 'vitest';
 
-import { AssessorService } from './assessor.service.js';
-import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto.js';
 import { JsonParserUtility } from '../../common/json-parser.utility.js';
 import { ConfigModule } from '../../config/config.module.js';
 import { ConfigService } from '../../config/config.service.js';
@@ -22,6 +20,8 @@ import {
 } from '../../prompt/prompt.base.js';
 import { PromptFactory } from '../../prompt/prompt.factory.js';
 import { PromptModule } from '../../prompt/prompt.module.js';
+import { AssessorService } from './assessor.service.js';
+import { CreateAssessorDto, TaskType } from './dto/create-assessor.dto.js';
 
 const createMockLlmResponse = (score: number): LlmResponse => {
   return {

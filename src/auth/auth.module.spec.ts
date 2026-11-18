@@ -2,11 +2,11 @@ import { Logger } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ConfigService, Config } from '../config/config.service.js';
 import { ApiKeyGuard } from './api-key.guard.js';
 import { ApiKeyService } from './api-key.service.js';
 import { ApiKeyStrategy } from './api-key.strategy.js';
 import { AuthModule } from './auth.module.js';
-import { ConfigService, Config } from '../config/config.service.js';
 
 describe('AuthModule', () => {
   let module: TestingModule;

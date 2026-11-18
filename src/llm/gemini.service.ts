@@ -8,6 +8,10 @@ import {
 } from '@google/genai';
 import { Injectable } from '@nestjs/common';
 
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { isErrorObject } from '../common/utils/type-guards.js';
+import { ConfigService } from '../config/config.service.js';
 import {
   classifyLlmError,
   GEMINI_STATUS_PATHS,
@@ -21,10 +25,6 @@ import {
   MultiPartPromptPayload,
 } from './llm.service.interface.js';
 import { LlmResponse, LlmResponseSchema } from './types.js';
-import type { LlmError } from '../common/errors/llm-error.base.js';
-import { JsonParserUtility } from '../common/json-parser.utility.js';
-import { isErrorObject } from '../common/utils/type-guards.js';
-import { ConfigService } from '../config/config.service.js';
 
 /**
  * Gemini requests require both fields because model parameters are assembled

@@ -10,14 +10,6 @@ import { BadRequestException } from '@nestjs/common';
 import { Mock } from 'vitest';
 import { ZodError } from 'zod';
 
-import { GeminiService } from './gemini.service.js';
-import {
-  ImagePromptPayload,
-  StringPromptPayload,
-  MultiPartPromptPayload,
-} from './llm.service.interface.js';
-import type { LlmPayload } from './llm.service.interface.js';
-import { LlmResponse } from './types.js';
 import { AuthenticationError } from '../common/errors/authentication.error.js';
 import { ContentFilteredError } from '../common/errors/content-filtered.error.js';
 import { ContextLengthExceededError } from '../common/errors/context-length-exceeded.error.js';
@@ -31,6 +23,14 @@ import { ResourceExhaustedError } from '../common/errors/resource-exhausted.erro
 import { JsonParserUtility } from '../common/json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
 import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
+import { GeminiService } from './gemini.service.js';
+import {
+  ImagePromptPayload,
+  StringPromptPayload,
+  MultiPartPromptPayload,
+} from './llm.service.interface.js';
+import type { LlmPayload } from './llm.service.interface.js';
+import { LlmResponse } from './types.js';
 
 // Only mock the GoogleGenAI class, not the error classes (ApiError is preserved
 // from the real SDK via the ...actual spread below).

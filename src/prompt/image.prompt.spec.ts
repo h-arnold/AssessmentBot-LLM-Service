@@ -1,6 +1,11 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { ZodError } from 'zod';
 
+import { readMarkdown } from '../common/file-utilities.js';
+import {
+  LlmContentPart,
+  MultiPartPromptPayload,
+} from '../llm/llm.service.interface.js';
 import {
   referenceBase64,
   referenceLabel,
@@ -11,11 +16,6 @@ import {
 } from './image-prompt.test-fixtures.js';
 import { ImagePrompt } from './image.prompt.js';
 import { buildPromptCacheKey, PromptInput } from './prompt.base.js';
-import { readMarkdown } from '../common/file-utilities.js';
-import {
-  LlmContentPart,
-  MultiPartPromptPayload,
-} from '../llm/llm.service.interface.js';
 
 // Distinct, genuinely valid standard padded base64 image payloads,
 // one per assessment position. The three fixtures deliberately

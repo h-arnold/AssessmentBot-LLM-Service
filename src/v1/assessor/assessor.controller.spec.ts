@@ -1,7 +1,7 @@
-import { AssessorController } from './assessor.controller.js';
-import { TaskType, type CreateAssessorDto } from './dto/create-assessor.dto.js';
 import { ImageValidationPipe } from '../../common/pipes/image-validation.pipe.js';
 import { ConfigService } from '../../config/config.service.js';
+import { AssessorController } from './assessor.controller.js';
+import { TaskType, type CreateAssessorDto } from './dto/create-assessor.dto.js';
 
 describe('AssessorController', () => {
   const mockAssessorService = {

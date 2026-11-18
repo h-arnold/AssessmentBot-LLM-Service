@@ -5,13 +5,13 @@ import path from 'node:path';
 import { Logger } from '@nestjs/common';
 import mustache from 'mustache';
 
+import { isSystemUserMessage } from '../common/utils/type-guards.js';
 import {
   buildPromptCacheKey,
   PromptInputSchema,
   type PromptInput,
 } from './prompt.base.js';
 import { TablePrompt } from './table.prompt.js';
-import { isSystemUserMessage } from '../common/utils/type-guards.js';
 
 vi.mock('node:fs/promises', () => {
   return {

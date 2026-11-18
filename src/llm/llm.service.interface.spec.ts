@@ -2,6 +2,12 @@ import { BadRequestException, Logger } from '@nestjs/common';
 import { expectTypeOf } from 'vitest';
 import { ZodError, z } from 'zod';
 
+import type { LlmError } from '../common/errors/llm-error.base.js';
+import { LlmServiceError } from '../common/errors/llm-service.error.js';
+import { RateLimitError } from '../common/errors/rate-limit.error.js';
+import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
+import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 import {
   ImagePromptPayload,
   LLMService,
@@ -16,12 +22,6 @@ import {
   getPayloadTypeName,
 } from './llm.service.interface.js';
 import { LlmResponse } from './types.js';
-import type { LlmError } from '../common/errors/llm-error.base.js';
-import { LlmServiceError } from '../common/errors/llm-service.error.js';
-import { RateLimitError } from '../common/errors/rate-limit.error.js';
-import { ResourceExhaustedError } from '../common/errors/resource-exhausted.error.js';
-import { ConfigService } from '../config/config.service.js';
-import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 // Fix randomInt jitter to zero so backoff delays are deterministic
 vi.mock('node:crypto', () => {

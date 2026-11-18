@@ -2,14 +2,14 @@ import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'nestjs-pino';
 
+import { JsonParserUtility } from '../common/json-parser.utility.js';
+import { ConfigModule } from '../config/config.module.js';
+import { ConfigService } from '../config/config.service.js';
 import { GeminiService } from './gemini.service.js';
 import { LlmModule } from './llm.module.js';
 import { LLM_SERVICE_TOKEN } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
 import { RoutingLLMService } from './routing-llm.service.js';
-import { JsonParserUtility } from '../common/json-parser.utility.js';
-import { ConfigModule } from '../config/config.module.js';
-import { ConfigService } from '../config/config.service.js';
 
 const defaults = {
   GEMINI_API_KEY: 'test-key',

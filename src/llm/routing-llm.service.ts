@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { ConfigService } from '../config/config.service.js';
 import { GeminiService } from './gemini.service.js';
 import {
   ILlmService,
@@ -13,7 +14,6 @@ import {
   resolveProvider,
 } from './model-registry.js';
 import { type LlmResponse } from './types.js';
-import { ConfigService } from '../config/config.service.js';
 
 /**
  * Dispatches LLM requests to the appropriate provider service based on task

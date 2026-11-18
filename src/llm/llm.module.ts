@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 
+import { CommonModule } from '../common/common.module.js';
+import { ConfigModule } from '../config/config.module.js';
 import { GeminiService } from './gemini.service.js';
 import { LLM_SERVICE_TOKEN } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
 import { RoutingLLMService } from './routing-llm.service.js';
-import { CommonModule } from '../common/common.module.js';
-import { ConfigModule } from '../config/config.module.js';
 
 /**
  * NestJS module that configures and provides LLM-related services.

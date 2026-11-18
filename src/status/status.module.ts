@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 
+import { ConfigModule } from '../config/config.module.js';
 import { StatusController } from './status.controller.js';
 import { StatusService } from './status.service.js';
-import { ConfigModule } from '../config/config.module.js';
 
 /**
  * Module providing status and health check functionality for the application.

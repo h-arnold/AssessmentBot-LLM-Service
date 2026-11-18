@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { ConfigService } from '../config/config.service.js';
+import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 import { GeminiService } from './gemini.service.js';
 import { LlmPayload, MultiPartPromptPayload } from './llm.service.interface.js';
 import { MistralService } from './mistral.service.js';
 import { SUPPORTED_MODELS } from './model-registry.js';
 import { RoutingLLMService } from './routing-llm.service.js';
 import { LlmResponse } from './types.js';
-import { ConfigService } from '../config/config.service.js';
-import { buildMultiPartPromptPayload } from '../prompt/prompt.base.js';
 
 const VALID_TEXT_MODEL = 'gemini-2.5-flash-lite';
 const VALID_IMAGE_MODEL = 'gemini-2.5-flash';

@@ -1,13 +1,13 @@
 import {
-  buildMultiPartPromptPayload,
-  buildPromptCacheKey,
-  Prompt,
-} from './prompt.base.js';
-import {
   type LlmContentPart,
   type LlmConversationMessage,
   type MultiPartPromptPayload,
 } from '../llm/llm.service.interface.js';
+import {
+  buildMultiPartPromptPayload,
+  buildPromptCacheKey,
+  Prompt,
+} from './prompt.base.js';
 
 /**
  * Abstract base class for multi-part assessment prompts.

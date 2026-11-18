@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 
-import { AssessorController } from './assessor.controller.js';
-import { AssessorService } from './assessor.service.js';
 import { ConfigModule } from '../../config/config.module.js';
 import { LlmModule } from '../../llm/llm.module.js';
 import { PromptModule } from '../../prompt/prompt.module.js';
+import { AssessorController } from './assessor.controller.js';
+import { AssessorService } from './assessor.service.js';
 
 /**
  * The `AssessorModule` is a NestJS module that encapsulates the functionality

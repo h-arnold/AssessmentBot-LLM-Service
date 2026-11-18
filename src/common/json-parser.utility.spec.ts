@@ -2,8 +2,8 @@ import { BadRequestException, Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MockInstance } from 'vitest';
 
-import { JsonParserUtility } from './json-parser.utility.js';
 import { ConfigService } from '../config/config.service.js';
+import { JsonParserUtility } from './json-parser.utility.js';
 
 const createConfigGetter = (value: unknown): ((key: string) => unknown) => {
   const values = new Map<string, unknown>([['LOG_LLM_CONTENT', value]]);

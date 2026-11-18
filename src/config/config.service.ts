@@ -5,8 +5,8 @@ import { Injectable } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { z } from 'zod';
 
-import { configSchema, type Config } from './environment.schema.js';
 import { MAX_JSON_PAYLOAD_SIZE } from '../common/image.constants.js';
+import { configSchema, type Config } from './environment.schema.js';
 
 export type { Config } from './environment.schema.js';
 

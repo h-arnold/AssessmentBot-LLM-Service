@@ -4,19 +4,20 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 
 ## Table of Contents
 
-### 📚 Getting Started
+### Getting Started
 
 - [Project Overview](../README.md) - Main project README with setup instructions
 - [Contributing Guide](../CONTRIBUTING.md) - How to contribute to the project
 
-### 🔧 Development
+### Development
 
 - [Development Workflow](development/workflow.md) - Local development practices and procedures
 - [Debugging Guide](development/debugging.md) - Debugging techniques and tools
 - [Code Style Guide](development/code-style.md) - Coding standards and conventions
+- [Documentation Style Guide](development/documentation-style-guide.md) - Writing rules for canonical docs and agent instructions
 - [Git Workflow](development/git-workflow.md) - Branching strategy and commit conventions
 
-### 🏗️ Architecture & Design
+### Architecture & Design
 
 - [Architecture Overview](architecture/overview.md) - High-level system architecture, components, and design principles
 - [Module Responsibilities](architecture/modules.md) - A detailed breakdown of each module's role and dependencies
@@ -24,7 +25,7 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 - [Design Patterns](architecture/patterns.md) - An explanation of the key design patterns used in the codebase
 - [Class Structure](design/ClassStructure.md) - Visual representation of class relationships
 
-### 🔌 API Documentation
+### API Documentation
 
 - [API Reference](api/API_Documentation.md) - Complete API endpoint documentation
 - [Authentication](auth/API_Key_Management.md) - API key management and authentication
@@ -33,32 +34,32 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 - [Error Codes](api/error-codes.md) - API error handling and codes
 - [Rate Limiting](api/rate-limiting.md) - API rate limiting details
 
-### ⚙️ Configuration
+### Configuration
 
 - [Environment Variables](configuration/environment.md) - Complete environment configuration guide
 
-### 🧪 Testing
+### Testing
 
 - [Testing Guide](testing/README.md) - The central hub for all testing information.
 - [Practical Testing Guide](testing/PRACTICAL_GUIDE.md) - Code examples for unit tests, mocking, and data management.
 - [E2E Testing Guide](testing/E2E_GUIDE.md) - Specific instructions for running and creating E2E tests.
 
-### 🚀 Deployment
+### Deployment
 
 - [Docker Deployment](deployment/docker.md) - Containerised deployment guide
 - [Production Setup](deployment/production.md) - Production environment configuration
 - [CI/CD Pipeline](deployment/cicd.md) - Continuous integration and deployment
 - [Monitoring & Observability](deployment/monitoring.md) - Application monitoring setup
 
-### 🔒 Security
+### Security
 
 - [Authentication & Authorisation](security/auth.md) - Security implementation details
 
-### 📝 Prompt System
+### Prompt System
 
 - [Prompt System Documentation](prompts/README.md) - Documentation on the prompt system architecture, usage, and extension.
 
-### 📦 Module Documentation
+### Module Documentation
 
 #### Core Modules
 
@@ -83,21 +84,12 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 
 ## Documentation Standards
 
-Project documentation follows these standards:
-
-- **British English**: All documentation uses British English spellings (e.g., "colour", "centre", "authorise")
-- **Markdown Format**: Documentation is written in Markdown for consistency and readability
-- **Code Examples**: Include practical examples where they improve understanding
-- **Up-to-date**: Documentation is kept current with code changes
-- **Clear Structure**: Use clear headings, bullet points, and formatting for readability
+Documentation follows the [Documentation Style Guide](development/documentation-style-guide.md),
+which owns the rules for audience, writing style, structure, ownership and audit scope. All
+documentation uses British English and Markdown.
 
 ## Contributing to Documentation
 
-When updating documentation:
-
-1. Follow the existing structure and naming conventions
-2. Use British English throughout
-3. Include examples and practical guidance where useful
-4. Update this contents page when adding new documentation
-5. Ensure links are working and up-to-date
-6. Follow the project's contributing guidelines
+Follow the [Documentation Style Guide](development/documentation-style-guide.md) for the rules
+that apply to documentation, and the [Contributing Guide](../CONTRIBUTING.md) for the
+contribution workflow.

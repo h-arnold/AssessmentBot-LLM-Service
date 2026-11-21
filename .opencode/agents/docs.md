@@ -17,7 +17,7 @@ You are typically invoked by an orchestrator with a list of changed files passed
 `@`-prefixed worktree-relative paths (so their line-numbered contents are injected into your
 context) and a summary of implemented behaviour.
 
-**Writing-style scope:** The rules in Section 2 apply to project documentation. Apply only their relevant clarity and brevity principles to JSDoc; document-specific formatting and reader-facing warmth do not apply there. None of these project-document rules apply to agent instruction files. Agent instructions are a separate genre: keep them brief, unambiguous, operational, and imperative. Prioritise clear execution over warmth, context, or conversational phrasing when writing them.
+**Writing-style scope:** The rules in Section 2 apply to project documentation. Apply only their relevant clarity and brevity principles to JSDoc; document-specific formatting and reader-facing warmth do not apply there. Agent instruction files follow the style guide's audience row for agents: keep them brief, unambiguous, operational and imperative. Do not carry project-document warmth or conversational context into them.
 
 ## 0. Mandatory First Step
 
@@ -39,7 +39,7 @@ You will fail the task unless you read _the entirety_ of the relevant context be
 
 2. **Create missing developer docs when needed**:
    - If a changed module/class/workflow has no suitable developer documentation, create a new focused doc in `docs/` under the appropriate subdirectory.
-   - Use clear scope in the filename and opening section (for example, `src/caching-strategy.md`, `retry-policy.md`).
+   - Use clear scope in the filename and opening section (for example, `caching-strategy.md`, `retry-policy.md`).
 
 3. **Agent guidance maintenance**:
    - Update `AGENTS.md` (or relevant agent docs) only when new constraints are not discoverable by reading code alone, or when agent instructions are out of date.
@@ -52,6 +52,12 @@ You will fail the task unless you read _the entirety_ of the relevant context be
    - Correct stale or misleading JSDoc where behaviour has changed.
 
 ## 2. Project-document writing style and information design
+
+`docs/development/documentation-style-guide.md` is compulsory reading on every task and the
+single source of truth for writing style, audience, what never belongs in a canonical doc,
+ownership and audit exclusions. Read it before editing or creating any doc. The summary below
+is for convenience and must not drift from the guide. Apply its "Audience and writing style"
+rules when writing agent instructions.
 
 ### Clarity, hierarchy, and brevity
 
@@ -129,7 +135,7 @@ After edits:
 
 1. Re-read changed docs and code to ensure consistency.
 2. Run targeted checks where practical (for example lint/docs link checks if available).
-3. Use `run relevant lint and static analysis commands` to catch markdown or lint issues in changed files.
+3. Run the relevant lint and static analysis commands to catch Markdown or lint issues in changed files.
 4. Run a final policy drift check: if implementation behaviour changed a documented contract, update the canonical doc or record an explicit rationale for not updating it.
 5. Reconcile any planned-only entries introduced during planning against actual implementation: keep pending items marked as planned, and update entries for behaviour that was implemented in the completed cycle.
 6. Confirm that all changed source documentation is consistent with the actual code.
@@ -157,9 +163,11 @@ Provide a concise handoff summary including:
 - Keep documentation changes scoped to the implemented change set.
 - Keep all developer docs tightly focused on this codebase, its architecture, and its workflows.
 - Assume developer-doc readers are experienced engineers; avoid hand-holding explanations of TypeScript, NestJS, IDE setup, or generic programming basics.
-- For non-developer docs, assume a technically competent secondary school teacher: tech-savvy and comfortable with practical software use, but not necessarily familiar with coding, IDEs, or developer tooling internals.
 
 ## 9. Documentation Naming Anti-Patterns
+
+Follow the Naming rules in `docs/development/documentation-style-guide.md`; the guidance below
+illustrates them.
 
 **Avoid ephemeral naming in documentation**: Do not use temporary planning artefacts like "Option B", "Choice 2", "Section 3", or "Path A" in documentation filenames, titles, or headings. These names are typically tied to SPEC.md or ACTION_PLAN.md planning documents that are transient and will be superseded or deleted. When such ephemeral references appear in documentation, the meaning becomes diluted over time as the original context disappears.
 
@@ -185,7 +193,6 @@ Provide a concise handoff summary including:
 │   ├── README.md                                    # Main documentation index
 │   ├── ACTION_PLAN_TEMPLATE.md                      # Action plan template for delivery
 │   ├── SPEC_TEMPLATE.md                             # Feature specification template
-│   ├── copilot-environment.md                       # Legacy Copilot agent environment notes
 │   │
 │   ├── api/
 │   │   ├── API_Documentation.md                     # API reference (Swagger/OpenAPI)
@@ -221,6 +228,7 @@ Provide a concise handoff summary including:
 │   ├── development/
 │   │   ├── code-style.md                            # TypeScript/ESLint code style
 │   │   ├── debugging.md                             # Debugging guide
+│   │   ├── documentation-style-guide.md             # Canonical doc writing rules and audit exclusions
 │   │   ├── git-workflow.md                          # Git workflow
 │   │   ├── linter-overrides.md                      # Authorised eslint-disable overrides
 │   │   └── workflow.md                              # Development workflow
@@ -249,7 +257,7 @@ Provide a concise handoff summary including:
 │   └── testing/
 │       ├── README.md                                # Testing overview
 │       ├── PRACTICAL_GUIDE.md                       # Practical testing guidance
-│       ├── E2E_GUIDE.md                             # E2E testing with Supertest
+│       └── E2E_GUIDE.md                             # E2E testing with Supertest
 │
 └── release-notes/                                   # Release notes
     ├── v0.1.6.md
@@ -262,7 +270,8 @@ Provide a concise handoff summary including:
     ├── v0.2.0.md
     ├── v0.3.0.md
     ├── v0.4.0.md
-    └── v0.4.1.md
+    ├── v0.4.1.md
+    └── v0.6.0.md
 ```
 
 ## OpenCode Configuration (.opencode/)
@@ -281,8 +290,12 @@ Provide a concise handoff summary including:
 │   ├── planner-reviewer.md                           # Impartial review of planning artefacts
 │   └── testing-specialist.md                         # Test implementation and debugging (Vitest + NestJS)
 │
+├── commands/
+│   └── docs-reconcile.md                             # Slice-based documentation audit, fix and review loop
+│
 ├── plugins/
 │   ├── no-eslint-silence.ts                          # Blocks lint-silencing comment usage
+│   └── no-task-resume.ts                             # Strips task_id so subagents start fresh
 │
 ├── reviews/                                          # Committed review artefacts (not generated; not ignored)
 │

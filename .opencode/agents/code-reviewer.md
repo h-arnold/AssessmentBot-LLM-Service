@@ -42,6 +42,7 @@ Before providing any feedback, you must:
 4. **Identify the module(s) in scope** and apply only the checks relevant to those modules.
 5. **Run lint and tests**: Follow Section 5 (Review Workflow) to run lint, compile, and test checks for all touched code. Do not proceed with manual review until automated checks complete. Run each check once per session and record the outcome in `.opencode/scratchpad/` — see the prime directives.
 6. **Policy docs for logging/error work**: If reviewing logging or error handling changes, read docs/modules/llm.md (LLM error handling) and docs/configuration/environment.md as canonical policy references.
+7. **Documentation reviews**: If the change touches documentation or agent instructions, read `docs/development/documentation-style-guide.md` and apply it to prose, structure, ownership and delivery narrative.
 
 ## 1. Codebase Overview
 
@@ -79,6 +80,7 @@ Consult these resources before and during review. Local docs contain project-spe
 - [docs/testing/E2E_GUIDE.md](../../docs/testing/E2E_GUIDE.md) - E2E testing with Supertest
 - [docs/configuration/environment.md](../../docs/configuration/environment.md) - Environment variables (Zod schema)
 - [docs/development/code-style.md](../../docs/development/code-style.md) - Code style guide
+- [docs/development/documentation-style-guide.md](../../docs/development/documentation-style-guide.md) - Writing rules for canonical docs and agent instructions
 - [docs/prompts/README.md](../../docs/prompts/README.md) - Prompt templates
 - [docs/modules/llm.md](../../docs/modules/llm.md) - LLM architecture, provider routing, and error handling
 - [docs/modules/prompt.md](../../docs/modules/prompt.md) - Prompt generation and templates
@@ -133,7 +135,7 @@ You will fail the task unless you read _the entirety_ of the relevant context be
 ### 4.2 Validation
 
 - **Zod schemas**: All DTOs and environment variables must be validated with Zod schemas. DTO Zod schemas are defined alongside DTO classes in `dto/` subdirectories.
-- **Environment validation**: All config is validated through Zod in `src/config/env.schema.ts`. Do not use `@nestjs/config` directly outside the config module.
+- **Environment validation**: All config is validated through Zod in `src/config/environment.schema.ts`. Do not use `@nestjs/config` directly outside the config module.
 - **Validation pipe**: Use the global Zod validation pipe (`src/common/zod-validation.pipe.ts`) for request validation.
 
 ### 4.3 Authentication

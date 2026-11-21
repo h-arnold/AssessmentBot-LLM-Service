@@ -81,8 +81,7 @@ classify which layers are touched:
   (`src/main.ts`, `src/app.module.ts`, `src/bootstrap.ts`) and the NestJS modules
   (`src/v1/assessor/`, `src/auth/`, `src/common/`, `src/config/`, `src/llm/`,
   `src/prompt/`, `src/status/`), plus E2E tests under `test/`.
-- Documentation and agent instructions: any path under `docs/`, `AGENTS.md`, `.opencode/` or
-  `.github/agents/`.
+- Documentation and agent instructions: any path under `docs/`, `AGENTS.md` or `.opencode/`.
 
 This repository has no frontend or Apps Script/builder source tree. Select only focuses whose layer
 appears in the diff (Step 3).

@@ -33,17 +33,7 @@ Simple guard extending `AuthGuard('bearer')`. Apply to routes with `@UseGuards(A
 
 ## Module Structure
 
-```typescript
-@Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'bearer' }),
-    ConfigModule,
-  ],
-  providers: [ApiKeyStrategy, ApiKeyGuard, ApiKeyService],
-  exports: [ApiKeyStrategy, ApiKeyGuard, ApiKeyService],
-})
-export class AuthModule {}
-```
+`AuthModule` registers and exports `ApiKeyStrategy`, `ApiKeyGuard` and `ApiKeyService`; see `src/auth/auth.module.ts`.
 
 ---
 

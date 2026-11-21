@@ -1,146 +1,76 @@
-# E2E Testing Guide
+# E2E environment and harness
 
-This document provides instructions for setting up and running the End-to-End (E2E) tests for the Assessment Bot LLM Service.
+Mocked E2E is the default and intercepts provider calls; `test:e2e:live` calls the real APIs. Run mocked suites with `npm run test:e2e` and live suites with `npm run test:e2e:live`.
 
-## Running E2E Tests
+## Running E2E tests
 
-E2E tests are split into mocked (default) and live suites. Use the following commands:
+The `test:e2e` script builds the application, then the mocked Vitest project runs every `test/**/*.e2e-spec.ts` file. Live specs (`*-live.e2e-spec.ts`) are excluded through the project's `exclude` pattern. The live project runs the `*-live.e2e-spec.ts` files listed in [`vitest.config.ts`](../../vitest.config.ts).
 
-```bash
-# Mocked suite (no live provider calls)
-npm run test:e2e
+The `e2e` Vitest project sets `process.env.E2E_MOCK_LLM=true` in `vitest.e2e.setup.ts`; the `e2e-live` project does not.
 
-# Live suites (real provider API calls)
-npm run test:e2e:live
+## Test environment
+
+[`startApp`](../../test/utils/app-lifecycle.ts) spawns a freshly built application on a fixed port (`3001`) and returns an `AppInstance` with its URL and generated keys. It requires the built entrypoint `dist/src/testing-main.js`, so build before running E2E tests.
+
+### Environment configuration
+
+`startApp` merges environment variables in this order: `process.env`, then test defaults, then `.test.env`, then the `environmentOverrides` argument. Most defaults are set in `test/utils/app-lifecycle.ts`.
+
+Live keys (`GEMINI_API_KEY`, `MISTRAL_API_KEY`) are the exception. Put the keys you need in `.test.env` at the project root:
+
+```dotenv
+GEMINI_API_KEY=...
+MISTRAL_API_KEY=...
 ```
 
-The mocked run builds the application and executes all `*.e2e-spec.ts` tests in the `test/` directory **excluding** `*-live.e2e-spec.ts`. The live run targets both `assessor-live.e2e-spec.ts` and `mistral-live.e2e-spec.ts`.
+`assessor-live.e2e-spec.ts` uses Gemini; `mistral-live.e2e-spec.ts` uses Mistral. Mocked runs use dummy keys and need no setup.
 
-### Mocked vs Live Configuration
+### API rate limiting in tests
 
-- **Mocked config**: The `e2e` Vitest workspace project sets `process.env.E2E_MOCK_LLM=true` via `vitest.e2e.setup.ts` and excludes `*-live.e2e-spec.ts` from its test include patterns.
-- **Live config**: The `e2e-live` Vitest workspace project runs `assessor-live.e2e-spec.ts` and `mistral-live.e2e-spec.ts`.
+To avoid upstream rate limits, [`app-lifecycle.ts`](../../test/utils/app-lifecycle.ts) sets the backoff and retry defaults `LLM_BACKOFF_BASE_MS=2000` and `LLM_MAX_RETRIES=5`. Per-call delays are literals in individual specs, such as the `await delay(2000)` before provider calls in [`assessor.e2e-spec.ts`](../../test/assessor.e2e-spec.ts). [rate-limiting configuration](../api/rate-limiting.md) owns the throttler defaults.
 
-## Test Environment
+### LLM mock shim (mocked E2E)
 
-E2E tests are managed by utilities in `test/utils/` to ensure each test file runs against a fresh, isolated application instance.
+When `E2E_MOCK_LLM=true`, `startApp` injects `--import=<shim>` through `NODE_OPTIONS`. The shim (`test/utils/llm-mock.mjs`) imports both provider SDKs and patches `GoogleGenAI.prototype.models` and `Mistral.prototype.chat`, so `generateContent` and `complete` calls are intercepted. It detects image requests and returns deterministic, schema-valid fixtures with provider-specific shapes and varied scores. The HTTP request/response flow stays intact; use the live suites to validate real provider behaviour or quotas.
 
-### Environment Configuration
+### Overriding environment variables
 
-The test setup uses a specific strategy for managing environment variables to ensure reliability and security:
-
-1.  **Hardcoded Test Configuration**: Most configuration variables (`PORT`, `API_KEYS`, `THROTTLER_TTL`, etc.) are hardcoded within the `startApp` function in `test/utils/app-lifecycle.ts`. This guarantees that all tests run with the exact same configuration, simplifying setup and preventing flaky tests.
-
-2.  **Live API keys (`GEMINI_API_KEY` and `MISTRAL_API_KEY`)**: Provider API keys are sensitive secrets and are handled differently:
-    - **Default**: Dummy keys (`dummy-key-for-testing`) are injected for both providers. This allows mocked E2E tests to run without any special setup.
-    - **Live Tests**: Provide a valid key for each provider used by the live suite: `assessor-live.e2e-spec.ts` uses Gemini and `mistral-live.e2e-spec.ts` uses Mistral. Create a file named `.test.env` in the project's root directory and add the following as needed:
-
-      ```
-      GEMINI_API_KEY=your_real_api_key_here
-      MISTRAL_API_KEY=your_real_api_key_here
-      ```
-
-    The `startApp` function automatically detects this file and uses the key if it exists. This is the **only** recommended use for the `.test.env` file.
-
-3.  **API Rate Limiting Configuration**: To prevent hitting upstream provider rate limits, the test environment includes enhanced retry and backoff settings:
-    - `LLM_BACKOFF_BASE_MS`: Set to `2000` (2 seconds) in test environment, doubled from the production default of 1 second
-    - `LLM_MAX_RETRIES`: Set to `5` in test environment, increased from the production default of 3
-    - Tests include strategic delays between API calls to stay within rate limits:
-      - Most tests that call an upstream provider include a 2-second delay before making requests
-      - The throttler test uses sequential requests with 600ms delays instead of parallel requests
-      - Live API tests include 2-second delays between each test case
-
-    These settings are automatically applied when tests run and help ensure consistent test execution without rate limit errors.
-
-### LLM Mocking (Mocked E2E)
-
-When `E2E_MOCK_LLM=true`, the test runner applies an ESM preload shim to avoid live provider calls:
-
-- `startApp` injects `--import=<file://.../llm-mock.mjs>` via `NODE_OPTIONS`.
-- The shim (`test/utils/llm-mock.mjs`) imports both provider SDKs and patches `GoogleGenAI.prototype.models` and `Mistral.prototype.chat` so Gemini `generateContent` and Mistral `complete` calls are intercepted.
-- It detects image requests and returns deterministic, schema-valid fixtures for text/table and image tasks. The fixtures use provider-specific response shapes and varied scores.
-
-This keeps the full HTTP request/response flow intact while making provider responses stable and offline. Use the live suites when you need to validate real provider behaviour or quotas.
-
-### Overriding Environment Variables
-
-For specific scenarios, such as testing throttler limits, you can override the default environment variables by passing an `envOverrides` object to the `startApp` function.
-
-**Example:**
+Pass an `environmentOverrides` object to `startApp` for scenarios such as throttler limits. Use a repo-relative log path derived from `getCurrentDirname()`:
 
 ```typescript
-describe('Throttler E2E Test', () => {
-  let app: AppInstance;
+import path from 'node:path';
 
-  beforeAll(async () => {
-    const envOverrides = {
-      AUTHENTICATED_THROTTLER_LIMIT: '5', // Override default
-      THROTTLER_TTL: '10',
-    };
-    app = await startApp('/tmp/throttler-test.log', envOverrides);
-  });
+import { startApp } from './utils/app-lifecycle.js';
+import { getCurrentDirname } from 'src/common/file-utilities';
 
-  afterAll(() => {
-    stopApp(app.appProcess);
-  });
-
-  it('should block requests after reaching the limit', async () => {
-    // ... test logic
-  });
+const logFilePath = path.join(
+  getCurrentDirname(),
+  'logs',
+  'throttler-test.log',
+);
+const app = await startApp(logFilePath, {
+  AUTHENTICATED_THROTTLER_LIMIT: '5',
+  THROTTLER_TTL: '10',
 });
 ```
 
-## How to Add a New E2E Test
+## Adding an E2E test
 
-1.  Create a new file in the `test/` directory with the suffix `.e2e-spec.ts` (e.g., `my-feature.e2e-spec.ts`).
-2.  Import `startApp` and `stopApp` from `./utils/app-lifecycle.ts`.
-3.  Use `beforeAll` to call `startApp`. Pass an `envOverrides` object if needed.
-4.  Use `afterAll` to call `stopApp` to terminate the application process.
-5.  Write your tests using `supertest` to make requests to the `appUrl` provided by the `startApp` result.
-6.  **Important**: If your test makes calls to an upstream LLM provider, import and use the `delay()` helper function to add a 2-second delay before API calls to avoid rate limiting:
-
-```typescript
-import { startApp, stopApp, delay } from './utils/app-lifecycle';
-
-it('should assess a submission', async () => {
-  await delay(2000); // Add delay before API call
-
-  const response = await request(app.appUrl)
-    .post('/v1/assessor')
-    .set('Authorization', `Bearer ${app.apiKey}`)
-    .send(payload);
-
-  expect(response.status).toBe(201);
-});
-```
+1. Create a file in `test/` with the `.e2e-spec.ts` suffix.
+2. Import `startApp`, `stopApp` and `delay` from [`./utils/app-lifecycle.js`](../../test/utils/app-lifecycle.ts).
+3. Call `startApp` in `beforeAll` and `stopApp(app.appProcess)` in `afterAll`. The harness expects the built app on a fixed port; see `startApp` above.
+4. Make requests with `supertest` against `app.appUrl`, setting `Authorization: Bearer <app.apiKey>`.
+5. If the test calls a provider, `await delay(2000)` before the request to stay within rate limits (see [API rate limiting in tests](#api-rate-limiting-in-tests)).
 
 ## Troubleshooting
 
-### Rate Limiting Errors (503 Service Unavailable)
+### 503 or "Resource Exhausted" responses
 
-If you encounter 503 errors or "Resource Exhausted" messages when running E2E tests:
+These mean an upstream rate limit or quota was hit. Check the configured provider's quota, increase the delays in your test, or run the file on its own:
 
-1.  **Check API Key Tier**: Provider free tiers may have stricter rate limits. If tests consistently fail with rate limit errors, you may need to:
-    - Use a paid API key with higher limits
-    - Increase the delays between API calls in your tests
-    - Run tests individually rather than the full suite
+```bash
+npm run test:e2e -- test/auth.e2e-spec.ts
+npm run test:e2e:live -- test/assessor-live.e2e-spec.ts
+```
 
-2.  **Verify Delay Configuration**: Ensure tests that call an upstream provider include appropriate delays:
-    - Standard tests: 2-second delay before API calls using `await delay(2000)`
-    - Throttler tests: 600ms delays between sequential requests
-    - Live API tests: 2-second delays between test cases
-
-3.  **Check Retry Settings**: The test environment automatically configures enhanced retry settings:
-    - `LLM_BACKOFF_BASE_MS=2000` (2 seconds)
-    - `LLM_MAX_RETRIES=5`
-
-    These are set in `test/utils/app-lifecycle.ts` and the CI workflow (`.github/workflows/ci.yml`).
-
-4.  **Run Tests Individually**: If the full suite fails due to rate limits, run individual test files:
-
-    ```bash
-    npm run test:e2e -- test/auth.e2e-spec.ts
-    npm run test:e2e:live -- test/assessor-live.e2e-spec.ts
-    ```
-
-5.  **Monitor API Usage**: Check the configured provider's quota and usage dashboard to ensure you haven't exceeded limits.
+The test-specific retry and delay settings are described in [API rate limiting in tests](#api-rate-limiting-in-tests).

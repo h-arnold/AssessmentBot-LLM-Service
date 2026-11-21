@@ -4,18 +4,7 @@ The LLM Module (`src/llm/`) provides Large Language Model integration services, 
 
 ## Module Structure
 
-```typescript
-@Module({
-  imports: [ConfigModule, CommonModule],
-  providers: [
-    GeminiService,
-    MistralService,
-    { provide: LLM_SERVICE_TOKEN, useClass: RoutingLLMService },
-  ],
-  exports: [LLM_SERVICE_TOKEN],
-})
-export class LlmModule {}
-```
+`LlmModule` binds `LLM_SERVICE_TOKEN` to `RoutingLLMService` (the dispatcher) and exports that token; see `src/llm/llm.module.ts`.
 
 ## Key Components
 
@@ -56,32 +45,7 @@ For legacy payloads, the distinction is made by checking for an `images` array f
 
 ### Centralised LLM Error Handling
 
-All LLM-domain error classes now reside in `src/common/errors/` as a shared library,
-extending the abstract `LlmError` (which itself extends `HttpException`). The barrel
-has been removed; import each class from its concrete module, for example
-`src/common/errors/resource-exhausted.error.ts`.
-
-**`ResourceExhaustedError`** has migrated from `src/llm/resource-exhausted.error.ts` to
-`src/common/errors/resource-exhausted.error.ts`. It now extends `LlmError` (not `Error`)
-with a hardcoded HTTP 503 and `retryable = false`.
-
-**Full error-classification table:**
-
-| Error class                  | HTTP status | Retryable | Usage                                                           |
-| ---------------------------- | ----------- | --------- | --------------------------------------------------------------- |
-| `RateLimitError`             | 429         | Yes       | Upstream LLM rate-limited the request.                          |
-| `ResourceExhaustedError`     | 503         | No        | LLM API quota exhausted.                                        |
-| `ProviderServerError`        | 502         | Yes       | Upstream LLM returned a 5xx server error.                       |
-| `NetworkError`               | 502         | Yes       | Network-level failure (no HTTP status available).               |
-| `AuthenticationError`        | 502         | No        | Upstream authentication/credential failure.                     |
-| `ContentFilteredError`       | 400         | No        | Request blocked by the provider's safety filters.               |
-| `ContextLengthExceededError` | 400         | No        | Input exceeds the model's context window.                       |
-| `InvalidRequestError`        | 400         | No        | Provider rejected the request as malformed — catch-all for 4xx. |
-| `LlmServiceError`            | 500         | No        | Fallback for unclassifiable provider errors.                    |
-
-For detailed documentation on the error hierarchy, mapping contracts, classification
-priority rules, and how to add a new provider, see the dedicated guide:
-**[`docs/llm/error-handling.md`](../llm/error-handling.md)**.
+LLM error classes live in `src/common/errors/` as a shared library and extend `LlmError`, which itself extends `HttpException`. Import each class from its concrete module. The error hierarchy, class table, mapping contracts, classification priority rules and provider guidance live in [LLM Error Handling](../llm/error-handling.md).
 
 ## Multi-Part Conversation Payloads
 
@@ -97,7 +61,7 @@ The schema enforces the following structural rules:
 - A conversation must contain at least one `user` or `assistant` message; a system-only conversation is rejected so Gemini never receives an empty `contents` array (the Gemini API rejects it).
 - System messages accept text parts only; image parts are restricted to `user` and `assistant` messages.
 - `mimeType` must match `image/<subtype>` (`/^image\/[a-zA-Z0-9.+-]+$/`). Parameters such as `; charset=utf-8`, whitespace, and non-lowercase `image/` prefixes are rejected.
-- `data` must be non-empty standard padded base64: a length that is a multiple of four, alphabet `[A-Za-z0-9+/]` with at most two trailing `=`, and a decoded size of at most 1 MiB (1 048 576 bytes) per image part. This schema sets no aggregate cap across parts; the HTTP surface caps the whole JSON body at 5 MiB (HTTP 413) via `body-parser`.
+- `data` must be non-empty standard padded base64: a length that is a multiple of four, alphabet `[A-Za-z0-9+/]` with at most two trailing `=`, and a decoded size of at most 1 MiB (1 048 576 bytes) per image part. This schema sets no aggregate cap across parts; the HTTP surface caps the whole JSON body (HTTP 413) via `body-parser` at the limit derived in [Config Module](config.md).
 - Validation is structural only. No magic-byte inspection is performed and no provider allowlist is applied, so a well-formed but provider-unsupported image fails loudly at the provider rather than being rewritten.
 - `text` is a plain string with no non-empty constraint. Unknown keys are stripped by Zod's default object behaviour, and the input object is not mutated.
 
@@ -143,15 +107,6 @@ Both mappers are local private helpers (`GeminiService.mapConversation` and `Mis
 
 A multi-part payload sent directly to `GeminiService` (bypassing `RoutingLLMService`) without an explicit `model` falls back to the existing text default `gemini-2.5-flash-lite`. Mistral falls back to `mistral-small-latest`. Both fallbacks are intentional: routing is the authoritative model supplier on the main path.
 
-### Testing notes
-
-- Construction-time schema validation (`buildMultiPartPromptPayload()`) and the single-parse contract: `src/prompt/prompt.base.spec.ts`.
-- Multi-part base assembly, the `buildUserParts()` hook contract, statelessness and IMAGE label-image construction: `src/prompt/multi-part.prompt.base.spec.ts` and `src/prompt/image.prompt.spec.ts`.
-- Base-class dispatch and `describePayload` summaries: `src/llm/llm.service.interface.spec.ts`.
-- Routing by image-part presence: `src/llm/routing-llm.service.spec.ts`.
-- Provider mapping and log labelling: `src/llm/gemini.service.spec.ts` and `src/llm/mistral.service.spec.ts`.
-- Legacy `StringPromptPayload` / `ImagePromptPayload` regression coverage, including the silent drop of data-less images, lives in the same provider suites.
-
 ## Prompt Cache Key
 
 All three payload variants — `StringPromptPayload`, `ImagePromptPayload`, and `MultiPartPromptPayload` — accept an optional `promptCacheKey?: string`. It is a provider-agnostic prefix-cache routing hint that groups repeated requests for the same reference task. For the legacy variants the prompt layer derives the key server-side and clients cannot supply it. The multi-part variant's production producer, `MultiPartPrompt`, also derives it server-side, while the low-level schema additionally accepts a directly supplied key from a trusted caller (see [Multi-part cache-key contract](#multi-part-cache-key-contract)).
@@ -182,15 +137,6 @@ If a future endpoint ever wires a client-supplied payload to this field, the cal
 ### EU Endpoint Pinning
 
 `MistralService.getClient()` constructs the SDK client with `server: 'eu'`, resolving to `https://api.eu.mistral.ai` instead of the global default. This is fixed data-residency policy, not configuration: no environment variable overrides it, and every Mistral request — chat completions included — uses the pinned client.
-
-## Dependencies
-
-- **@google/genai** — Google Gemini API client
-- **@mistralai/mistralai** — Mistral AI API client
-- **ConfigModule** — Environment configuration
-- **CommonModule** — Shared utilities (`JsonParserUtility`)
-- **zod** — Response validation schemas
-- **jsonrepair** — JSON response repair
 
 ## Related Documentation
 

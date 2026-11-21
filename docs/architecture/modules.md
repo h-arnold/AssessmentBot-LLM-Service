@@ -14,7 +14,7 @@ Centralised configuration management. Loads environment variables and validates 
 
 ### Common Module (`src/common/common.module.ts`)
 
-Shared utilities: `JsonParserUtility` (injectable), plus standalone utilities `ZodValidationPipe`, `ImageValidationPipe`, `HttpExceptionFilter`, file utilities (`file-utilities.ts`), `LogRedactor`, type guards, and `crypto.utilities`.
+Provides and exports `JsonParserUtility` and `Logger`, and registers `HttpExceptionFilter` globally as an `APP_FILTER`. The `src/common/` directory also holds standalone utilities that are not NestJS providers: `ZodValidationPipe`, `ImageValidationPipe`, file utilities (`file-utilities.ts`), `LogRedactor`, type guards, and `crypto.utilities`.
 
 ## Feature Modules
 
@@ -42,6 +42,8 @@ Task-specific prompt generation. `PromptFactory` (Factory pattern) creates `Text
 
 ## Module Dependency Graph
 
+Arrows represent direct imports declared in each module's `@Module` `imports` array.
+
 ```mermaid
 graph TD
     subgraph "Application Layers"
@@ -65,10 +67,11 @@ graph TD
     end
 
     APP --> CONFIG
-    APP --> COMMON
     APP --> ASSESSOR
     APP --> AUTH
     APP --> STATUS
+
+    COMMON --> CONFIG
 
     ASSESSOR --> CONFIG
     ASSESSOR --> LLM
@@ -81,13 +84,13 @@ graph TD
     LLM --> CONFIG
     LLM --> COMMON
 
-    PROMPT --> COMMON
+    PROMPT --> CONFIG
 ```
 
 ## Cross-Cutting Concerns
 
 - **Logging**: `nestjs-pino` configured at App Module level — structured JSON in production, pretty-printed in development. Sensitive data redaction applied to all request logs.
-- **Validation**: Zod schemas throughout — DTO validation in controllers, env vars in Config Module, LLM responses in LLM Module. Custom `ZodValidationPipe` in Common Module.
+- **Validation**: Zod schemas throughout — DTO validation in controllers, env vars in Config Module, LLM responses in LLM Module. The standalone `ZodValidationPipe` from `src/common/` is used by controllers.
 - **Error Handling**: Global `HttpExceptionFilter` in Common Module maps all exceptions to structured HTTP error responses.
 - **Rate Limiting**: Global throttling configured in App Module with endpoint-specific overrides. Authenticated routes have custom limits.
 

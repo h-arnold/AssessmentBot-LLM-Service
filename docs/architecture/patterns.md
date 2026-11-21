@@ -1,228 +1,27 @@
 # Design Patterns
 
-This document catalogues the design patterns used in the codebase with representative code snippets.
+This page maps each pattern to the symbol that implements it and why the codebase uses it. It does not repeat implementation code; follow the links for contracts and behaviour.
 
-## Creational Patterns
+## Pattern map
 
-### Factory Pattern
+| Pattern               | Symbol                                                                                                                                                           | Why it is used                                                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Factory               | [`PromptFactory.create`](../../src/prompt/prompt.factory.ts)                                                                                                     | Builds the correct prompt type from the task type, keeping construction out of `AssessorService`.                                            |
+| Strategy and Provider | [`LLMService`](../../src/llm/llm.service.interface.ts), [`GeminiService`](../../src/llm/gemini.service.ts), [`MistralService`](../../src/llm/mistral.service.ts) | Makes provider implementations interchangeable behind one contract.                                                                          |
+| Dispatcher            | [`RoutingLLMService`](../../src/llm/routing-llm.service.ts)                                                                                                      | Resolves each task's provider once from model configuration, then dispatches at send time.                                                   |
+| Template Method       | [`Prompt`](../../src/prompt/prompt.base.ts), [`MultiPartPrompt`](../../src/prompt/multi-part.prompt.base.ts)                                                     | Fixes the message-building steps in the base class and lets subclasses supply task-specific parts.                                           |
+| Adapter               | [`ConfigModule`](../../src/config/config.module.ts), [`ConfigService`](../../src/config/config.service.ts)                                                       | Exposes only the application's own `ConfigService`, hiding NestJS's ConfigModule and centralising Zod validation.                            |
+| Provider token        | [`LLM_SERVICE_TOKEN`](../../src/llm/llm.service.interface.ts) bound in [`LlmModule`](../../src/llm/llm.module.ts)                                                | Lets consumers inject the dispatcher without depending on a concrete provider.                                                               |
+| Guard                 | [`ApiKeyGuard`](../../src/auth/api-key.guard.ts), [`ApiKeyThrottlerGuard`](../../src/auth/api-key-throttler.guard.ts)                                            | Applies authentication to [`AssessorController`](../../src/v1/assessor/assessor.controller.ts) and throttling globally, before handlers run. |
+| Pipe                  | [`ZodValidationPipe`](../../src/common/zod-validation.pipe.ts)                                                                                                   | Validates request bodies at the controller boundary before service code runs.                                                                |
 
-**Implementation**: `PromptFactory` (`src/prompt/prompt.factory.ts`)
+## Retry and error classification
 
-```typescript
-async create(dto: CreateAssessorDto): Promise<Prompt> {
-  switch (dto.taskType) {
-    case TaskType.TEXT:
-      return new TextPrompt(inputs, this.logger, userTemplateFile, systemPrompt);
-    case TaskType.TABLE:
-      return new TablePrompt(inputs, this.logger, userTemplateFile, systemPrompt);
-    case TaskType.IMAGE:
-      return new ImagePrompt(inputs, this.logger, systemPrompt);
-  }
-}
-```
+The base [`LLMService`](../../src/llm/llm.service.interface.ts) owns retry and error classification; provider subclasses supply the provider call and error mapping. `send()` classifies each failure once, retries errors flagged retryable with exponential backoff up to `LLM_MAX_RETRIES`, and throws non-retryable errors immediately. See [LLM error handling](../llm/error-handling.md) for the classification rules.
 
-Used in `AssessorService`:
+## Platform logging
 
-```typescript
-const prompt = await this.promptFactory.create(dto);
-const message = await prompt.buildMessage();
-```
-
-### Provider Pattern (Dependency Injection)
-
-**Implementation**: NestJS DI container with a token-based dispatcher
-
-```typescript
-@Module({
-  providers: [
-    GeminiService,
-    MistralService,
-    { provide: LLM_SERVICE_TOKEN, useClass: RoutingLLMService },
-  ],
-  exports: [LLM_SERVICE_TOKEN],
-})
-export class LlmModule {}
-```
-
-## Structural Patterns
-
-### Strategy Pattern
-
-**Implementation**: `LLMService` (`src/llm/llm.service.interface.ts`) with `GeminiService` and `MistralService` as concrete strategies, dispatched by `RoutingLLMService`.
-
-```typescript
-@Injectable()
-export abstract class LLMService {
-  async send(payload: LlmPayload): Promise<LlmResponse> {
-    return await this._sendInternal(payload);
-  }
-  protected abstract _sendInternal(payload: LlmPayload): Promise<LlmResponse>;
-}
-
-@Injectable()
-export class GeminiService extends LLMService {
-  protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    // Gemini-specific implementation
-  }
-}
-
-@Injectable()
-export class MistralService extends LLMService {
-  protected async _sendInternal(payload: LlmPayload): Promise<LlmResponse> {
-    // Mistral-specific implementation
-  }
-}
-```
-
-### Template Method Pattern
-
-**Implementation**: `Prompt` base class (`src/prompt/prompt.base.ts`)
-
-```typescript
-export abstract class Prompt {
-  constructor(
-    inputs: unknown,
-    logger: Logger,
-    userTemplateName?: string,
-    systemPrompt?: string,
-  ) {
-    const parsed = PromptInputSchema.parse(inputs); // 1. Validate
-    this.setInputs(parsed); // 2. Set inputs
-    this.setConfiguration(userTemplateName, systemPrompt); // 3. Configure
-    this.logInputLengths(parsed); // 4. Log
-  }
-
-  public async buildMessage(): Promise<LlmPayload> {
-    /* default text/table implementation */
-  }
-}
-
-export abstract class MultiPartPrompt extends Prompt {
-  protected abstract buildUserParts(): Promise<LlmContentPart[]>;
-
-  public async buildMessage(): Promise<MultiPartPromptPayload> {
-    /* assemble system + user messages, derive key, validate once */
-  }
-}
-
-export class ImagePrompt extends MultiPartPrompt {
-  protected async buildUserParts(): Promise<LlmContentPart[]> {
-    /* ordered reference/template/student label-image pairs */
-  }
-}
-```
-
-### Adapter Pattern
-
-**Implementation**: `ConfigModule` (`src/config/config.module.ts`)
-
-```typescript
-@Module({
-  imports: [NestConfigModule.forRoot({ envFilePath: '.env' })],
-  providers: [ConfigService],
-  exports: [ConfigService], // Exposes only our adapter, hides NestJS ConfigModule
-})
-export class ConfigModule {}
-
-// ConfigService validates env vars with Zod on construction
-export class ConfigService {
-  private config: Config;
-  constructor() {
-    this.config = configSchema.parse(process.env);
-  }
-}
-```
-
-## Behavioural Patterns
-
-### Guard Pattern
-
-**Implementation**: Authentication (`src/auth/`)
-
-```typescript
-@Injectable()
-export class ApiKeyGuard extends AuthGuard('bearer') {}
-
-@Controller('v1/assessor')
-@UseGuards(ApiKeyGuard)
-export class AssessorController {}
-```
-
-### Pipe Pattern
-
-**Implementation**: `ZodValidationPipe` (`src/common/zod-validation.pipe.ts`)
-
-```typescript
-@Injectable()
-export class ZodValidationPipe implements PipeTransform {
-  constructor(
-    private schema?: ZodType,
-    private readonly configService?: ConfigService,
-  ) {}
-
-  transform(value: unknown, metadata: ArgumentMetadata): unknown {
-    if (!this.schema) return value;
-    const result = this.schema.safeParse(value);
-    if (result.success) return result.data;
-    // In production, mask error details; in dev, return full Zod issues
-    const nodeEnvironment = this.configService?.get('NODE_ENV');
-    const errors =
-      nodeEnvironment === 'production'
-        ? [{ message: 'Invalid input' }]
-        : result.error.issues.map((issue) => ({
-            message: issue.message,
-            path: issue.path,
-          }));
-    throw new BadRequestException({ message: 'Validation failed', errors });
-  }
-}
-
-// Usage (requires ConfigService for production-aware masking)
-const validationPipe = new ZodValidationPipe(
-  createAssessorDtoSchema,
-  configService,
-);
-```
-
-### Observer Pattern
-
-**Implementation**: Logging via `nestjs-pino`
-
-```typescript
-export class AssessorService {
-  private readonly logger = new Logger(AssessorService.name);
-
-  async createAssessment(dto: CreateAssessorDto): Promise<LlmResponse> {
-    this.logger.log('Creating assessment');
-    // ...
-  }
-}
-```
-
-## Pattern Interactions
-
-### Factory + Strategy + Template Method
-
-The prompt system combines all three:
-
-```typescript
-const prompt = await promptFactory.create(dto); // Factory selects strategy
-prompt.buildMessage(); // Template Method with strategy-specific steps
-```
-
-`PromptFactory` creates the appropriate prompt type (TextPrompt, TablePrompt, ImagePrompt). Each implements the `Prompt` abstract class (Template Method) and serves as a concrete strategy. `ImagePrompt` refines the pattern through `MultiPartPrompt`, which owns conversation assembly and delegates task-specific content to the `buildUserParts()` hook.
-
-### Guard + Strategy + Provider
-
-```typescript
-@Controller()
-@UseGuards(ApiKeyGuard) // Guard uses ApiKeyStrategy
-export class AssessorController {
-  constructor(
-    @Inject(ConfigService) private readonly config: ConfigService, // Provider injection
-  ) {}
-}
-```
+Logging is provided by `nestjs-pino`, configured globally in [`app.module.ts`](../../src/app.module.ts). This is platform infrastructure rather than an application design pattern.
 
 ---
 

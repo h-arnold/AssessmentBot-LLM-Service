@@ -1,10 +1,11 @@
 # LLM Provider API Keys
 
-Keeping student work safe starts with choosing the right provider and storing each key securely. This guide takes you through the two provider keys; they differ from the client keys in [`API_Key_Management.md`](API_Key_Management.md):
+Keeping student work safe starts with choosing the right provider and storing each key securely. This guide covers the two provider keys:
 
 - `MISTRAL_API_KEY` authenticates requests to Mistral AI.
 - `GEMINI_API_KEY` authenticates requests to Google Gemini.
-- `API_KEYS` authenticates clients calling this service and is generated locally with `npm run generate:api-key`.
+
+Client keys are managed separately in [API Key Management](API_Key_Management.md).
 
 ## Provider recommendation
 
@@ -37,7 +38,7 @@ Mistral’s official [API-key quickstart](https://docs.mistral.ai/getting-starte
 
 **Do not skip step 4.** An account being on pay-as-you-go does not prove that ZDR is active. Treat an unapproved or unverified request as a stop condition for production student data.
 
-In this project, Mistral approved the ZDR request within seconds after the support chatbot was given the [AssessmentBot repository](https://github.com/h-arnold/AssessmentBot-LLM-Service) and the reason: protecting students’ privacy. That is practical experience, not a guarantee. Mistral reviews each request and may approve or deny it at its discretion.
+Mistral reviews each ZDR request and may approve or deny it at its discretion.
 
 Mistral’s current guidance says ZDR applies to supported stateless endpoints, including `/v1/chat/completions`, but not to stateful products such as Agents, batch processing, Files, Vibe Work, or Chat. See the [ZDR guidance](https://help.mistral.ai/en/articles/347612-can-i-activate-zero-data-retention-zdr) and [API training opt-out guidance](https://help.mistral.ai/en/articles/455207-can-i-opt-out-of-my-input-or-output-data-being-used-for-training) for the current scope.
 

@@ -1,3 +1,7 @@
+# Class Structure
+
+The diagram shows the main classes and how they relate. An arrow with a hollow triangle (`<|--`) means inheritance: the class on the left is a base of the class on the right. A plain arrow (`-->`) means the class on the left uses or composes the class on the right; module arrows show composition by import.
+
 ```mermaid
 classDiagram
     %% Root Application Module
@@ -10,7 +14,7 @@ classDiagram
     class LoggerModule
     class ThrottlerModule
     class CommonModule
-    class LLMModule
+    class LlmModule
     class PromptModule
     class StatusModule
 
@@ -35,7 +39,7 @@ classDiagram
     class ImageValidationPipe
 
     %% Prompt Hierarchy
-    class PromptBase
+    class Prompt
     class MultiPartPrompt
     class TextPrompt
     class TablePrompt
@@ -48,13 +52,13 @@ classDiagram
     class MistralService
     class RoutingLLMService
 
-    %% Module Relationships
-    AppModule <|-- AssessorModule
-    AppModule <|-- AuthModule
-    AppModule <|-- ConfigModule
-    AppModule <|-- LoggerModule
-    AppModule <|-- ThrottlerModule
-    AppModule <|-- StatusModule
+    %% Module Relationships (composition by import)
+    AppModule --> AssessorModule
+    AppModule --> AuthModule
+    AppModule --> ConfigModule
+    AppModule --> LoggerModule
+    AppModule --> ThrottlerModule
+    AppModule --> StatusModule
 
     %% Assessor Relationships
     AssessorModule --> AssessorController
@@ -79,13 +83,13 @@ classDiagram
     PromptModule --> PromptFactory
 
     %% LLM Module Relationships
-    LLMModule --> LLMService
-    LLMModule --> RoutingLLMService
+    LlmModule --> LLMService
+    LlmModule --> RoutingLLMService
 
     %% Prompt Inheritance
-    PromptBase <|-- TextPrompt
-    PromptBase <|-- TablePrompt
-    PromptBase <|-- MultiPartPrompt
+    Prompt <|-- TextPrompt
+    Prompt <|-- TablePrompt
+    Prompt <|-- MultiPartPrompt
     MultiPartPrompt <|-- ImagePrompt
 
     %% LLM Service Inheritance
@@ -102,5 +106,5 @@ classDiagram
 
     %% Usage Relationships
     AssessorController --> ApiKeyGuard
-    AssessorService --> PromptBase
+    AssessorService --> Prompt
 ```

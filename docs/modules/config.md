@@ -6,25 +6,14 @@ The Config Module (`src/config/config.module.ts`) provides validation-aware conf
 
 The Config Module wraps NestJS's built-in `ConfigModule`, providing:
 
-- **Validated configuration**: All environment variables validated against a shared Zod schema (`env.schema.ts`)
+- **Validated configuration**: All environment variables validated against a shared Zod schema (`src/config/environment.schema.ts`)
 - **Type safety**: Strongly typed configuration access via `ConfigService`
 - **Centralised access**: Single point of configuration management
 - **Environment isolation**: Automatic switching between `.env` and `.test.env` based on `NODE_ENV`
 
 ## Module Structure
 
-```typescript
-@Module({
-  imports: [
-    NestConfigModule.forRoot({
-      envFilePath: '.env',
-    }),
-  ],
-  providers: [ConfigService],
-  exports: [ConfigService],
-})
-export class ConfigModule {}
-```
+See `src/config/config.module.ts` for the module wiring.
 
 ## Architectural Design
 
@@ -34,7 +23,7 @@ The Config Module imports the underlying `NestConfigModule` but **only exports**
 
 ### Compile-Time Configuration Gotcha
 
-Some NestJS features (e.g. the `@Throttle()` decorator) are evaluated at **compile time** and cannot use a runtime service like `ConfigService`. Therefore a separate configuration system (`throttler.config.ts`) parses `process.env` directly against the shared Zod schema (`env.schema.ts`), ensuring validation rules remain consistent while satisfying compile-time constraints.
+Some NestJS features (e.g. the `@Throttle()` decorator) are evaluated at **compile time** and cannot use a runtime service like `ConfigService`. Therefore a separate configuration system (`src/config/throttler.config.ts`) parses `process.env` directly against the shared Zod schema (`src/config/environment.schema.ts`), ensuring validation rules remain consistent while satisfying compile-time constraints.
 
 ## ConfigService
 
@@ -61,13 +50,6 @@ const limit = configService.getGlobalPayloadLimit(); // "5mb"
 ```
 
 The value derives from `MAX_IMAGE_SIZE_BYTES` (1 MiB decoded per image) in `src/common/image.constants.ts`: three images expanded by the 4/3 base64 overhead, plus 1 MiB for data URI headers, padding, and other JSON overhead, rounded up to the next whole MiB. Requests above the limit are rejected with HTTP 413 before application code runs.
-
-## Dependencies
-
-- **@nestjs/common** — Injectable decorator and module system
-- **@nestjs/config** — Underlying configuration module (wrapped, not directly used)
-- **dotenv** — Environment file parsing
-- **zod** — Schema validation and type inference
 
 ## Related Documentation
 

@@ -31,28 +31,14 @@ You can check the health status of a running container via the `docker ps` comma
 docker ps
 
 # Inspect the health check history of a specific container
-docker inspect --format='''{{.State.Health.Status}}''' assessmentbot-app
+docker inspect --format='{{.State.Health.Status}}' assessmentbot
 ```
 
 ## Structured Logging
 
-The application uses `nestjs-pino` for structured JSON logging. This provides consistent, machine-readable log output that is well-suited for log aggregation and analysis tools.
+The application uses `nestjs-pino` for structured JSON logging.
 
 - In **development** (`NODE_ENV=development`), logs are pretty-printed to the console.
 - In **production** (`NODE_ENV=production`), logs are output as single-line JSON objects to `stdout`.
 
-The log level can be configured with the `LOG_LEVEL` environment variable (e.g., `info`, `warn`, `error`).
-
-## Security Monitoring
-
-The `docker-compose.yml` setup includes a `fail2ban` service. It is configured to monitor the Caddy reverse proxy's access logs for suspicious activity, such as repeated failed requests, and automatically ban offending IP addresses.
-
-You can monitor Fail2ban's activity by checking its logs or using the `fail2ban-client`.
-
-```bash
-# Check the status of the Caddy jail, including banned IPs
-docker-compose exec fail2ban fail2ban-client status caddy-auth
-
-# View a history of bans and unbans
-docker-compose logs fail2ban | grep "Ban\|Unban"
-```
+`LOG_LEVEL` sets the log level in every mode, including E2E runs that write logs to a file. See [Environment Configuration](../configuration/environment.md) for the available values and the file-logging switch.

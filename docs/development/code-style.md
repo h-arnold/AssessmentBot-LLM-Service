@@ -26,17 +26,7 @@ You can wrap comments across multiple lines when doing so improves readability, 
 
 ## File Naming Conventions
 
-```
-src/v1/assessor/
-├── assessor.controller.ts       # HTTP endpoints
-├── assessor.service.ts          # Business logic
-├── assessor.module.ts           # Module definition
-├── assessor.service.spec.ts     # Tests (co-located)
-└── dto/
-    └── create-assessor.dto.ts   # Zod schema + type
-```
-
-Place E2E tests in the root `test/` directory with `.e2e-spec.ts` suffix.
+Name files after their role — for example `src/v1/assessor/assessor.service.ts` for business logic and `src/v1/assessor/dto/create-assessor.dto.ts` for a Zod schema and type. Co-locate unit tests with the file under test using the `.spec.ts` suffix. Place E2E tests in the root `test/` directory with the `.e2e-spec.ts` suffix.
 
 ## Import Ordering
 
@@ -50,7 +40,7 @@ ESLint enforces this order (via `eslint-plugin-import-x`):
 ## NestJS Conventions
 
 - Use constructor injection with `private readonly` for dependencies.
-- Controllers use `@Controller('v1/...')` with route-scoped guards.
+- Controllers use `@Controller('v1/...')` with controller- or route-scoped guards.
 - Services are `@Injectable()` and registered in their module's `providers` array.
 - Logging uses `Logger` from `@nestjs/common` — never `console.*` or `PinoLogger` directly.
 

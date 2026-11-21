@@ -6,9 +6,9 @@ This module provides shared utility functions for file operations, JSON processi
 
 **Location:** `src/common/file-utilities.ts`
 
-### `getCurrentDirname(fallbackDir?)`
+### `getCurrentDirname(fallbackDirectory?)`
 
-Resolves the current directory path in both ESM runtime and Vitest test environments. Uses `import.meta.url` when available, falling back to `process.cwd()` or a custom fallback in test environments.
+Returns the supplied fallback directory, or `process.cwd()` when none is given. This resolves paths relative to the project root in both Vitest and production.
 
 ### `readMarkdown(name, basePath?)`
 
@@ -19,7 +19,7 @@ Reads a markdown file with built-in security measures:
 - Verifies the resolved path stays within the base directory
 - Default `basePath` is `src/prompt/templates`
 
-Throws `Error('Invalid markdown filename')` or `Error('Unauthorised file path')` on violation.
+An empty name returns `''`. A name containing `..` or not ending in `.md` throws `Error('Invalid markdown filename')`. A candidate whose resolved path falls outside its base directory is skipped; if no candidate contains the file, the function throws `Error('Markdown file not found in candidate paths: ...')`.
 
 ## JSON Processing
 
@@ -43,7 +43,7 @@ Injectable service for parsing and repairing JSON strings, designed for LLM resp
 
 **Location:** `src/common/utils/log-redactor.utility.ts`
 
-Utility for sanitising HTTP request objects before logging. Currently redacts the `authorization` header, replacing its value with `'Bearer <redacted>'`.
+Utility used by the nestjs-pino request serialiser to sanitise HTTP request objects before logging. It redacts `authorization` to `'Bearer <redacted>'` and `x-api-key` to `'[REDACTED]'`.
 
 ## Type Safety
 

@@ -1,7 +1,5 @@
 # Rate Limiting
 
-This document details the rate limiting (throttling) implementation in the Assessment Bot LLM Service API.
-
 ## Overview
 
 The API uses `@nestjs/throttler` to protect against abuse and ensure fair usage. Rate limiting is applied globally with a custom `ApiKeyThrottlerGuard` that keys rate-limiting by API key for authenticated requests, falling back to IP-based tracking for unauthenticated traffic.
@@ -13,20 +11,9 @@ The API uses `@nestjs/throttler` to protect against abuse and ensure fair usage.
 
 ## Configuration
 
-Rate limits are configured via environment variables.
+Rate limits are configured through `THROTTLER_TTL`, `UNAUTHENTICATED_THROTTLER_LIMIT` and `AUTHENTICATED_THROTTLER_LIMIT`. See [environment configuration](../configuration/environment.md#rate-limiting) for their values.
 
-| Variable                          | Default | Description                                        |
-| --------------------------------- | ------- | -------------------------------------------------- |
-| `THROTTLER_TTL`                   | `10000` | Time window in milliseconds (e.g., 10 seconds)     |
-| `UNAUTHENTICATED_THROTTLER_LIMIT` | `10`    | Max requests per window for unauthenticated routes |
-| `AUTHENTICATED_THROTTLER_LIMIT`   | `90`    | Max requests per window for authenticated routes   |
-
-### Default Limits
-
-- **Unauthenticated:** 10 requests per 10 seconds.
-- **Authenticated:** 90 requests per 10 seconds.
-
-These defaults are designed to support a typical classroom scenario of 30 students each submitting 3 tasks simultaneously.
+These limits are sized for a typical classroom scenario of 30 students each submitting 3 tasks simultaneously.
 
 ## Guard Implementation
 
@@ -43,5 +30,5 @@ Rate limiting is enforced by `ApiKeyThrottlerGuard` (`src/auth/api-key-throttler
 
 ## Client Best Practices
 
-- **Handle `429` responses:** When you receive a `429` status code, wait for the duration specified in the `Retry-After` header before sending another request.
-- **Implement backoff:** For robust applications, use an exponential backoff strategy for retries to avoid overwhelming the API.
+- **Handle `429` responses:** For a throttler-generated `429`, wait for the duration in the `Retry-After` header before sending another request. Provider-originated `429`s have no header; see [Error Codes](./error-codes.md#429---too-many-requests).
+- **Implement backoff:** When you retry, use exponential backoff to avoid overwhelming the API.

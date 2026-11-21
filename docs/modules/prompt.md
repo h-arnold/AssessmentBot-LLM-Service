@@ -4,14 +4,7 @@ The Prompt Module (`src/prompt/`) provides prompt generation and management serv
 
 ## Module Structure
 
-```typescript
-@Module({
-  imports: [ConfigModule],
-  providers: [PromptFactory, Logger],
-  exports: [PromptFactory],
-})
-export class PromptModule {}
-```
+`PromptModule` provides and exports `PromptFactory`; see `src/prompt/prompt.module.ts`.
 
 ## Key Components
 
@@ -82,17 +75,17 @@ Instantiates the correct `Prompt` subclass based on `taskType` from the DTO.
 
 Construction-time validation enforces:
 
-- Standard padded base64 for image data. Exactly 1 MiB (1,048,576 bytes) decoded is accepted per image; 1 MiB plus one byte is rejected. The schema sets no aggregate cap across the three images; the HTTP surface separately caps the whole JSON body at 5 MiB (HTTP 413).
+- Standard padded base64 for image data. Exactly 1 MiB (1,048,576 bytes) decoded is accepted per image; 1 MiB plus one byte is rejected. The schema sets no aggregate cap across the three images; the HTTP surface applies an aggregate JSON cap (HTTP 413) derived in [Config Module](config.md).
 - At least one part per message, at least one non-system message, and text-only system messages.
 
-A malformed data URI throws `BadRequestException` with the existing message. Once data URIs are extracted, invalid base64 or invalid structure fails as a raw `ZodError`, which the global exception filter maps to HTTP 500 (sanitised in production). The 500 path applies to direct internal construction of a payload, not to HTTP image requests. On the HTTP path, `ImageValidationPipe` rejects any image above 1 MiB decoded earlier with HTTP 400, so exactly 1 MiB is accepted and 1 MiB plus one byte is rejected; a request body above the 5 MiB aggregate cap is rejected with HTTP 413 by `body-parser`.
+A malformed data URI throws `BadRequestException` with the existing message. Once data URIs are extracted, invalid base64 or invalid structure fails as a raw `ZodError`, which the global exception filter maps to HTTP 500 (sanitised in production). The 500 path applies to direct internal construction of a payload, not to HTTP image requests. On the HTTP path, `ImageValidationPipe` rejects any image above 1 MiB decoded earlier with HTTP 400, so exactly 1 MiB is accepted and 1 MiB plus one byte is rejected; a request body above the aggregate cap is rejected with HTTP 413 by `body-parser`.
 
 ### ImagePrompt Data Handling
 
 - **Data URI parsing only:** Extracts MIME type and base64 data from `data:image/<subtype>;base64,<data>` strings. It performs no file loading and no filesystem access.
 - **Validation ownership:** Public image fields are non-empty data URI strings; `Buffer` input is rejected at the DTO boundary. `ImageValidationPipe` owns the HTTP-layer base64 format and 1 MiB per-image limit, while the multipart schema re-applies structural base64 and size checks at construction.
 
-The migration to labelled multi-part messages does not change the system template's examples, rubric, or JSON output structure, and it does not establish score-quality gains — it establishes transport correctness.
+Multi-part messages carry IMAGE tasks without altering the system template's examples, rubric, or JSON output structure.
 
 ## How to Extend (Adding a New Prompt Type)
 
@@ -101,13 +94,6 @@ The migration to labelled multi-part messages does not change the system templat
 3. **Templates:** Add `*.system.prompt.md` and `*.user.prompt.md` in `src/prompt/templates/`.
 4. **Factory:** Add cases in `PromptFactory.getPromptFiles()` and `PromptFactory.instantiatePrompt()`.
 5. **Tests:** Add unit, integration, and E2E tests.
-
-## Dependencies
-
-- **mustache** — Template rendering engine
-- **@nestjs/common** — NestJS core and logging
-- **zod** — Input validation schemas
-- **fs/promises, path** — Markdown template file operations (via `readMarkdown()`)
 
 ## Related Documentation
 

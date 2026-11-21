@@ -1,240 +1,88 @@
-# Practical Testing Guide
+# Unit test patterns and fixtures
 
-This document provides practical examples and patterns for writing effective unit tests and managing test data in the Assessment Bot LLM Service project.
+Unit and integration tests are co-located with source (`src/**/*.spec.ts`). Keep fixtures under `test/` and load them through the shared helpers in [`test/utils/e2e-helpers.ts`](../../test/utils/e2e-helpers.ts).
 
-## 1. Unit & Integration Testing
+## Testing a service
 
-Unit tests are co-located with source files (`*.spec.ts`) and focus on testing components in isolation.
-
-### Basic Service Test Structure
-
-When testing a service, use the `Test.createTestingModule` to provide mock implementations for its dependencies. This allows you to test the service's logic in isolation.
+Use `Test.createTestingModule` with a mock for each dependency. The [`ApiKeyService` spec](../../src/auth/api-key.service.spec.ts) shows the pattern: it builds valid `abt_`-prefixed keys and supplies a mock `ConfigService`. The snippet below is illustrative; use the spec as the source of truth.
 
 ```typescript
-// Example from src/auth/api-key.service.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from 'src/config'; // Adjusted import
-import { ApiKeyService } from './api-key.service';
-import { UnauthorizedException } from '@nestjs/common';
-
-describe('ApiKeyService', () => {
-  let service: ApiKeyService;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ApiKeyService,
-        {
-          provide: ConfigService,
-          useValue: {
-            get: vi.fn().mockReturnValue(['valid-key-1', 'valid-key-2']),
-          },
-        },
-      ],
-    }).compile();
-
-    service = module.get<ApiKeyService>(ApiKeyService);
-  });
-
-  it('should accept a valid API key and return user context', () => {
-    const result = service.validate('valid-key-1');
-    expect(result).toEqual({ apiKey: 'valid-key-1' });
-  });
-
-  it('should throw UnauthorizedException for an invalid API key', () => {
-    expect(() => service.validate('invalid-key')).toThrow(
-      UnauthorizedException,
-    );
-  });
-});
+providers: [
+  ApiKeyService,
+  {
+    provide: ConfigService,
+    useValue: { get: vi.fn().mockReturnValue(['abt_abcdefghijklmnopqrstuvwxyzABCDEF']) },
+  },
+],
 ```
 
-### Testing Zod Validation Pipes
+## Testing Zod validation
 
-To test a `ZodValidationPipe`, create an instance with a test schema and verify that it correctly validates and transforms payloads.
+Test [`ZodValidationPipe`](../../src/common/zod-validation.pipe.ts) through [its spec](../../src/common/zod-validation.pipe.spec.ts).
+
+## Testing DTO schemas
+
+Validation is defined by Zod schemas. Test them directly with `safeParse`.
 
 ```typescript
-// Example from src/common/zod-validation.pipe.spec.ts
-import { ZodValidationPipe } from './zod-validation.pipe';
-import { z } from 'zod';
-import { BadRequestException } from '@nestjs/common';
+import { assessorDtoSchema, TaskType } from './create-assessor.dto';
 
-describe('ZodValidationPipe', () => {
-  const schema = z.object({
-    name: z.string(),
-  });
-
-  let pipe: ZodValidationPipe;
-
-  beforeEach(() => {
-    // ConfigService is optional; omit for unit tests that don't need
-    // production-aware error masking
-    pipe = new ZodValidationPipe(schema);
-  });
-
-  it('should return data on valid payload', () => {
-    const validData = { name: 'test' };
-    expect(pipe.transform(validData, {} as any)).toEqual(validData);
-  });
-
-  it('should throw BadRequestException on invalid data', () => {
-    const invalidData = { name: 123 };
-    expect(() => pipe.transform(invalidData, {} as any)).toThrow(
-      BadRequestException,
-    );
-  });
-});
+const validPayload = {
+  taskType: TaskType.TEXT,
+  reference: 'Sample reference text',
+  template: 'Sample template text',
+  studentResponse: 'Sample student response',
+};
+expect(assessorDtoSchema.safeParse(validPayload).success).toBe(true);
 ```
 
-### Testing DTOs
+## Fixtures
 
-DTO validation is handled by Zod schemas. Tests should verify that the schema correctly accepts valid data and rejects invalid data.
+JSON fixtures live in `test/data/` and images in `test/ImageTasks/`. Load them with paths derived from `getCurrentDirname()` and `node:`-prefixed imports:
 
 ```typescript
-// Example from src/v1/assessor/dto/create-assessor.dto.spec.ts
-import { createAssessorDtoSchema, TaskType } from './create-assessor.dto';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { getCurrentDirname } from 'src/common/file-utilities';
 
-describe('CreateAssessorDto Schema', () => {
-  it('should accept a valid TEXT task payload', () => {
-    const validPayload = {
-      taskType: TaskType.TEXT,
-      reference: 'Sample reference text',
-      template: 'Sample template text',
-      studentResponse: 'Sample student response',
-    };
-    const result = createAssessorDtoSchema.safeParse(validPayload);
-    expect(result.success).toBe(true);
-  });
-
-  it('should reject a payload with missing required fields', () => {
-    const invalidPayload = {
-      taskType: TaskType.TEXT,
-      // Missing other required fields
-    };
-    const result = createAssessorDtoSchema.safeParse(invalidPayload);
-    expect(result.success).toBe(false);
-  });
-});
+const dataDirectory = path.join(getCurrentDirname(), 'test', 'data');
+const tableData = JSON.parse(
+  await fs.readFile(path.join(dataDirectory, 'tableTask.json'), 'utf8'),
+);
 ```
 
-## 2. Test Data Management
+For images, import [`loadFileAsDataURI`](../../test/utils/e2e-helpers.ts) from the shared helpers. It infers the MIME type from the file extension and returns a base64 data URI; see [`assessor-live.e2e-spec.ts`](../../test/assessor-live.e2e-spec.ts) for a complete example.
 
-### Static Test Data
+Build payloads inline or reuse the fixtures in `test/data/`.
 
-Static test data (JSON, images) is stored in the `test/` directory. This data should be version-controlled and immutable.
+## Mocking the LLM service
 
-- **JSON Fixtures**: `test/data/`
-- **Image Fixtures**: `test/ImageTasks/`
-
-**Loading JSON Data:**
+Unit tests inject the LLM through [`LLM_SERVICE_TOKEN`](../../src/llm/llm.service.interface.ts). Provide a schema-valid response with `completeness`, `accuracy` and `spag` objects, each holding a numeric `score` and a `reasoning` string ([`src/llm/types.ts`](../../src/llm/types.ts)).
 
 ```typescript
-// Example from an E2E test
-import * as fs from 'fs/promises';
-import * as path from 'path';
-
-let tableData: TaskData;
-
-beforeAll(async () => {
-  const tableTaskPath = path.join(__dirname, '..', 'data', 'tableTask.json');
-  tableData = JSON.parse(await fs.readFile(tableTaskPath, 'utf-8'));
-});
-```
-
-**Loading Image Data:**
-
-```typescript
-// Helper for loading images as data URIs
-const loadFileAsDataURI = async (filePath: string): Promise<string> => {
-  const fileBuffer = await fs.readFile(filePath);
-  const mimeType = 'image/png'; // Or determine dynamically
-  return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+const mockLlmService = {
+  send: vi.fn().mockResolvedValue(JSON.stringify({
+    completeness: { score: 4, reasoning: 'Covers the key points.' },
+    accuracy: { score: 5, reasoning: 'Factually correct.' },
+    spag: { score: 3, reasoning: 'Several spelling errors.' },
+  })),
 };
 
-let referenceDataUri: string;
-
-beforeAll(async () => {
-  const imagePath = path.join(
-    __dirname,
-    '..',
-    'ImageTasks',
-    'referenceTask.png',
-  );
-  referenceDataUri = await loadFileAsDataURI(imagePath);
-});
+providers: [{ provide: LLM_SERVICE_TOKEN, useValue: mockLlmService }],
 ```
 
-### Dynamic Data Generation
+## Mocking configuration
 
-For more complex scenarios, use factory functions to generate test data dynamically. This is useful for creating variations and testing edge cases.
-
-```typescript
-// Example of a test data factory
-export class TestDataFactory {
-  static createValidTextTask(): CreateAssessorDto {
-    return {
-      taskType: TaskType.TEXT,
-      reference: 'Expected answer about photosynthesis',
-      template: 'Explain the process of photosynthesis',
-      studentResponse: 'Plants use sunlight to make food',
-    };
-  }
-
-  static createInvalidTask(): Partial<CreateAssessorDto> {
-    return {
-      taskType: 'INVALID_TYPE' as TaskType,
-      // Missing required fields
-    };
-  }
-}
-```
-
-## 3. Mocking Strategies
-
-Mocking is crucial for isolating components during tests.
-
-### Mocking Services
-
-Use `vi.fn()` to create mock functions for service methods. This allows you to control their behaviour and assert how they are called.
+Provide only the values the component reads. Use valid keys (`abt_` prefix) and a supported `LOG_LEVEL` such as `debug`.
 
 ```typescript
-// Mocking the LlmService for the AssessorService tests
-const mockLlmService = {
-  send: vi.fn().mockResolvedValue(
-    JSON.stringify({
-      completeness: 85,
-      accuracy: 90,
-      feedback: 'A well-structured response.',
-    }),
+const mockConfigService = {
+  get: vi.fn(
+    (key: string) =>
+      ({
+        API_KEYS: 'abt_abcdefghijklmnopqrstuvwxyzABCDEF',
+        LOG_LEVEL: 'debug',
+      })[key],
   ),
 };
-
-// In the Test.createTestingModule providers array:
-{
-  provide: LlmService,
-  useValue: mockLlmService,
-},
-```
-
-### Mocking Configuration
-
-Mock `ConfigService` to provide consistent configuration values for tests, isolating them from environment-specific settings.
-
-```typescript
-// Mocking ConfigService
-const mockConfigService = {
-  get: vi.fn((key: string) => {
-    const config = {
-      API_KEYS: 'test-key-1,test-key-2',
-      LOG_LEVEL: 'silent',
-    };
-    return config[key];
-  }),
-};
-
-// In the Test.createTestingModule providers array:
-{
-  provide: ConfigService,
-  useValue: mockConfigService,
-},
 ```

@@ -1,16 +1,12 @@
 # API Documentation
 
-## Introduction
-
-This document provides an overview of the Assessment Bot LLM Service API, detailing available endpoints, authentication methods, and data structures.
-
 ## Base URL
 
 The base URL for the API is `http://localhost:3000` when running locally.
 
 ## Authentication
 
-API access is secured using API Keys. Provide your API key in the `Authorization` header as a Bearer token.
+Protected endpoints require an API key in the `Authorization` header as a Bearer token. See the [endpoint table](#endpoints) for which endpoints are protected.
 
 **Example:** `Authorization: Bearer your_api_key_here`
 
@@ -23,30 +19,12 @@ API access is secured using API Keys. Provide your API key in the `Authorization
 - **Description:** Initiates an assessment based on the provided task details. This is the primary endpoint for submitting assessment tasks.
 - **Authentication:** Required (API key)
 
-#### Request Body
+#### Request body
 
-The request body is a JSON object that defines the assessment task. It uses a `taskType` field to discriminate between `TEXT`, `TABLE`, and `IMAGE` assessments.
+The request body is a JSON object with a `taskType` discriminator (`TEXT`, `TABLE`, or `IMAGE`) and the fields `reference`, `template`, and `studentResponse`. For `IMAGE` tasks each field must be a non-empty base64 data URI; `Buffer` input is rejected. Each image decodes to at most 1 MiB (fixed in code), the whole JSON body is capped at 5 MiB (`413 Payload Too Large`), and allowed MIME types come from `ALLOWED_IMAGE_MIME_TYPES` in [environment configuration](../configuration/environment.md).
 
-- **For detailed request/response schemas, see [schemas.md](./schemas.md).**
-- **For a full list of error codes, see [error-codes.md](./error-codes.md).**
-
-**Key Fields:**
-
-- `taskType`: (Required) `TEXT` | `TABLE` | `IMAGE`
-- `reference`: (Required) The reference solution.
-- `template`: (Required) The assessment template or instructions.
-- `studentResponse`: (Required) The student's response.
-
-For `IMAGE` tasks, the `reference`, `template`, and `studentResponse` fields must each be a non-empty base64 data URI string (e.g., `data:image/png;base64,...`). `Buffer` input is not accepted.
-
-#### Image Validation (`IMAGE` Task Type)
-
-When `taskType` is `IMAGE`, specific validation rules apply to the image fields:
-
-- **Max Size:** Each image must decode to no more than **1 MiB**. The limit is fixed and not configurable.
-- **Aggregate Size:** The whole JSON request body is capped at 5 MiB; larger requests are rejected with `413 Payload Too Large`.
-- **MIME Types:** Allowed MIME types are defined in the `ALLOWED_IMAGE_MIME_TYPES` environment variable (default: `image/png`).
-- **Format:** Images **must** be base64-encoded with the Data URI prefix.
+- **Full request and response schemas:** [schemas.md](./schemas.md).
+- **Error codes:** [error-codes.md](./error-codes.md).
 
 #### Example (`TEXT` task)
 

@@ -10,7 +10,7 @@ graph TB
         C[API Clients]
     end
 
-    subgraph "AssessmentBot Backend"
+    subgraph "Assessment Bot LLM Service"
         subgraph "API Layer"
             GW[API Gateway/NestJS]
             AUTH[Authentication Guard]
@@ -31,8 +31,8 @@ graph TB
         end
 
         subgraph "LLM Integration Layer"
-            LLMS[LLM Service Interface]
-            ROUTER[Routing LLM Service]
+            LLMS[ILlmService and LLMService]
+            ROUTER[RoutingLLMService]
             GS[Gemini Service]
             MS[Mistral Service]
         end
@@ -50,10 +50,10 @@ graph TB
     end
 
     C --> GW
-    GW --> AUTH
-    AUTH --> THROTTLE
-    THROTTLE --> AC
-    THROTTLE --> SC
+    GW --> THROTTLE
+    THROTTLE --> AUTH
+    AUTH --> AC
+    AUTH --> SC
     AC --> AS
     AS --> PF
     PF --> TP
@@ -77,61 +77,28 @@ graph TB
 
 ### Key Components
 
-| Component                | Responsibility                                          |
-| ------------------------ | ------------------------------------------------------- |
-| **Authentication Guard** | API key validation via Bearer tokens                    |
-| **Rate Limiting**        | Request throttling for abuse prevention                 |
-| **Assessor Service**     | Core business logic orchestration                       |
-| **Prompt Factory**       | Task-specific prompt generation (Factory pattern)       |
-| **LLM Service**          | Abstract interface for LLM providers (Strategy pattern) |
-| **Routing LLM Service**  | Selects the configured provider and model per task      |
-| **Gemini Service**       | Google Gemini API integration                           |
-| **Mistral Service**      | Mistral API integration                                 |
-| **Config Service**       | Zod-validated environment configuration                 |
+| Component                    | Responsibility                                           |
+| ---------------------------- | -------------------------------------------------------- |
+| **Authentication Guard**     | API key validation via Bearer tokens                     |
+| **Rate Limiting**            | Request throttling for abuse prevention                  |
+| **Assessor Service**         | Core business logic orchestration                        |
+| **Prompt Factory**           | Task-specific prompt generation (Factory pattern)        |
+| **ILlmService / LLMService** | Provider contract and abstract base (Strategy pattern)   |
+| **RoutingLLMService**        | Dispatches to the configured provider and model per task |
+| **Gemini Service**           | Google Gemini API integration                            |
+| **Mistral Service**          | Mistral API integration                                  |
+| **Config Service**           | Zod-validated environment configuration                  |
 
 ## External Dependencies
 
 - **Mistral API**: Default provider for content assessment using `mistral-small-latest`.
 - **Google Gemini API**: Supported when a Gemini model is selected in configuration.
 
-## Module Architecture
-
-```mermaid
-graph LR
-    subgraph "Core Modules"
-        APP[App Module]
-        CONFIG[Config Module]
-        COMMON[Common Module]
-    end
-
-    subgraph "Feature Modules"
-        ASSESSOR[Assessor Module v1]
-        AUTH[Auth Module]
-        STATUS[Status Module]
-    end
-
-    subgraph "Integration Modules"
-        LLM[LLM Module]
-        PROMPT[Prompt Module]
-    end
-
-    APP --> CONFIG
-    APP --> COMMON
-    APP --> ASSESSOR
-    APP --> AUTH
-    APP --> STATUS
-
-    ASSESSOR --> LLM
-    ASSESSOR --> PROMPT
-
-    LLM --> CONFIG
-    PROMPT --> CONFIG
-    AUTH --> CONFIG
-```
+Module composition and dependencies are described in [Module Responsibilities](modules.md).
 
 ## Technology Stack
 
-- **Runtime**: Node.js 24 (Debian dev container / `node:24-alpine` production)
+- **Runtime**: Node.js — see the [production](../../Docker/Dockerfile.prod) and [development](../../Docker/Dockerfile) Dockerfiles
 - **Framework**: NestJS with Express.js, TypeScript
 - **Validation**: Zod schemas for all runtime validation
 - **Auth**: Passport.js with `passport-http-bearer` strategy
@@ -143,9 +110,8 @@ graph LR
 
 ### Environment Differences
 
-- **Production** (`node:24-alpine`): Minimal Alpine Linux image for smaller, more secure containers.
-- **Development** (Debian-based): Full feature set with debugging tools and utilities. Always test production builds against `node:24-alpine` to ensure compatibility.
+The production and development images are defined by the [production Dockerfile](../../Docker/Dockerfile.prod), the [development Dockerfile](../../Docker/Dockerfile) and the [dev container configuration](../../.devcontainer/devcontainer.json). Verify production builds against the production image before release.
 
 ---
 
-_For detailed module responsibilities, see [Module Responsibilities](modules.md). For class relationships, see the [Class Structure](../design/ClassStructure.md) diagram._
+_For class relationships, see the [Class Structure](../design/ClassStructure.md) diagram._

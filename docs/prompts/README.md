@@ -8,16 +8,7 @@ The system uses a combination of the **Factory** and **Template Method** design 
 
 ### Core Components
 
-1.  **`Prompt` (Abstract Base Class)**: Located in `src/prompt/prompt.base.ts`, this class provides foundational functionality for all prompts, including input validation via the `PromptInputSchema` (Zod), and a default `buildMessage()` implementation for text and table prompts.
-
-    ```typescript
-    // src/prompt/prompt.base.ts
-    export abstract class Prompt {
-      // ...
-      public async buildMessage(): Promise<LlmPayload>;
-      // ...
-    }
-    ```
+1.  **`Prompt` (Abstract Base Class)**: Located in `src/prompt/prompt.base.ts`, this class provides foundational functionality for all prompts, including input validation via the `PromptInputSchema` (Zod), and a default `buildMessage()` implementation for text and table prompts. See [`Prompt.buildMessage`](../../src/prompt/prompt.base.ts).
 
 2.  **`MultiPartPrompt` (Abstract Multi-Part Base Class)**: Located in `src/prompt/multi-part.prompt.base.ts`, this class extends `Prompt` for conversation-style assessment. Its `buildMessage()` override assembles an optional leading system message and exactly one user message from a protected `buildUserParts()` hook, derives the cache key server-side, and validates the conversation once through `buildMultiPartPromptPayload()`. It retains no history between builds.
 
@@ -38,48 +29,13 @@ The prompt generation process integrates into the assessment workflow as follows
 5.  It instantiates the corresponding prompt class (e.g., `new TextPrompt(...)`).
 6.  The `AssessorService` then calls `prompt.buildMessage()` on the instance.
 7.  This method builds the final payload: text/table prompts return a legacy `LlmPayload` with a rendered user template, while `ImagePrompt` returns a validated two-message `MultiPartPromptPayload` (one system message, one user message with three label-image pairs).
-8.  The resulting payload is sent to the `LlmService`.
+8.  The resulting payload is sent through the injected `ILlmService` (`RoutingLLMService`).
 
-```typescript
-// Example from AssessorService
-async createAssessment(dto: CreateAssessorDto): Promise<LlmResponse> {
-  const prompt = await this.promptFactory.create(dto);
-  const message = await prompt.buildMessage();
-  return this.llmService.send(message);
-}
-```
+In short, the flow is `PromptFactory.create(dto)` → `prompt.buildMessage()` → `ILlmService.send(message)`.
 
 ## Template System
 
-The system uses Markdown files with Mustache for templating.
-
-- **Location**: All templates are stored in `src/prompt/templates/`.
-- **System Prompts** (`*.system.prompt.md`): Define the LLM's role, the assessment criteria, and the required JSON output structure.
-- **User Prompts** (`*.user.prompt.md`): Structure the data (reference, student, and empty tasks) for the LLM. `ImagePrompt` has no user template; its user message is assembled from ordered label-image parts.
-
-### Template Variables
-
-User templates can use the following Mustache variables. The triple braces `{{{...}}}` are important to prevent HTML escaping.
-
-- `{{{referenceTask}}}`: The model/reference solution.
-- `{{{studentTask}}}`: The student's submission.
-- `{{{emptyTask}}}`: The original task template.
-
-```markdown
-<!-- src/prompt/templates/text.user.prompt.md -->
-
-## Reference Task
-
-### This task would score 5 across all criteria
-
-{{{referenceTask}}}
-
-## Student Task
-
-### This is the task you are assessing
-
-{{{studentTask}}}
-```
+Templates are Markdown files loaded from disk during prompt creation. [`templates.md`](templates.md) defines the template types and lists the available Mustache variables.
 
 ## Extending the System (Adding a New Prompt Type)
 
@@ -111,7 +67,7 @@ Follow these steps to add support for a new task type (e.g., `EXAM_QUESTION`):
 
     ```typescript
     // src/prompt/exam-question.prompt.ts
-    import { Prompt } from './prompt.base';
+    import { Prompt } from './prompt.base.js';
 
     export class ExamQuestionPrompt extends Prompt {
       // ... custom logic for exam questions if needed
@@ -144,7 +100,7 @@ Follow these steps to add support for a new task type (e.g., `EXAM_QUESTION`):
     }
     ```
 
-5.  **Add Tests**: Create comprehensive unit, integration, and E2E tests.
+5.  **Add Tests**: Create unit, integration and E2E tests.
 
     ```typescript
     // test/assessor.e2e-spec.ts

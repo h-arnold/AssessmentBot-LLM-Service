@@ -1,7 +1,5 @@
 # Authentication & Authorisation
 
-This document provides a detailed technical breakdown of the authentication and authorisation mechanism implemented in the Assessment Bot LLM Service.
-
 ## Overview
 
 The system uses a stateless API key authentication model. All protected endpoints require a valid API key to be passed in the `Authorization` header using the `Bearer` token scheme. The entire authentication process is handled by the `AuthModule`.
@@ -10,44 +8,13 @@ The system uses a stateless API key authentication model. All protected endpoint
 
 The authentication process for a protected endpoint follows these steps:
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant ApiKeyGuard
-    participant ApiKeyStrategy
-    participant ApiKeyService
-
-    Client->>+Controller: Request with "Authorization: Bearer <key>"
-    Controller->>+ApiKeyGuard: Intercepts Request
-    ApiKeyGuard->>+ApiKeyStrategy: Invokes 'bearer' strategy
-    ApiKeyStrategy->>ApiKeyStrategy: Validate "Bearer " scheme
-    alt Malformed Scheme
-        ApiKeyStrategy-->>-Controller: Throws UnauthorizedException
-    else Correct Scheme
-        ApiKeyStrategy->>+ApiKeyService: validate(key)
-        ApiKeyService->>ApiKeyService: 1. Zod Schema Check (format, length)
-        ApiKeyService->>ApiKeyService: 2. Check if key exists in configured list
-        alt Invalid Key
-            ApiKeyService-->>-ApiKeyStrategy: Throws UnauthorizedException
-        else Valid Key
-            ApiKeyService-->>-ApiKeyStrategy: Returns User object
-        end
-        ApiKeyStrategy-->>-ApiKeyGuard: Returns User object
-    end
-    ApiKeyGuard-->>-Controller: Attaches User to Request
-    Controller-->>-Client: Access Granted & Processes Request
-```
-
-### Step-by-Step Breakdown
-
 1.  **Request Initiation**: A client sends a request to a protected endpoint, including the `Authorization: Bearer <api_key>` header.
 2.  **Guard Interception**: The `ApiKeyGuard`, applied to the controller or endpoint, intercepts the incoming request.
 3.  **Strategy Invocation**: The guard invokes the Passport.js `bearer` strategy, which is implemented by our `ApiKeyStrategy`.
 4.  **Scheme Validation**: `ApiKeyStrategy` first performs a strict check on the `Authorization` header to ensure it starts with `Bearer ` (case-sensitive, with a trailing space). If not, it immediately throws an `UnauthorizedException` to reject malformed requests.
 5.  **Service Delegation**: If the scheme is valid, the strategy passes the extracted API key to the `ApiKeyService.validate()` method.
 6.  **Key Validation**: The `ApiKeyService` performs two validation steps:
-    a. **Format Validation**: It checks that the key starts with the configured `API_KEY_PREFIX` (default `abt_`) and validates that the body (after the prefix) is exactly 32 base64url characters using `z.base64url().length(32)`. This prevents unnecessary checks on malformed keys.
+    a. **Format Validation**: It checks that the key starts with the configured `API_KEY_PREFIX` (default `abt_`) and that the body after the prefix is exactly 32 base64url characters. See `ApiKeyService` in `src/auth/api-key.service.ts`. This fails fast on malformed keys before the existence check.
     b. **Existence Check**: If the format is valid, it checks if the key is present in the set of valid `API_KEYS` loaded from the `ConfigService`.
 7.  **Outcome**:
     - If the key is invalid in either step, an `UnauthorizedException` is thrown.
@@ -62,7 +29,7 @@ File: `src/auth/api-key.strategy.ts`
 
 The strategy explicitly checks `authHeader.startsWith('Bearer ')`. This is a security enhancement to prevent ambiguity and enforce the RFC 6750 standard correctly. It helps avoid accepting non-compliant headers like `bearer <token>` or `Bearer<token>`.
 
-### Comprehensive Key Validation
+### Key Validation
 
 File: `src/auth/api-key.service.ts`
 

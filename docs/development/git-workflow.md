@@ -39,26 +39,18 @@ Use British English in all commit messages.
 
 ## Pre-commit Hooks (Husky)
 
-Husky runs `lint-staged` automatically on every commit:
+Husky runs `lint-staged` automatically on every commit. The configured file patterns are under the `lint-staged` key in [package.json](../../package.json).
 
-```json
-{
-  "*.ts": "eslint --fix",
-  "*.{js,ts,json,md}": "prettier --write",
-  "*.{ts,js}": "./scripts/check-british-english.sh"
-}
-```
-
-To bypass hooks in an emergency (not recommended): `git commit --no-verify`.
+Fix any reported lint, type or test failure before committing — the hooks must pass.
 
 ## Pull Request Workflow
 
-1. Ensure quality checks pass before creating the PR:
+1. Ensure the full check set passes before creating the PR (see [AGENTS.md §9](../../AGENTS.md)):
    ```bash
-   npm run lint && npm test && npm run test:e2e && npm run build
+   npm run lint && npm run lint:british && npm run format && npm run build && npm run test && npm run test:e2e
    ```
 2. Use a descriptive title in conventional commit format.
 3. Describe what changed, why, and how to test.
-4. CI runs automated checks (unit tests, E2E tests, linting, security scans).
+4. CI runs unit tests, E2E tests and linting; security scanning runs in the separate `codeql.yml` and `sonarqube.yml` workflows.
 5. At least one approval is required before merging.
-6. Use **squash and merge** for a clean commit history.
+6. **Squash and merge** is the preferred convention for a clean commit history.

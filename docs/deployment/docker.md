@@ -1,6 +1,6 @@
 # Docker Deployment
 
-This guide covers the containerised deployment of the Assessment Bot LLM Service using Docker and Docker Compose.
+This guide covers the containerised deployment of the Assessment Bot LLM Service using Docker.
 
 ## Overview
 
@@ -31,91 +31,47 @@ The production image uses a multi-stage build to create a minimal, secure runtim
 3.  **Build and run the development container**:
 
     ```bash
-    docker build -f Docker/Dockerfile -t assessmentbot-backend:dev .
-    docker run -p 3000:3000 --env-file .env assessmentbot-backend:dev
+    docker build -f Docker/Dockerfile -t assessmentbot-llm-service:dev .
+    docker run --name assessmentbot -p 3000:3000 --env-file .env assessmentbot-llm-service:dev
     ```
 
 4.  **Access the application**:
     - API: `http://localhost:3000`
     - Health check: `http://localhost:3000/health`
 
-## Production Deployment
+## Running the Production Image
 
-For production, it is recommended to use Docker Compose, which orchestrates the application, a Caddy reverse proxy, and a Fail2ban intrusion prevention service.
-
-### Docker Compose Deployment
+Run the published production image as a single container, passing your configuration with an environment file. Set `NODE_ENV=production` in that file: the example ships `NODE_ENV=development` and `--env-file` passes the value through, overriding the schema default; see [Environment Configuration](../configuration/environment.md).
 
 ```bash
-# Start all services in detached mode
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
+docker run -d --name assessmentbot --restart unless-stopped -p 3000:3000 --env-file .env ghcr.io/h-arnold/assessmentbot-llm-service:latest
 ```
 
-### Docker Compose Services
-
-The `docker-compose.yml` file defines three services:
-
-1.  **`app`**: The main application container, running the production image from `ghcr.io/h-arnold/assessmentbot-backend:latest`. It is not exposed externally.
-2.  **`caddy`**: An Alpine-based Caddy container that acts as a reverse proxy, providing automatic HTTPS via Let's Encrypt. It exposes ports 80 and 443.
-3.  **`fail2ban`**: A security service that monitors Caddy's access logs and blocks IPs that show malicious behaviour, such as excessive failed requests.
+The application listens on port 3000 inside the container. See [Production Setup](production.md) for the full deployment procedure and [Container Registry](#container-registry) for how the image is published.
 
 ## Configuration
 
 ### Environment Variables
 
-The application is configured via environment variables defined in the `.env` file. Key variables include `NODE_ENV`, `API_KEYS`, `MISTRAL_API_KEY`, and `LOG_LEVEL`. The default models use Mistral Small; `GEMINI_API_KEY` is needed only when a configured model routes to Gemini. Refer to `.env.example` for a full list.
-
-### Caddy Configuration
-
-The `Caddyfile` in the root directory configures Caddy to act as a reverse proxy for the application and enables access logging.
-
-```
-:80, :443 {
-  reverse_proxy app:3000
-  log {
-    output file /var/log/caddy/access.log
-    format single_field common_log
-  }
-}
-```
-
-### Fail2ban Configuration
-
-The Fail2ban configuration is located in `fail2ban/jail.local`. It is set up to monitor the Caddy access log and ban IPs after 5 failed requests within a 10-minute window.
+The container reads its configuration from the `.env` file passed with `--env-file`, both for local development and for the published production image. Create `.env` from `.env.example` as shown above, and see [Environment Configuration](../configuration/environment.md) for the variable reference. For the production image, the file must set `NODE_ENV=production`, as described in [Running the Production Image](#running-the-production-image).
 
 ## Health Monitoring
 
-The production Docker image has a built-in health check that uses the `scripts/health-check.js` script to verify the application's status.
-
-The application also exposes a health check endpoint at `/health`.
-
-```bash
-# Check application health
-curl http://localhost:3000/health
-
-# Expected response
-# { "status": "ok", "version": "...", "timestamp": "...", "systemInfo": { ... } }
-```
+The production image includes a Docker `HEALTHCHECK` that probes `/health`. See [Monitoring & Observability](monitoring.md) for the endpoint, the health-check script and how to inspect container health status.
 
 ## Container Registry
 
-Production images are automatically published to the GitHub Container Registry upon new releases.
+Production images are automatically published on new releases to the GitHub Container Registry (`ghcr.io/h-arnold/assessmentbot-llm-service`) and to Google Artifact Registry at `<GAR_LOCATION>-docker.pkg.dev/<PROJECT_ID>/<GAR_REPOSITORY>/backend`.
 
-- **Registry**: `ghcr.io/h-arnold/assessmentbot-backend`
 - **Tags**: Version tags (e.g., `v1.0.0`) and `latest`
 
-You can pull images using `docker pull`.
+You can pull the GHCR image with `docker pull`.
 
 ```bash
 # Pull latest image
-docker pull ghcr.io/h-arnold/assessmentbot-backend:latest
+docker pull ghcr.io/h-arnold/assessmentbot-llm-service:latest
 ```
 
 ## Troubleshooting
 
-If the container won't start, check the logs using `docker-compose logs app`. If you encounter permission errors with volumes, you may need to adjust file ownership on the host. To test network connectivity between containers, you can run `docker-compose exec app sh` and use tools like `wget`.
+If the container won't start, check its logs with `docker logs assessmentbot`. To run diagnostic commands inside the container, use `docker exec -it assessmentbot sh`.

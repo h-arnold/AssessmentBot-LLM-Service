@@ -4,15 +4,7 @@ The Status Module (`src/status/`) provides health check and system status endpoi
 
 ## Module Structure
 
-```typescript
-@Module({
-  imports: [ConfigModule],
-  controllers: [StatusController],
-  providers: [StatusService],
-  exports: [StatusService],
-})
-export class StatusModule {}
-```
+`StatusModule` registers `StatusController` and provides `StatusService`; see `src/status/status.module.ts`.
 
 ## API Endpoints
 
@@ -24,12 +16,12 @@ export class StatusModule {}
 
 ### GET /health
 
-Returns a comprehensive health check with system information:
+Returns a health check with system information:
 
 ```typescript
 {
   "status": "ok",
-  "version": "0.0.1",
+  "version": "<package.json version>",
   "timestamp": "2025-01-08T08:00:00.000Z",
   "systemInfo": {
     "platform": "linux",
@@ -44,6 +36,8 @@ Returns a comprehensive health check with system information:
 }
 ```
 
+The `version` field comes from `package.json`.
+
 ### GET /test-error
 
 Throws an intentional `400 Bad Request` for testing the error handling pipeline:
@@ -56,13 +50,6 @@ Throws an intentional `400 Bad Request` for testing the error handling pipeline:
   "path": "/test-error"
 }
 ```
-
-## Dependencies
-
-- **@nestjs/common** — Core NestJS functionality and HTTP handling
-- **@nestjs/throttler** — Rate limiting for protected endpoints (inherited)
-- **ConfigModule** — Application configuration access
-- **Node.js os module** — System information collection
 
 ## Related Documentation
 

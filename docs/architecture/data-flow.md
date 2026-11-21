@@ -5,8 +5,8 @@ Request/response flow from HTTP request to LLM response.
 ```mermaid
 sequenceDiagram
     participant Client as API Client
-    participant Guard as Auth Guard
-    participant Throttle as Rate Limiter
+    participant Throttle as ApiKeyThrottlerGuard (global)
+    participant Guard as ApiKeyGuard (per-controller)
     participant Controller as Assessor Controller
     participant Service as Assessor Service
     participant Factory as Prompt Factory
@@ -15,11 +15,11 @@ sequenceDiagram
     participant Mistral as Mistral API (default)
     participant Gemini as Gemini API (when configured)
 
-    Client->>+Guard: POST /v1/assessor + API Key
-    Guard->>Guard: Validate API Key
-    Guard->>+Throttle: Forward Request
-    Throttle->>Throttle: Check Rate Limits
-    Throttle->>+Controller: Forward Request
+    Client->>+Throttle: POST /v1/assessor + API Key
+    Throttle->>Throttle: Check Rate Limits (global guard)
+    Throttle->>+Guard: Forward Request
+    Guard->>Guard: Validate API Key (per-controller guard)
+    Guard->>+Controller: Forward Request
     Controller->>Controller: Validate DTO Schema
     Controller->>Controller: Validate Images (if IMAGE task)
     Controller->>+Service: createAssessment(dto)
@@ -40,8 +40,8 @@ sequenceDiagram
     end
     Prompt-->>-Service: LlmPayload
     Service->>+LLM: send(payload)
-    LLM->>LLM: Select configured model and provider
-    LLM->>LLM: Retry Logic & Error Handling
+    LLM->>LLM: Dispatch to the pre-resolved provider
+    LLM->>LLM: Retry retryable errors & handle errors
     alt Default Mistral Small model
         LLM->>+Mistral: API Call
         Mistral-->>-LLM: Raw Response
@@ -52,9 +52,9 @@ sequenceDiagram
     LLM->>LLM: Parse & Validate JSON
     LLM-->>-Service: LlmResponse
     Service-->>-Controller: LlmResponse
-    Controller-->>-Throttle: HTTP Response
-    Throttle-->>-Guard: HTTP Response
-    Guard-->>-Client: HTTP Response
+    Controller-->>-Guard: HTTP Response
+    Guard-->>-Throttle: HTTP Response
+    Throttle-->>-Client: HTTP Response
 ```
 
 ## Flow Steps
@@ -65,12 +65,12 @@ sequenceDiagram
 
 ### 2. Security Layer
 
-- **Authentication**: `ApiKeyGuard` validates Bearer token from `Authorization` header; rejects with 401 if invalid.
-- **Rate Limiting**: `ThrottlerGuard` enforces per-time-window limits; returns 429 if exceeded.
+- **Rate Limiting**: The global `ApiKeyThrottlerGuard` enforces per-time-window limits; returns 429 if exceeded. As a global guard, it runs before per-controller guards.
+- **Authentication**: `ApiKeyGuard` validates the Bearer token from the `Authorization` header; rejects with 401 if invalid.
 
 ### 3. Controller Layer
 
-`AssessorController` validates the request body via `ZodValidationPipe` against `createAssessorDtoSchema`, performing task-type-specific checks (e.g. image format and size for `IMAGE` tasks).
+`AssessorController` validates the request body via `ZodValidationPipe` against `assessorDtoSchema`, performing task-type-specific checks (e.g. image format and size for `IMAGE` tasks).
 
 ### 4. Service Layer
 
@@ -82,26 +82,11 @@ sequenceDiagram
 
 ### 6. LLM Integration
 
-`RoutingLLMService.send()` selects the task-specific model and provider from server-side configuration. Both model settings default to `mistral-small-latest`, so the default path calls the Mistral API via `MistralService`; a configured Gemini model instead uses `GeminiService`. The selected provider applies exponential backoff retry on rate limits (up to `LLM_MAX_RETRIES` times), parses the response JSON (repairing with `jsonrepair` if needed), and validates against `LlmResponseSchema`.
+`RoutingLLMService` resolves the task-specific providers and models once in its constructor from server-side configuration, then dispatches at send time. Both model settings default to `mistral-small-latest`, so the default path calls the Mistral API via `MistralService`; a configured Gemini model instead uses `GeminiService`. The selected provider retries retryable errors with exponential backoff (up to `LLM_MAX_RETRIES` times), parses the response JSON (repairing with `jsonrepair` if needed), and validates against `LlmResponseSchema`.
 
 ### 7. Response Delivery
 
-Validated `LlmResponse` is returned as HTTP 200 JSON. Error responses use appropriate HTTP codes: 400 (validation), 401 (auth), 429 (rate limit), 500 (LLM failures), 503 (resource exhausted).
-
-## Error Handling Flow
-
-```mermaid
-graph TD
-    A[Invalid Input] --> B[ZodValidationPipe]
-    B --> C[ValidationException]
-    C --> D[HttpExceptionFilter]
-    D --> E[400 Bad Request]
-
-    F[LLM API Call] --> G{Error Type?}
-    G -->|Rate Limit| H[Exponential Backoff Retry]
-    G -->|Resource Exhausted| I[503 Service Unavailable]
-    G -->|Other Error| J[500 Internal Server Error]
-```
+Validated `LlmResponse` is returned as HTTP 200 JSON. Failures map to an HTTP error response; see [LLM Error Handling](../llm/error-handling.md) and [Error Codes](../api/error-codes.md) for the full rules and wire format.
 
 ---
 

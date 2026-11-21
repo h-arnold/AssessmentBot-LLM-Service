@@ -1,22 +1,20 @@
 # Error Codes
 
-This document details the error handling mechanisms and HTTP status codes returned by the Assessment Bot LLM Service API, including error formats, common scenarios, and troubleshooting guidance.
-
 ## Overview
 
-The API uses a comprehensive error handling system built on NestJS's exception filters. All errors are standardised into a consistent JSON format with detailed information to help developers understand and resolve issues quickly.
+All API errors share one JSON shape, produced by the global `HttpExceptionFilter`.
 
 ## Standard Error Response Format
 
-All API errors follow this standardised structure:
+Every error response uses this envelope:
 
 ```typescript
 {
-  statusCode: number,        // HTTP status code
-  timestamp: string,         // ISO 8601 timestamp when error occurred
-  path: string,             // Request path that caused the error
-  message: string,          // Human-readable error description
-  errors?: ZodErrorDetail[] // Optional detailed validation errors
+  statusCode: number, // HTTP status code
+  timestamp: string,  // ISO 8601 timestamp when error occurred
+  path: string,       // Request path that caused the error
+  message: string,    // Human-readable error description
+  errors?: Array<{ message: string; path?: (string | number)[] }> // Validation failures only
 }
 ```
 
@@ -30,12 +28,7 @@ All API errors follow this standardised structure:
   "message": "Validation failed",
   "errors": [
     {
-      "code": "too_small",
-      "minimum": 1,
-      "type": "string",
-      "inclusive": true,
-      "exact": false,
-      "message": "String must contain at least 1 character(s)",
+      "message": "<Zod issue message>",
       "path": ["reference"]
     }
   ]
@@ -48,7 +41,7 @@ All API errors follow this standardised structure:
 
 Successful requests return appropriate 200-level status codes:
 
-- `200 OK`: Successful GET requests (health check, auth check)
+- `200 OK`: Successful GET requests (health checks)
 - `201 Created`: Successful assessment creation
 
 ### 400 - Bad Request
@@ -69,7 +62,7 @@ For IMAGE task types with invalid image data, such as exceeding size limits or u
 
 For IMAGE tasks, each field must be a base64 Data URI string. A `Buffer` or a Buffer-like JSON object fails schema validation.
 
-### 401 - Unauthorized
+### 401 - Unauthorised
 
 Returned when authentication fails or is missing.
 
@@ -85,49 +78,28 @@ Returned when the request body exceeds the fixed 5 MiB JSON body cap, which is s
 
 ### 429 - Too Many Requests
 
-Returned when rate limiting thresholds are exceeded. Rate-limited responses include a `Retry-After` header indicating when requests can resume.
+Returned when rate limiting thresholds are exceeded. Only throttler-generated 429s include a `Retry-After` header; provider-originated 429s from the upstream LLM carry the standard body only. See [Rate Limiting](./rate-limiting.md).
 
 ### 500 - Internal Server Error
 
 Returned for unexpected server-side errors. In production, the message is sanitised to "Internal server error" to avoid leaking sensitive details.
 
+### 502 - Bad Gateway
+
+Returned when an upstream LLM provider fails: an upstream server error, a network failure, or invalid provider credentials. Transient failures are retried before the error reaches the client. [LLM Error Handling](../llm/error-handling.md) owns the authoritative error-class table.
+
 ### 503 - Service Unavailable
 
-Returned when a downstream service, such as the LLM, is temporarily unavailable or has exhausted its resources. This indicates a temporary state, and the request may be retried later.
+Returned when the LLM provider's resources or quota are exhausted. This is a temporary state; the request may be retried later.
 
 ## Validation Error Details
 
-### Zod Error Structure
+Validation failures populate the `errors` array. Full `message`/`path` detail is returned outside production; production returns only the generic `Invalid input` message. The exact shape, defined by `ZodValidationPipe` (`src/common/zod-validation.pipe.ts`), is:
 
-When validation fails, the optional `errors` array contains detailed information about each validation failure:
+- Outside production: `{ message: string, path: (string | number)[] }[]` — one entry per Zod issue.
+- In production: `[{ message: 'Invalid input' }]` — no `path` is sent.
 
-```typescript
-{
-  code: string,              // Zod error code (e.g., "too_small", "invalid_type")
-  expected?: string,         // Expected type/value
-  received?: string,         // Actual received type/value
-  path: (string | number)[], // Path to the field that failed
-  message: string           // Human-readable error description
-}
-```
-
-### Common Validation Error Codes
-
-#### `invalid_type`
-
-The field has the wrong data type (e.g., `expected: "string", received: "number"`).
-
-#### `too_small`
-
-A string, number, or array is below the minimum required size/length.
-
-#### `invalid_enum_value`
-
-The provided value is not one of the allowed enum options (e.g., `taskType` is not "TEXT", "TABLE", or "IMAGE").
-
-#### `invalid_union`
-
-Discriminated union validation failed, meaning the combination of fields is incorrect for the specified `taskType`.
+Production masking of validation detail is applied by `ZodValidationPipe` when it builds the wire error; see [ZodValidationPipe](../modules/pipes.md#zodvalidationpipe). The [exception filter](../modules/filters.md) separately sanitises 5xx messages to `Internal server error` in production.
 
 ## Error Logging
 
@@ -141,9 +113,8 @@ The central `HttpExceptionFilter` logs all errors with appropriate severity leve
 
 ### Validation Errors (400)
 
-1.  Check the `errors` array in the response for specific field issues.
-2.  Verify data types and constraints against the API schema.
-3.  For `IMAGE` tasks, ensure each field is a base64 Data URI string that decodes to no more than 1 MiB and uses an allowed MIME type.
+1.  Check the `errors` array for the `message` and `path` of each issue; in production this is masked to `Invalid input`.
+2.  Verify data types and constraints against the [API schemas](./schemas.md).
 
 ### Authentication Errors (401)
 
@@ -152,10 +123,11 @@ The central `HttpExceptionFilter` logs all errors with appropriate severity leve
 
 ### Rate Limiting (429)
 
-1.  Check the `Retry-After` header for the required wait time.
+1.  For a throttler-generated 429, check the `Retry-After` header for the required wait time. Provider-originated 429s have no header.
 2.  Implement exponential backoff in client applications to handle retries gracefully.
 
-### Server Errors (500, 503)
+### Server Errors (500, 502, 503)
 
-1.  For a `503`, the issue is likely temporary. Retry the request after a short delay.
-2.  For a `500`, the issue is an unexpected server-side problem. Check server logs for detailed stack traces and error context.
+1.  For a `502`, an upstream LLM call failed. Retry transient failures with backoff; see [LLM Error Handling](../llm/error-handling.md).
+2.  For a `503`, the provider's quota or resources are exhausted. Retry after a short delay.
+3.  For a `500`, the issue is an unexpected server-side problem. Check server logs for detailed stack traces and error context.

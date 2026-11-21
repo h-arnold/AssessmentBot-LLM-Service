@@ -44,8 +44,8 @@ export const DEFAULT_API_KEY_PREFIX = 'abt_';
  * @property {number} THROTTLER_TTL - The time-to-live (in milliseconds) for rate-limiting windows.
  * @property {number} UNAUTHENTICATED_THROTTLER_LIMIT - The maximum number of requests for unauthenticated routes within the TTL window.
  * @property {number} AUTHENTICATED_THROTTLER_LIMIT - The maximum number of requests for authenticated routes within the TTL window.
- * @property {number} LLM_BACKOFF_BASE_MS - The base backoff time in milliseconds for LLM rate limit retries.
- * @property {number} LLM_MAX_RETRIES - The maximum number of retry attempts for LLM rate limit errors.
+ * @property {number} LLM_BACKOFF_BASE_MS - The base backoff time in milliseconds for retryable LLM errors.
+ * @property {number} LLM_MAX_RETRIES - The maximum number of retry attempts for retryable LLM errors.
  * @property {string} [LOG_FILE] - The optional path to a log file for E2E testing.
  */
 export const configObjectSchema = z.object({

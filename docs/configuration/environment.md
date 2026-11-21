@@ -28,7 +28,7 @@ Omit any of these to accept the default.
 | `APP_VERSION`     | Optional version override for consumers of `ConfigService`                                | Any string. No default — `undefined` when unset. Note: the `/health` endpoint reports the version from `package.json`, not this variable |
 | `API_KEY_PREFIX`  | Prefix every entry in `API_KEYS` must start with                                          | `[A-Za-z0-9_-]+`. Default `abt_`. Only change together with regenerating all keys                                                        |
 | `LOG_LEVEL`       | Logging verbosity                                                                         | `fatal` \| `error` \| `warn` \| `info` \| `debug` \| `verbose`. Default `info`                                                           |
-| `LOG_FILE`        | Writes logs to a file in addition to stdout. Intended for E2E runs                        | File path string. No default (unset)                                                                                                     |
+| `LOG_FILE`        | Writes logs to a file instead of stdout. Intended for E2E runs                            | File path string. No default (unset)                                                                                                     |
 | `LOG_LLM_CONTENT` | Includes raw LLM prompt/response content (may contain student-derived data) in debug logs | `true` / `1` → enabled, anything else → disabled. Default `false`                                                                        |
 
 ### Image uploads
@@ -38,8 +38,6 @@ Images must be base64 data URI strings and are limited to **1 MiB decoded per im
 | Variable                   | What it does                                          | Allowed values / default                                                |
 | -------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
 | `ALLOWED_IMAGE_MIME_TYPES` | Comma-separated MIME types accepted for image uploads | Comma-separated list. Default `image/png` (e.g. `image/png,image/jpeg`) |
-
-`MAX_IMAGE_UPLOAD_SIZE_MB` from earlier releases is no longer read — setting it has no effect, so remove it from existing `.env` files.
 
 ### Rate limiting
 
@@ -98,23 +96,8 @@ With a custom prefix (must match `API_KEY_PREFIX`):
 API_KEY_PREFIX=custom_ npm run generate:api-key
 ```
 
-To rotate keys, mint replacements, update `API_KEYS`, and restart the application. Note this is a breaking change from earlier releases, which accepted any alphanumeric string — existing unprefixed keys must be regenerated.
+To rotate keys, mint replacements, update `API_KEYS`, and restart the application.
 
 ## Example configuration
 
-```env
-# Provider API keys — each required only when a configured model routes to that provider
-GEMINI_API_KEY=your_gemini_api_key_here
-MISTRAL_API_KEY=your_mistral_api_key_here
-API_KEY_PREFIX=abt_
-API_KEYS=abt_<32-char-base64url-body>
-
-# Optional (showing defaults)
-NODE_ENV=development
-PORT=3000
-LOG_LEVEL=info
-DEFAULT_TEXT_TABLE_MODEL=mistral-small-latest
-DEFAULT_IMAGE_MODEL=mistral-small-latest
-TEXT_REASONING_EFFORT=low
-IMAGE_REASONING_EFFORT=high
-```
+Copy [.env.example](../../.env.example) as the starting point for `.env`, and [.test.env.example](../../.test.env.example) for `.test.env`. Both files list the full set of sample values.

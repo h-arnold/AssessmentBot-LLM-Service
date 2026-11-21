@@ -4,7 +4,7 @@ Local development setup and daily workflows for the Assessment Bot LLM Service.
 
 ## Prerequisites
 
-- **Node.js 24** (24.15.0 or later, as specified in `package.json` engines)
+- **Node.js**: the version required by `engines.node` in `package.json`
 - **npm** (included with Node.js)
 - **Git**
 
@@ -15,7 +15,7 @@ git clone https://github.com/h-arnold/AssessmentBot-LLM-Service.git
 cd AssessmentBot-LLM-Service
 npm install
 cp .env.example .env         # Configure MISTRAL_API_KEY, API_KEYS, etc.
-cp .test.env.example .test.env  # Only needed for live E2E tests
+cp .test.env.example .test.env  # Optional override for any E2E run
 ```
 
 ## Development Server
@@ -51,6 +51,7 @@ npm run lint:british      # British English compliance
 Quality is enforced through a multi-layered approach:
 
 1. **Testing Pyramid**: Unit tests (isolated logic via Vitest) → Integration tests (module wiring via `TestingModule`) → E2E tests (full HTTP request-response via Supertest).
-2. **Automated Enforcement**: Pre-commit hooks (Husky + lint-staged) run ESLint, Prettier, and British English checks on staged files. The CI pipeline enforces the same checks plus TypeScript compilation and coverage thresholds on every pull request.
-3. **Security Scanning**: `npm audit` and GitHub Dependabot monitor dependency vulnerabilities. `eslint-plugin-security` catches unsafe patterns during static analysis.
-4. **API Documentation**: `@nestjs/swagger` generates an interactive OpenAPI spec from controllers and DTOs, keeping API docs synchronised with the implementation.
+2. **Automated Enforcement**: Pre-commit hooks (Husky + lint-staged) run ESLint, Prettier, and British English checks on staged files. CI runs ESLint, unit tests with coverage reporting, and mocked E2E tests on every pull request.
+3. **Security Scanning**: Dependabot monitors dependency updates; CodeQL and SonarQube run static analysis in separate workflows. `eslint-plugin-security` catches unsafe patterns during ESLint.
+
+Before pushing, run the full check set from [AGENTS.md §9](../../AGENTS.md).

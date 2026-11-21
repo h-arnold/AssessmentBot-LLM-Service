@@ -1,64 +1,28 @@
-# Testing Guide
+# Testing commands and architecture
 
-This document provides a concise overview of the testing strategy, tools, and practices for the Assessment Bot LLM Service project.
+Assessment Bot LLM Service uses Vitest with three projects: unit, mocked E2E and live E2E. Mocked E2E is the default and never calls a live provider; only `test:e2e:live` does.
 
-## Guiding Principles
+Follow test-driven development and use British English in every test.
 
-We follow a **test-driven development (TDD)** approach, prioritising security, reliability, and maintainability. All tests and documentation must use **British English**.
+## Commands
 
-## Running Tests
+| Command                 | Suite                                              |
+| ----------------------- | -------------------------------------------------- |
+| `npm run test:e2e`      | Mocked E2E. An ESM shim intercepts provider calls. |
+| `npm run test:e2e:live` | Live E2E. Calls the real provider APIs.            |
 
-| Command                 | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `npm run test`          | Run all unit and integration tests (`*.spec.ts`).        |
-| `npm run test:watch`    | Run unit/integration tests in watch mode.                |
-| `npm run test:cov`      | Run unit/integration tests and generate coverage.        |
-| `npm run test:e2e`      | Run mocked E2E tests with the LLM mock shim enabled.     |
-| `npm run test:e2e:live` | Run live E2E tests against the configured provider APIs. |
-| `npm run test:debug`    | Debug tests with the Node.js inspector.                  |
+The remaining commands (unit, watch, coverage and debug) are listed in [`package.json`](../../package.json).
 
-## Test Architecture
+## Suite layout
 
-Our strategy uses two primary types of tests:
+[`vitest.config.ts`](../../vitest.config.ts) defines three projects:
 
-### 1. Unit & Integration Tests
+- **Unit and integration**: `src/**/*.spec.ts` and `test/**/*.unit-spec.ts`. Tests are co-located with source. See [Unit test patterns and fixtures](./PRACTICAL_GUIDE.md).
+- **E2E**: `test/**/*.e2e-spec.ts`. Live specs (`*-live.e2e-spec.ts`) are removed by the project's `exclude` pattern. See [E2E environment and harness](./E2E_GUIDE.md).
+- **Live E2E**: the two `*-live.e2e-spec.ts` files under `test/`.
 
-- **Location**: Co-located with source code (`src/**/*.spec.ts`).
-- **Purpose**: To test individual components (services, pipes, DTOs) in isolation (unit tests) or in combination with other internal dependencies (integration tests).
-- **Framework**: [Vitest](https://vitest.dev/) and [NestJS Testing](https://docs.nestjs.com/testing) utilities.
-- **Details**: For detailed examples and patterns, see [PRACTICAL_GUIDE.md](./PRACTICAL_GUIDE.md).
+## Test environment and secrets
 
-### 2. End-to-End (E2E) Tests
+Mocked runs need no provider keys. Live keys come from `.test.env`, which overrides the defaults that [`startApp`](../../test/utils/app-lifecycle.ts) sets; see [E2E environment and harness](./E2E_GUIDE.md) for the live-key setup.
 
-- **Location**: In the root `test/` directory (`*.e2e-spec.ts`).
-- **Purpose**: To test complete API workflows from the perspective of a client, covering HTTP endpoints, authentication, and error handling.
-- **Framework**: [Vitest](https://vitest.dev/) and [Supertest](https://github.com/ladjs/supertest).
-- **Details**: For setup and environment details, see the [E2E_GUIDE.md](./E2E_GUIDE.md).
-
-## Core Concepts
-
-### Environment & Configuration
-
-Test environments are designed to be consistent and isolated.
-
-- **Configuration**: Tests are configured via `vitest.config.ts` with a project-based approach (unit, mocked E2E, and live E2E suites).
-- **Environment Variables**: Test-specific environment variables are hardcoded in `test/utils/app-lifecycle.ts` to ensure consistency. This simplifies setup and avoids flaky tests.
-- **Sensitive Keys**: Live E2E tests call real provider APIs. Provide the key for each provider used by the live suite in a `.test.env` file in the project root:
-  ```
-  GEMINI_API_KEY=your_real_api_key_here
-  MISTRAL_API_KEY=your_real_api_key_here
-  ```
-  This file is git-ignored and is the **only** place where environment-specific secrets should be managed for testing. Mocked E2E runs do not call the live APIs.
-- **API Rate Limiting**: E2E tests are configured to avoid hitting upstream provider rate limits:
-  - Enhanced retry settings: `LLM_BACKOFF_BASE_MS=2000` (2s), `LLM_MAX_RETRIES=5`
-  - Strategic delays between API calls (2s for most tests, 600ms for throttler tests)
-  - Sequential rather than parallel execution of tests that call an upstream provider
-  - These settings are automatically applied and don't require manual configuration
-
-### Test Data & Mocking
-
-- **Static Data**: Reusable test data is stored in `test/data/` (JSON) and `test/ImageTasks/` (images).
-- **Dynamic Data**: Factory classes (e.g., `TestDataFactory`) are used to generate DTOs and other objects for tests.
-- **Mocking**: External dependencies, particularly the `LlmService`, are mocked in unit and integration tests using `vi.fn()`. Mocked E2E tests use an ESM preload shim (see `E2E_GUIDE.md`) to intercept Gemini calls without touching the live API. The shim (`test/utils/llm-mock.mjs`) is injected via `--import` and returns deterministic LLM responses.
-
-For detailed implementation patterns for data and mocking, see [PRACTICAL_GUIDE.md](./PRACTICAL_GUIDE.md).
+Rate-limit settings for E2E tests and the mock shim are described in [E2E environment and harness](./E2E_GUIDE.md). Fixture locations and loading are described in [Unit test patterns and fixtures](./PRACTICAL_GUIDE.md).

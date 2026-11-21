@@ -20,14 +20,14 @@ LOG_LEVEL=debug    # Development — verbose logging with pino-pretty
 LOG_LEVEL=info     # Production — structured JSON logs
 ```
 
-Available levels (from most to least verbose): `trace`, `debug`, `info`, `warn`, `error`, `fatal`.
+Available levels (from most to least verbose): `verbose`, `debug`, `info`, `warn`, `error`, `fatal`. See [Environment Variables](../configuration/environment.md).
 
-> **Note:** Raw LLM prompt and response content (which may contain student-derived data) is gated behind the `LOG_LLM_CONTENT` env var. Even with `LOG_LEVEL=debug`, this content will not appear unless `LOG_LLM_CONTENT=true` is also set.
+> **Note:** Raw LLM prompt and response content (which may contain student-derived data) is gated behind the `LOG_LLM_CONTENT` env var. Even at `debug` or `verbose` level, this content appears only when `LOG_LLM_CONTENT=true` is also set.
 
 ## Viewing Logs
 
 - **Development**: `npm run start:dev` outputs pretty-printed logs via `pino-pretty` automatically.
-- **Production/Structured**: Set `LOG_FILE=./app.log` to write JSON logs to a file. Parse with `jq`:
+- **E2E file output**: Set `LOG_FILE=./app.log` to write JSON logs to a file during E2E runs (no stdout output). Parse with `jq`:
   ```bash
   cat app.log | jq 'select(.level == "error")'
   ```
@@ -38,10 +38,11 @@ All HTTP requests are automatically logged by the global `nestjs-pino` middlewar
 
 ```bash
 LOG_LEVEL=debug                            # Enable verbose logging
-LOG_LLM_CONTENT=true                       # Also log raw LLM prompt/response content (requires LOG_LEVEL=debug; off by default to prevent persisting student-derived PII)
-E2E_TESTING=true                           # Enable E2E test mode (mocks external calls)
+LOG_LLM_CONTENT=true                       # Gate for raw LLM content
 NODE_OPTIONS="--inspect=0.0.0.0:9229"      # Enable Node.js inspector
 ```
+
+The `LOG_LLM_CONTENT` gate is described in [Log Level Configuration](#log-level-configuration).
 
 ## Debugging E2E Tests
 
@@ -53,6 +54,8 @@ npx vitest run --project e2e test/specific.e2e-spec.ts  # Single test file
 npm run test:e2e:live -- --verbose   # Live E2E tests (requires real provider API keys)
 ```
 
+`npm run test:e2e` sets `E2E_MOCK_LLM` for you in [vitest.e2e.setup.ts](../../vitest.e2e.setup.ts).
+
 ## Health Check
 
 The application exposes a health check endpoint for quick status verification:
@@ -61,5 +64,5 @@ The application exposes a health check endpoint for quick status verification:
 curl http://localhost:3000/health
 
 # Expected response:
-# { "status": "ok", "version": "0.1.0", "timestamp": "...", "systemInfo": { ... } }
+# { "status": "ok", "version": "<package.json version>", "timestamp": "...", "systemInfo": { ... } }
 ```

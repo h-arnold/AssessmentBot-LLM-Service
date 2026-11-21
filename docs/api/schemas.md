@@ -1,7 +1,5 @@
 # Request & Response Schemas
 
-This document details the data schemas for the Assessment Bot LLM Service API, validated using Zod.
-
 ## Assessment Request (`/v1/assessor`)
 
 The request schema is a discriminated union based on the `taskType` field.
@@ -27,6 +25,7 @@ The request schema is a discriminated union based on the `taskType` field.
 - `reference`: `string` (non-empty base64 Data URI)
 - `template`: `string` (non-empty base64 Data URI)
 - `studentResponse`: `string` (non-empty base64 Data URI)
+- `systemPromptFile`: `string` (optional) — accepted by the schema but ignored for `IMAGE` tasks; the system prompt is selected from the task type.
 
 **`IMAGE` Task Requirements:**
 

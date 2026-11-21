@@ -4,43 +4,21 @@ This guide covers a typical production environment configuration for the Assessm
 
 ## Server Requirements
 
-- **OS**: A modern Linux distribution (e.g., Ubuntu 20.04+)
+- **OS**: A modern Linux distribution
 - **CPU**: 2+ cores
 - **RAM**: 2GB+
 - **Storage**: 20GB+ SSD
-- **Software**: Docker (v20.10+) and Docker Compose (v2.0+)
+- **Software**: Docker (verify with `docker --version`)
 
 ## Server Setup
 
 This section provides an example setup on a Linux server.
 
-### 1. Install Dependencies
+### 1. Install Docker and Configure the Host
 
-Install Docker and Docker Compose on your server.
+Meet the [Server Requirements](#server-requirements), install Docker using the [official Docker installation guide](https://docs.docker.com/engine/install/), and allow ports 22 and 3000 through your host firewall. Confirm the install with `docker --version`.
 
-```bash
-# Example for Ubuntu:
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-sudo usermod -aG docker $USER
-
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-```
-
-### 2. Configure Firewall
-
-Allow traffic on standard web and SSH ports.
-
-```bash
-# Example for UFW on Ubuntu:
-sudo ufw enable
-sudo ufw allow 22    # SSH
-sudo ufw allow 80    # HTTP
-sudo ufw allow 443   # HTTPS
-```
-
-### 3. Deploy Application
+### 2. Deploy Application
 
 1.  **Clone the repository:**
 
@@ -58,104 +36,66 @@ sudo ufw allow 443   # HTTPS
     # Add GEMINI_API_KEY only when selecting a Gemini model.
     ```
 
+    Set `NODE_ENV=production` in `.env`. The example ships `NODE_ENV=development` and the container passes the file with `--env-file`, so its value overrides the schema default; see [Environment Configuration](../configuration/environment.md).
+
     Generate secure API keys using the provided generator, e.g. `npm run generate:api-key`.
     This produces a key in the strict format (`abt_` prefix + 32 base64url characters) required by the application.
 
-3.  **Configure the domain:**
-    Update the `Caddyfile` with your domain name.
-    ```caddy
-    your-domain.com {
-        reverse_proxy app:3000
-        log {
-            output file /var/log/caddy/access.log
-            format single_field common_log
-        }
-    }
-    ```
-    Ensure your domain's DNS records point to the server's IP address.
+### 3. Start the Application
 
-### 4. Start the Application
-
-Use Docker Compose to build and start all services.
+Run the published production image as a single container, using the `.env` file you created:
 
 ```bash
-# Start all services in detached mode
-docker-compose up -d --build
-
-# Verify all containers are running
-docker-compose ps
+docker run -d --name assessmentbot --restart unless-stopped -p 3000:3000 --env-file .env ghcr.io/h-arnold/assessmentbot-llm-service:latest
 ```
 
-### 5. Verify the Deployment
+Verify the container is running:
 
-Check that the application is accessible and running correctly.
+```bash
+docker ps
+```
+
+### 4. Verify the Deployment
+
+Check that the application is accessible and running correctly; [Monitoring & Observability](monitoring.md) describes the health endpoint. The [API reference](../api/API_Documentation.md) defines the assessment request body used below.
 
 ```bash
 # Test health endpoint (should return HTTP 200)
-curl -I https://your-domain.com/health
+curl http://<server-ip>:3000/health
 
-# Test an API endpoint with a valid key
-curl -H "Authorization: Bearer your_api_key" \
+# Submit an assessment; request.json must contain a valid payload (see the API reference)
+curl -X POST -H "Authorization: Bearer your_api_key" \
      -H "Content-Type: application/json" \
-     -d '''{"taskType":"TEXT","reference":"test","template":"test","studentResponse":"test"}''' \
-     https://your-domain.com/v1/assessor
+     -d @request.json \
+     http://<server-ip>:3000/v1/assessor
 ```
+
+The service serves plain HTTP on port 3000. TLS termination is the operator's responsibility; if you need HTTPS, run a reverse proxy of your choice.
 
 ## Post-Installation
 
 ### Run as a System Service (Optional)
 
-To ensure the application starts automatically on server boot, you can create a `systemd` service file.
-
-1.  Create `/etc/systemd/system/assessmentbot.service`:
-
-    ```ini
-    [Unit]
-    Description=AssessmentBot Backend
-    Requires=docker.service
-    After=docker.service
-
-    [Service]
-    Type=oneshot
-    RemainAfterExit=yes
-    WorkingDirectory=/opt/assessmentbot
-    ExecStart=/usr/local/bin/docker-compose up -d
-    ExecStop=/usr/local/bin/docker-compose down
-    TimeoutStartSec=0
-
-    [Install]
-    WantedBy=multi-user.target
-    ```
-
-2.  Enable and start the service:
-    ```bash
-    sudo systemctl daemon-reload
-    sudo systemctl enable --now assessmentbot.service
-    ```
+The container uses the `unless-stopped` restart policy. To manage it with the host, create an `assessmentbot.service` unit whose start command is `docker start assessmentbot` and whose stop command is `docker stop assessmentbot`. See the [`systemd` service documentation](https://www.freedesktop.org/software/systemd/man/systemd.service.html) for the unit format and `systemctl` commands.
 
 ### Log Management
 
-It is recommended to set up log rotation for the container logs to prevent them from consuming excessive disk space. You can use tools like `logrotate`.
+Configure log rotation for container logs to prevent excessive disk use; see your distribution's [`logrotate` documentation](https://linux.die.net/man/8/logrotate).
 
 ### Security Hardening
 
-- **Host Security**: Secure your host server by using SSH key authentication, disabling password-based SSH login, and keeping the system updated.
-- **Container Resources**: To prevent a single container from consuming all server resources, you can define resource limits in the `docker-compose.yml` file.
-- **API Keys**: Store API keys securely, rotate them periodically, and use different keys for different clients or environments.
+Store API keys securely and rotate them periodically. For host hardening, follow your distribution's guidance on SSH key authentication and disabling password login.
 
 ### Updating the Application
 
-To update the application to the latest version:
+To update the application to the latest image, pull it and recreate the container:
 
 ```bash
 cd /opt/assessmentbot
 
-# Pull the latest code and Docker images
-git pull
-docker-compose pull
-
-# Restart the services with the new images
-docker-compose up -d --build
+docker pull ghcr.io/h-arnold/assessmentbot-llm-service:latest
+docker rm -f assessmentbot
+docker run -d --name assessmentbot --restart unless-stopped -p 3000:3000 --env-file .env ghcr.io/h-arnold/assessmentbot-llm-service:latest
 
 # Clean up old, unused images
 docker image prune -f

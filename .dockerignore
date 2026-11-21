@@ -44,7 +44,6 @@ docs/**/*.md
 .test.env.example
 .env.example
 .env.prod
-Caddyfile
 eslint.config.js
 # nest-cli.json # Needed for build
 sonar-project.properties

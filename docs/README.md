@@ -16,6 +16,7 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 - [Code Style Guide](development/code-style.md) - Coding standards and conventions
 - [Documentation Style Guide](development/documentation-style-guide.md) - Writing rules for canonical docs and agent instructions
 - [Git Workflow](development/git-workflow.md) - Branching strategy and commit conventions
+- [Linter Overrides](development/linter-overrides.md) - Authorised eslint-disable overrides
 
 ### Architecture & Design
 
@@ -34,15 +35,24 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 - [Error Codes](api/error-codes.md) - API error handling and codes
 - [Rate Limiting](api/rate-limiting.md) - API rate limiting details
 
+### LLM
+
+- [LLM Error Handling](llm/error-handling.md) - Error classification, retries and provider handling
+
 ### Configuration
 
 - [Environment Variables](configuration/environment.md) - Complete environment configuration guide
 
+### Templates
+
+- [Specification Template](SPEC_TEMPLATE.md) - Template for feature specifications
+- [Action Plan Template](ACTION_PLAN_TEMPLATE.md) - Template for TDD-first delivery plans
+
 ### Testing
 
-- [Testing Guide](testing/README.md) - The central hub for all testing information.
-- [Practical Testing Guide](testing/PRACTICAL_GUIDE.md) - Code examples for unit tests, mocking, and data management.
-- [E2E Testing Guide](testing/E2E_GUIDE.md) - Specific instructions for running and creating E2E tests.
+- [Testing Guide](testing/README.md) - The central hub for all testing information
+- [Practical Testing Guide](testing/PRACTICAL_GUIDE.md) - Service-specific unit test patterns and fixture loading
+- [E2E Testing Guide](testing/E2E_GUIDE.md) - Specific instructions for running and creating E2E tests
 
 ### Deployment
 
@@ -57,7 +67,8 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 
 ### Prompt System
 
-- [Prompt System Documentation](prompts/README.md) - Documentation on the prompt system architecture, usage, and extension.
+- [Prompt System Documentation](prompts/README.md) - Documentation on the prompt system architecture, usage, and extension
+- [Prompt Templates](prompts/templates.md) - Prompt template patterns and variables
 
 ### Module Documentation
 
@@ -82,14 +93,17 @@ Use this index to find documentation for the Assessment Bot LLM Service.
 - [Guards](modules/guards.md) - Route protection and authentication
 - [Utilities](modules/utilities.md) - Shared utility functions
 
-## Documentation Standards
+### Release Notes
 
-Documentation follows the [Documentation Style Guide](development/documentation-style-guide.md),
-which owns the rules for audience, writing style, structure, ownership and audit scope. All
-documentation uses British English and Markdown.
-
-## Contributing to Documentation
-
-Follow the [Documentation Style Guide](development/documentation-style-guide.md) for the rules
-that apply to documentation, and the [Contributing Guide](../CONTRIBUTING.md) for the
-contribution workflow.
+- [v0.1.6](../release-notes/v0.1.6.md)
+- [v0.1.7](../release-notes/v0.1.7.md)
+- [v0.1.8](../release-notes/v0.1.8.md)
+- [v0.1.9](../release-notes/v0.1.9.md)
+- [v0.1.10](../release-notes/v0.1.10.md)
+- [v0.1.11](../release-notes/v0.1.11.md)
+- [v0.1.12](../release-notes/v0.1.12.md)
+- [v0.2.0](../release-notes/v0.2.0.md)
+- [v0.3.0](../release-notes/v0.3.0.md)
+- [v0.4.0](../release-notes/v0.4.0.md)
+- [v0.4.1](../release-notes/v0.4.1.md)
+- [v0.6.0](../release-notes/v0.6.0.md)

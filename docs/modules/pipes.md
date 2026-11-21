@@ -8,8 +8,8 @@ This module provides custom NestJS pipes for input validation and transformation
 
 A pipe that validates incoming data against a Zod schema. Throws `BadRequestException` on failure:
 
-- In development, returns detailed Zod error information (field paths, expected types)
-- In production (`NODE_ENV=production`), returns a generic "Invalid input" message to prevent information leakage
+- Outside production, returns one `{ message, path }` entry per Zod issue
+- In production (`NODE_ENV=production`), returns `[{ message: 'Invalid input' }]` to prevent information leakage
 - If no schema is provided, passes the input through unchanged
 
 **Usage:**

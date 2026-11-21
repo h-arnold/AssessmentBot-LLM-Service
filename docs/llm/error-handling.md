@@ -4,17 +4,14 @@
 
 This document describes the centralised LLM error handling library at
 `src/common/errors/`. The library provides a consistent, typed error hierarchy
-that all LLM provider implementations (Gemini, Mistral, future OpenAI,
-Anthropic, etc.)
-can map their native SDK errors into. It enables the base `LLMService` retry
-logic to work against a standard `retryable` contract and gives the HTTP layer
-(the global `HttpExceptionFilter`) a single point of recognition for LLM-domain
-errors.
+that the two shipped LLM providers (Gemini and Mistral) map their native SDK
+errors into. It enables the base `LLMService` retry logic to work against a
+standard `retryable` contract. The global `HttpExceptionFilter` turns any thrown
+`LlmError` into an HTTP response through the generic `HttpException` branch.
 
-**Location:** `src/common/errors/` — each error class is defined in its own module.
-**Base class:** `LlmError` (abstract, extends `HttpException`).
-**Consumer imports:** `import { LlmError } from '../common/errors/llm-error.base.js';` and
-`import { ProviderServerError } from '../common/errors/provider-server.error.js';`
+- **Location:** `src/common/errors/` — each error class is defined in its own module.
+- **Base class:** `LlmError` (abstract, extends `HttpException`).
+- **Consumer imports:** `import { LlmError } from '../common/errors/llm-error.base.js';` and `import { ProviderServerError } from '../common/errors/provider-server.error.js';`
 
 ---
 
@@ -38,8 +35,7 @@ errors.
   provider is unreachable or misconfigured." They are distinguished by
   `providerName`, the error class name in logs, and the error message.
 - `ContentFilteredError` and `ContextLengthExceededError` both produce 400,
-  which matches what upstream providers (Gemini, OpenAI) return for these
-  conditions.
+  which matches the status upstream providers return for these conditions.
 - `AuthenticationError` produces 502 rather than 401 because the authentication
   failure is between our service and the upstream provider, not between the API
   consumer and our service.
@@ -59,11 +55,10 @@ or wrong shared-option types) throws a raw `ZodError` before any provider is
 contacted. `RoutingLLMService.send()` and the base `LLMService.send()` consume
 the branded validated payload and do not re-parse it.
 
-This is separate from the existing `ZodError` bypass inside `LLMService.send()`.
-A `ZodError` raised while validating the provider **response** (`LlmResponseSchema`)
-is still re-thrown directly, skipping `mapError()` and retry, exactly as before.
-Neither path produces an `LlmError` subclass; the provider error-classification
-contract above is unchanged.
+This is separate from the `ZodError` bypass inside `LLMService.send()`. A
+`ZodError` raised while validating the provider **response** (`LlmResponseSchema`)
+is re-thrown directly, bypassing `mapError()` and retry. Neither path produces an
+`LlmError` subclass; both remain outside the error-classification contract above.
 
 ---
 
@@ -78,8 +73,11 @@ property. This value is embedded in every `LlmError` instance created by the
 provider (including fallback `LlmServiceError` instances from the base class).
 
 ```typescript
-protected readonly providerName = 'openai'; // or 'anthropic', etc.
+protected readonly providerName = '<provider-id>';
 ```
+
+Replace `<provider-id>` with the new provider's identifier. Each new provider
+also supplies its own probe configuration (see below).
 
 ### 2. Implement `mapError()`
 
@@ -107,11 +105,13 @@ Your implementation should:
 ### 3. Supply provider-specific probes to the shared `classifyLlmError` helper
 
 All classification logic lives in the shared helper
-`src/llm/llm-error-mapper.ts` (`classifyLlmError`). A provider does **not**
-re-implement the orchestration; instead it supplies a
-`LlmErrorMapperProbes` configuration object (see the `LlmErrorMapperProbes`
-interface in that file) describing its SDK's error shape, and `mapError()`
-delegates:
+`src/llm/llm-error-mapper.ts` (`classifyLlmError`), together with the exported
+`LlmErrorMapperProbes` interface and the `normaliseStatusCode()` utility. The
+[priority order, retryability and 4xx/5xx mapping](#classification-priority-order-rules)
+are implemented once inside `classifyLlmError`. A provider does **not**
+re-implement the orchestration; it supplies an `LlmErrorMapperProbes`
+configuration object describing its SDK's error shape and delegates from
+`mapError()`:
 
 ```typescript
 protected mapError(error: unknown): LlmError | undefined {
@@ -124,8 +124,8 @@ The probe configuration contains:
 - `providerName` — embedded in every produced `LlmError`.
 - `extractStatusCode(error)` — returns a numeric HTTP status from the SDK's
   status-bearing fields (e.g. `error.status`, `error.statusCode`,
-  `error.code`, `error.response.status`). Use the exported
-  `normaliseStatusCode()` utility to coerce string values to numbers.
+  `error.code`, `error.response.status`). Use `normaliseStatusCode()` to
+  coerce string values to numbers.
 - `hasStringStatus(error, value)` — case-insensitive string-status match
   (e.g. `'RESOURCE_EXHAUSTED'`). Return `false` if the SDK has no string-status
   convention (as Mistral does).
@@ -138,8 +138,9 @@ The probe configuration contains:
   that also exist as `LlmError` subclasses (e.g. Mistral's `InvalidRequestError`
   is excluded from its probe's list — see the Mistral subsection below).
 
-This design means the priority order, retryability, and 4xx/5xx mapping remain
-identical across providers; only the SDK-specific shape probing differs.
+The two shipped consumers are `GeminiService` (`GEMINI_PROBES`) and
+`MistralService` (`MISTRAL_PROBES`). Neither re-implements the shared helpers;
+see their spec files and `llm-error-mapper.spec.ts` for coverage.
 
 ### 4. Write unit tests
 
@@ -165,8 +166,8 @@ When a single error matches multiple patterns, the following priority order
 5. **ContextLengthExceededError** — 400 with context-length message.
 6. **InvalidRequestError** — any 4xx HTTP status not matched by rules 1–5.
    **Any unrecognised 4xx maps to `InvalidRequestError`** (not `undefined`).
-   This is a deliberate decision (#11): returning `undefined` for a 4xx would
-   regress the provider-returned 4xx to a 500 (`LlmServiceError`).
+   Returning `undefined` for a 4xx would regress the provider-returned 4xx to a
+   500 (`LlmServiceError`).
 7. **ProviderServerError** — any 5xx HTTP status. Beats network-style message
    patterns (rule 8) when an HTTP status is extractable.
 8. **NetworkError** — `Error` objects with a network-failure message pattern
@@ -185,31 +186,14 @@ When a single error matches multiple patterns, the following priority order
 - `ContentFilteredError` beats `ContextLengthExceededError` when a single
   message matches both patterns (e.g. `"content safety filter blocked: context
 length"`).
-- The non-`Error`-object guard (returning `undefined` for non-object inputs) is
-  a provider-implementation choice (Gemini v1 does it); the abstract contract
-  does not require it. A provider that throws on `null` instead of returning
-  `undefined` is still spec-compliant — the base class `mapError()` try/catch
-  is the safety net.
+- The non-object guard is applied centrally by `classifyLlmError` for every
+  provider: it returns `undefined` for `null`, falsy and non-object inputs.
 
 ---
 
-## 5xx-Retryable Behaviour Change (Decision #10)
+## Retryability of Server Errors
 
-**This is an intentional behaviour change from earlier versions.**
-
-- **Before:** Any non-429 upstream error (including HTTP 500, 502, 503 from the
-  provider) caused `LLMService.send()` to fail fast after a single attempt and
-  throw a generic `Error` with HTTP 500.
-- **After:** `ProviderServerError` (HTTP 502, `retryable = true`) and
-  `NetworkError` (HTTP 502, `retryable = true`) are now retried up to
-  `LLM_MAX_RETRIES` attempts with exponential backoff. The final thrown error
-  carries HTTP 502 (not 500).
-
-**Impact:** Transient upstream 5xx failures are now handled by retry-with-
-backoff, which is appropriate for these error types. From an API consumer's
-perspective, the response status code for upstream 5xx errors changes from 500
-to 502. The error type changes from a generic `Error` to `ProviderServerError`
-or `NetworkError`.
+`ProviderServerError` and `NetworkError` are retryable. The base `LLMService.send()` loop retries them up to `LLM_MAX_RETRIES` with exponential backoff. Both reach the client as HTTP 502.
 
 ---
 
@@ -243,7 +227,7 @@ environments are assumed trusted. Do not add additional gating.
 
 ---
 
-## `originalError` Narrowing (Decision #12)
+## `originalError` Narrowing
 
 The `originalError` property on `LlmError` (and all subclasses) stores the
 caught `_sendInternal` error **only when it is an `Error` instance**. Non-
@@ -262,18 +246,11 @@ original, it uses `"LLM service error: Unknown error"`.
 
 ---
 
-## `mapError()` Non-Object Guard Framing
+## Non-Object Guard
 
-**The abstract contract does not require a non-object guard.** The abstract
-method signature `mapError(error: unknown): LlmError | undefined` permits a
-provider to throw on `null` or non-object inputs — the base class wraps the
-throw in `LlmServiceError` via its `mapError()` try/catch.
-
-In practice, both `GeminiService.mapError()` and `MistralService.mapError()`
-return `undefined` for non-object and falsy inputs (`if (!error || typeof error
-!== 'object') { return undefined; }`). This is a provider-implementation choice
-and is tested in `gemini.service.spec.ts` and `mistral.service.spec.ts`. Future
-providers may choose to throw instead; both behaviours are spec-compliant.
+The non-object guard lives in the shared cascade; see
+[Classification Priority-Order Rules](#classification-priority-order-rules).
+Every provider inherits it through its `mapError()` delegate.
 
 ---
 
@@ -287,67 +264,23 @@ providers may choose to throw instead; both behaviours are spec-compliant.
 - **Test priority conflicts:** Create errors that match multiple patterns (e.g.
   both `RESOURCE_EXHAUSTED` status and a rate-limit message string) to verify
   the highest-priority classification wins.
-- **Test non-object / `null` / `undefined` inputs:** Verify the provider's guard
-  (if any) returns `undefined` for these inputs.
+- **Test non-object / `null` / `undefined` inputs:** Verify `mapError()` returns
+  `undefined` for these inputs; the central guard in `classifyLlmError` handles
+  them before any probe runs (see
+  [Classification Priority-Order Rules](#classification-priority-order-rules)).
 - **Test the unrecognised-4xx default:** A 4xx error with no specific pattern
   match (e.g. `{ status: 404, message: 'Not Found' }`) must return
   `InvalidRequestError`, not `undefined`.
 
 ---
 
-## Worked Example: the shared `classifyLlmError` helper (canonical pattern)
-
-The classification logic is **shared**, not duplicated per provider. It lives
-in `src/llm/llm-error-mapper.ts` (`classifyLlmError`) together with the exported
-`LlmErrorMapperProbes` interface and the `normaliseStatusCode()` utility. The
-priority order, retryability, and 4xx/5xx mapping in "Classification
-Priority-Order Rules" are implemented **once** inside `classifyLlmError`.
-
-Each provider supplies only a `LlmErrorMapperProbes` configuration object and
-delegates from its `mapError()`:
-
-```typescript
-import { classifyLlmError, type LlmErrorMapperProbes } from './llm-error-mapper.js';
-
-protected mapError(error: unknown): LlmError | undefined {
-  return classifyLlmError(MY_PROBES, error);
-}
-```
-
-`classifyLlmError` performs (in priority order, highest first):
-`ResourceExhaustedError` → `RateLimitError` → `AuthenticationError` →
-`ContentFilteredError` → `ContextLengthExceededError` → `InvalidRequestError`
-(any unrecognised 4xx, decision #11) → `ProviderServerError` (any 5xx) →
-`NetworkError` (no status + network/`isHttpClientError` match) → `undefined`.
-
-The provider-supplied probes describe only the SDK-specific shape:
-
-- `extractStatusCode(error)` — probes the SDK's status-bearing fields, using
-  `normaliseStatusCode()` to coerce strings to numbers.
-- `hasStringStatus(error, value)` — case-insensitive string-status match (e.g.
-  `'RESOURCE_EXHAUSTED'`). Return `false` when the SDK has no string-status
-  convention (as Mistral does).
-- `networkPattern` — a shared `RegExp` (`ECONNREFUSED|ETIMEDOUT|ECONNRESET|
-ENOTFOUND|fetch failed|network`).
-- `isHttpClientError(error)` — optional; matches transport-layer subclass
-  names. See the Mistral subsection for the name-collision caveat.
-
-`GeminiService` (`GEMINI_PROBES`) and `MistralService` (`MISTRAL_PROBES`) are
-the two consumers; neither re-implements `extractStatusCode`/`hasStringStatus`/
-`isResourceExhausted`/`isRateLimit`/`buildError`/`extractMessage` — those live
-only in the shared helper. See `src/llm/llm-error-mapper.ts` and the
-provider spec files (`gemini.service.spec.ts`, `mistral.service.spec.ts`, and
-the synthetic-probe suite `llm-error-mapper.spec.ts`) for the complete
-implementation and coverage.
-
----
-
 ## Mistral Provider
 
-`MistralService` (`src/llm/mistral.service.ts`) is the second routed provider.
-It is selected at send time when the resolved model id has a `mistral-` prefix
-(see the model registry in `src/llm/model-registry.ts`). Its error mapping
-delegates to `classifyLlmError` via `MISTRAL_PROBES`.
+`MistralService` (`src/llm/mistral.service.ts`) is one of the two routed providers.
+`RoutingLLMService` resolves its provider in the constructor from the registered
+Mistral prefixes (`mistral-small-latest`, `pixtral-`, `open-mistral-`) in the model
+registry (`src/llm/model-registry.ts`) and dispatches to it at send time. Its error
+mapping delegates to `classifyLlmError` via `MISTRAL_PROBES`.
 
 ### SDK error shapes
 
@@ -373,27 +306,11 @@ delegates to `classifyLlmError` via `MISTRAL_PROBES`.
   revisit this exclusion.)
 - `networkPattern` is the shared pattern above.
 
-### Classification priority
+### Classification behaviour
 
-Identical to the shared cascade (highest first):
-`ResourceExhaustedError` → `RateLimitError` → `AuthenticationError` →
-`ContentFilteredError` → `ContextLengthExceededError` → `InvalidRequestError`
-→ `ProviderServerError` → `NetworkError` → `undefined`. Because `hasStringStatus`
-is always `false` for Mistral, the string-status short-circuits
-(`RESOURCE_EXHAUSTED` / `RATE_LIMIT_EXCEEDED`) never fire; Mistral rate-limit
-and quota errors are instead recognised via numeric `429` and the message
-patterns in `classifyLlmError`.
+Classification follows the [shared priority order](#classification-priority-order-rules). The only provider-specific difference is that `hasStringStatus` is always `false` for Mistral, so the `RESOURCE_EXHAUSTED` / `RATE_LIMIT_EXCEEDED` string-status short-circuits never fire. Mistral rate-limit and quota errors are recognised through numeric `429` and the message patterns in `classifyLlmError`.
 
 ### Testing conventions
 
-- `mistral.service.spec.ts` exercises `mapError()` with representative Mistral
-  SDK error shapes (numeric `statusCode`, `error.body`, and the
-  `HTTPClientError` subclass `name`s), covering every `LlmError` subclass, the
-  unrecognised-4xx → `InvalidRequestError` default, non-object/`null`/`undefined`
-  inputs, and priority conflicts.
-- `llm-error-mapper.spec.ts` validates the shared cascade directly with
-  **synthetic probes** (provider-agnostic), so the priority order and 4xx/5xx
-  mapping are tested once, independent of any SDK.
-- Follow the generic "Testing Conventions" above for any new provider; prefer
-  synthetic-probe coverage in `llm-error-mapper.spec.ts` for shared behaviour
-  and SDK-specific coverage in the provider's own spec.
+Shared cascade tests live in `llm-error-mapper.spec.ts`; Mistral SDK-specific
+cases live in `mistral.service.spec.ts`.

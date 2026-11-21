@@ -4,31 +4,14 @@ This guide covers prompt template management. Templates use **Markdown** with **
 
 ## Template Types
 
-### System Prompts
+| Type           | Purpose                                                       | Location                                  |
+| -------------- | ------------------------------------------------------------- | ----------------------------------------- |
+| System Prompts | Define LLM behaviour, assessment criteria and response format | `src/prompt/templates/*.system.prompt.md` |
+| User Prompts   | Structure presentation of task data to the LLM                | `src/prompt/templates/*.user.prompt.md`   |
 
-**Purpose**: Define LLM behaviour, assessment criteria, and response format
-**Location**: `src/prompt/templates/*.system.prompt.md`
+System prompts establish assessment methodology, output format (JSON schema), scoring guidelines, and the evaluation process. User prompts are rendered with Mustache variables and sent as the user message.
 
-System prompts establish assessment methodology, output format (JSON schema), scoring guidelines, and the evaluation process.
-
-### User Prompts
-
-**Purpose**: Structure presentation of task data to the LLM
-**Location**: `src/prompt/templates/*.user.prompt.md`
-
-User prompts are rendered with Mustache variables and sent as the user message.
-
-## Template Directory Structure
-
-```
-src/prompt/templates/
-├── text.system.prompt.md      # Text task assessment criteria
-├── text.user.prompt.md        # Text task data presentation
-├── table.system.prompt.md     # Table task assessment criteria
-├── table.user.prompt.md       # Table task data presentation
-└── image.system.prompt.md     # Image task assessment criteria
-                               # (No user template - images sent directly)
-```
+Templates live in the [`src/prompt/templates/`](../../src/prompt/templates/) directory.
 
 ## Available Template Variables
 
@@ -52,7 +35,6 @@ Templates are loaded through the `readMarkdown()` utility:
 - **Path Traversal Protection**: Blocks `..` sequences in filenames
 - **File Extension Validation**: Only `.md` files are permitted
 - **Directory Restriction**: Files must be within the templates directory
-- **Path Canonicalisation**: Prevents symbolic link attacks
 
 ## Creating New Templates
 

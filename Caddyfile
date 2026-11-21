@@ -1,8 +1,0 @@
-# Caddyfile for AssessmentBot
-:80, :443 {
-  reverse_proxy app:3000
-  log {
-    output file /var/log/caddy/access.log
-    format single_field common_log
-  }
-}

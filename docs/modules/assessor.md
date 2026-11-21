@@ -1,6 +1,6 @@
 # Assessor Module (v1)
 
-The Assessor Module (`src/v1/assessor/`) is the core assessment functionality of the Assessment Bot LLM Service, responsible for processing assessment requests and generating evaluations using Large Language Models.
+The Assessor Module (`src/v1/assessor/`) is the core assessment functionality of the Assessment Bot LLM Service, responsible for processing assessment requests and generating evaluations using Large Language Models. `AssessorModule` imports `ConfigModule`, `LlmModule` and `PromptModule`; authentication and throttling are applied at app level.
 
 ## Key Components
 
@@ -10,7 +10,7 @@ The Assessor Module (`src/v1/assessor/`) is the core assessment functionality of
 
 - **Route:** `POST /v1/assessor`
 - **Authentication:** Protected by `ApiKeyGuard` requiring valid API key
-- **Rate Limiting:** Uses authenticated throttler configuration for stricter limits
+- **Rate Limiting:** Uses `authenticatedThrottler`, which allows a higher limit than the global unauthenticated default (see [Rate Limiting](../api/rate-limiting.md))
 - **Input Validation:** Multi-layer validation including Zod schema and specialised image validation
 
 ### AssessorService
@@ -57,17 +57,9 @@ For `IMAGE` tasks, each image field must be a non-empty base64 Data URI string d
 - `201 Created` — Assessment successfully created
 - `400 Bad Request` — Validation failed, including an image above 1 MiB decoded
 - `401 Unauthorised` — Missing or invalid API key
-- `413 Payload Too Large` — Request body exceeds the 5 MiB aggregate JSON cap
+- `413 Payload Too Large` — Request body exceeds the aggregate JSON cap (see [Config Module](config.md) for the limit)
 - `429 Too Many Requests` — Rate limit exceeded
 - `500 Internal Server Error` — LLM service error
-
-## Dependencies
-
-- **ConfigModule** — Environment configuration and validation
-- **LlmModule** — Large Language Model integration services
-- **PromptModule** — Prompt generation and template management
-- **AuthModule** — API key authentication (via guards)
-- **ThrottlerModule** — Rate limiting functionality
 
 ## Related Documentation
 

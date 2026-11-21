@@ -9,7 +9,7 @@ The CI/CD pipeline is designed to:
 - **Ensure code quality** through automated testing, linting, and style checks.
 - **Maintain security** with vulnerability scanning and static code analysis.
 - **Automate deployments** by publishing containerised releases to the GitHub Container Registry.
-- **Provide fast feedback** on code changes through a series of comprehensive, automated checks.
+- **Provide fast feedback** on code changes through automated checks.
 
 ## Pipeline Architecture
 
@@ -26,12 +26,13 @@ The main CI pipeline is defined in `/.github/workflows/ci.yml`.
 
 ### Trigger Conditions
 
-The CI workflow is triggered on every pull request targeting any branch, ensuring all proposed changes are validated.
+The CI workflow is triggered on every pull request, ensuring all proposed changes are validated.
 
 ```yaml
 on:
   pull_request:
-    branches: ['**']
+    branches:
+      - '*'
 ```
 
 ### Pipeline Stages
@@ -42,7 +43,7 @@ on:
 
 **Steps**:
 
-1.  **Checkout & Setup**: Checks out the code and sets up the Node.js 24 environment.
+1.  **Checkout & Setup**: Checks out the code and sets up the Node.js version configured in [`ci.yml`](../../.github/workflows/ci.yml).
 2.  **Install Dependencies**: Runs `npm install`.
 3.  **Run Linters**: Executes `npm run lint`.
 
@@ -70,7 +71,6 @@ on:
 
 The default CI workflow runs mocked E2E tests and does not require real provider API keys. Configure provider keys only when a workflow runs live or integration tests against the corresponding API. The workflows use the following secrets when applicable:
 
-- **`MISTRAL_API_KEY`**: A valid API key for Mistral, required when a live test or integration routes to Mistral (including the default Mistral Small models).
 - **`GEMINI_API_KEY`**: A valid API key for Gemini, required when a live test or integration routes to Gemini, such as the Gemini live E2E suite (`npm run test:e2e:live`).
 - **`SONAR_TOKEN`**: A token for authenticating with SonarCloud in the SonarQube workflow.
 
@@ -87,24 +87,25 @@ The release workflow (`/.github/workflows/docker-release.yml`) automates the pro
 
 ### Trigger Conditions
 
-This workflow runs automatically whenever a new **release is published** on GitHub.
+This workflow runs automatically whenever a new **release is published** on GitHub, or when dispatched manually.
 
 ```yaml
 on:
   release:
     types: [published]
+  workflow_dispatch:
 ```
 
 ### Release Process
 
-1.  **Build & Push**: A multi-architecture Docker image is built from `Docker/Dockerfile.prod`.
+1.  **Build & Push**: A Docker image is built from `Docker/Dockerfile.prod`.
 2.  **Tagging**: The image is tagged with both the specific version (e.g., `v1.2.3`) and `latest`.
-3.  **Publish**: The tagged image is pushed to the GitHub Container Registry (`ghcr.io/h-arnold/assessmentbot-backend`).
+3.  **Publish**: The tagged image is pushed to the GitHub Container Registry (`ghcr.io/h-arnold/assessmentbot-llm-service`) and to Google Artifact Registry at `<GAR_LOCATION>-docker.pkg.dev/<PROJECT_ID>/<GAR_REPOSITORY>/backend`.
 
 ## Security Workflows
 
 - **CodeQL Analysis** (`codeql.yml`): Performs static application security testing (SAST) to automatically find vulnerabilities in the codebase.
-- **SonarQube Integration** (`sonarqube.yml`): Analyzes code for quality issues, security hotspots, and code smells, providing a dashboard for code health.
+- **SonarQube Integration** (`sonarqube.yml`): Analyses code for quality issues, security hotspots, and code smells, providing a dashboard for code health.
 
 ## Pipeline Configuration
 
@@ -130,25 +131,7 @@ permissions:
 
 ### Environment Variables
 
-#### CI Environment
-
-Standard environment variables used across workflows:
-
-```bash
-NODE_ENV=test                    # Test environment
-GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}  # Set by the current unit and E2E jobs
-LLM_BACKOFF_BASE_MS=2000            # Set by the current E2E job
-LLM_MAX_RETRIES=5                   # Set by the current E2E job
-```
-
-#### Build Environment
-
-Build-specific variables:
-
-```bash
-DOCKER_BUILDKIT=1               # Enable BuildKit
-COMPOSE_DOCKER_CLI_BUILD=1      # Enable BuildKit in Compose
-```
+The unit and E2E jobs in [`ci.yml`](../../.github/workflows/ci.yml) set `NODE_ENV` and `GEMINI_API_KEY`; the E2E job also sets `LLM_BACKOFF_BASE_MS` and `LLM_MAX_RETRIES` to slow provider calls and avoid upstream rate limits. Image names and registry settings for the release build are defined in the `env:` block of [`docker-release.yml`](../../.github/workflows/docker-release.yml). See [Environment configuration](../configuration/environment.md) for what each variable controls.
 
 ## Status Checks and Branch Protection
 
@@ -159,10 +142,10 @@ Configure branch protection rules for `master` branch:
 1. **Require status checks**: All CI jobs must pass
 2. **Require branches to be up to date**: Force rebasing before merge
 3. **Required checks**:
-   - `lint`
-   - `unit-test`
-   - `e2e-test`
-   - `CodeQL`
+   - `Lint Code`
+   - `Run Unit Tests`
+   - `Run E2E Tests`
+   - `Analyze`
 
 ### Branch Protection Configuration
 
@@ -171,10 +154,10 @@ Configure branch protection rules for `master` branch:
 required_status_checks:
   strict: true
   contexts:
-    - 'lint'
-    - 'unit-test'
-    - 'e2e-test'
-    - 'CodeQL'
+    - 'Lint Code'
+    - 'Run Unit Tests'
+    - 'Run E2E Tests'
+    - 'Analyze'
 
 restrictions:
   users: []
@@ -185,70 +168,33 @@ required_pull_request_reviews:
   dismiss_stale_reviews: true
 ```
 
-## Monitoring and Notifications
-
-### Build Notifications
-
-Configure notifications for build status:
-
-1. **Email notifications**: On build failures
-2. **Slack/Teams integration**: Real-time build status
-3. **GitHub mobile app**: Push notifications for build status
-
-### Metrics and Analytics
-
-Track CI/CD performance:
-
-- **Build duration**: Monitor pipeline execution time
-- **Success rate**: Track build success percentage
-- **Test coverage trends**: Monitor coverage over time
-- **Dependency update frequency**: Track update velocity
-
 ## Local Development Integration
 
 ### Pre-commit Hooks
 
-Align local development with CI pipeline:
-
-**Husky configuration** (`.husky/pre-commit`):
-
-```bash
-#!/usr/bin/env sh
-npx lint-staged
-```
-
-**Lint-staged configuration** (`package.json`):
-
-```json
-{
-  "lint-staged": {
-    "*.ts": "eslint --fix",
-    "*.{js,ts,json,md}": "prettier --write",
-    "*.{ts,js}": "./scripts/check-british-english.sh"
-  }
-}
-```
+Align local development with the CI pipeline through the [pre-commit hook](../../.husky/pre-commit), which runs `lint-staged`. Its configuration, including the British English check patterns, lives under the `lint-staged` key in [`package.json`](../../package.json).
 
 ### Local CI Simulation
 
-Run CI checks locally before pushing:
+CI runs three checks, defined as the `lint`, `unit-test` and `e2e-test` jobs in [`ci.yml`](../../.github/workflows/ci.yml). Run them locally before pushing:
 
 ```bash
-# Run all linting checks
+# Run ESLint
 npm run lint
 
 # Run unit tests with coverage
 npm run test:cov
 
-# Run E2E tests
+# Run mocked E2E tests
 npm run test:e2e
+```
 
-# Build Docker image locally
-docker build -f Docker/Dockerfile.prod -t assessmentbot-backend:local .
+For the full local check set, including formatting and the British English check, follow [the common commands in `AGENTS.md`](../../AGENTS.md).
 
-# Lint Dockerfiles
-hadolint Docker/Dockerfile
-hadolint Docker/Dockerfile.prod
+To build the production image locally:
+
+```bash
+docker build -f Docker/Dockerfile.prod -t assessmentbot-llm-service:local .
 ```
 
 ## Troubleshooting
@@ -278,13 +224,6 @@ npm test -- --testNamePattern="failing test"
 
 #### Docker Build Issues
 
-**Multi-platform build failures**:
-
-```bash
-# Test locally with BuildKit
-DOCKER_BUILDKIT=1 docker build -f Docker/Dockerfile.prod .
-```
-
 **Registry authentication**:
 
 - Verify GitHub token permissions
@@ -305,66 +244,6 @@ DOCKER_BUILDKIT=1 docker build -f Docker/Dockerfile.prod .
 - Consider using test API keys with higher quotas
 - Implement retry logic in tests
 
-### Performance Optimisation
+## Related documentation
 
-#### Build Speed
-
-**Optimise dependency installation**:
-
-```yaml
-# Use npm ci for faster, reliable installs
-- name: Install dependencies
-  run: npm ci
-```
-
-**Cache dependencies**:
-
-```yaml
-- name: Cache Node.js modules
-  uses: actions/cache@v3
-  with:
-    path: ~/.npm
-    key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-```
-
-#### Parallel Execution
-
-**Matrix builds** for multiple environments:
-
-```yaml
-strategy:
-  matrix:
-    node-version: [24]
-    os: [ubuntu-latest, windows-latest]
-```
-
-## Best Practices
-
-### CI/CD Security
-
-1. **Principle of least privilege**: Grant minimum required permissions
-2. **Secret rotation**: Regularly rotate API keys and tokens
-3. **Dependency scanning**: Use Dependabot and security advisories
-4. **Container scanning**: Scan Docker images for vulnerabilities
-
-### Pipeline Maintenance
-
-1. **Regular updates**: Keep action versions up to date
-2. **Performance monitoring**: Track build times and success rates
-3. **Documentation**: Maintain up-to-date pipeline documentation
-4. **Testing**: Test pipeline changes in feature branches
-
-### Integration Quality
-
-1. **Fast feedback**: Keep CI pipeline under 10 minutes
-2. **Reliable tests**: Ensure tests are deterministic and stable
-3. **Clear reporting**: Provide detailed test and build reports
-4. **Meaningful checks**: Only require checks that add value
-
-## Next Steps
-
-After setting up CI/CD:
-
-1. **Configure monitoring**: See [Monitoring & Observability Guide](monitoring.md)
-2. **Set up production deployment**: See [Production Setup Guide](production.md)
-3. **Review security**: Regularly audit pipeline security and permissions
+For runtime health, logging and observability, see the [Monitoring & Observability Guide](monitoring.md). For host configuration, see the [Production Setup Guide](production.md).
